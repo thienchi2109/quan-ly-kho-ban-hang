@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form'; // Import useForm directly
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProductSchema } from '@/lib/schemas';
 import type { Product, ProductUnit, ProductFormValues as ProductFormValuesType } from '@/lib/types';
@@ -12,14 +12,15 @@ import { Button } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Form is FormProvider
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import type { ColumnDef, VisibilityState, Row } from '@tanstack/react-table';
+import { flexRender } from "@tanstack/react-table";
 import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -58,11 +59,12 @@ export default function ProductsPage() {
         costPrice: false,
         sellingPrice: false,
         minStockLevel: false,
-        imageUrl: false, // Also hide image on mobile by default for more space
+        // imageUrl is handled by Card view now, so can be "false" for table context
+        imageUrl: false, 
       });
     } else {
       setColumnVisibility({
-         imageUrl: true, // Ensure image is visible on desktop
+         imageUrl: true, 
       });
     }
   }, [isMobile]);
@@ -212,6 +214,76 @@ export default function ProductsPage() {
     },
   ];
 
+  const renderProductCard = (row: Row<Product>): React.ReactNode => {
+    const product = row.original;
+    
+    const imageCell = row.getVisibleCells().find(cell => cell.column.id === 'imageUrl');
+    const nameCell = row.getVisibleCells().find(cell => cell.column.id === 'name'); // Not used for title directly if product.name is better
+    const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+    const statusCell = row.getVisibleCells().find(cell => cell.column.id === 'status');
+    const stockCell = row.getVisibleCells().find(cell => cell.column.id === 'currentStock');
+    const unitCell = row.getVisibleCells().find(cell => cell.column.id === 'unit');
+  
+    return (
+      <Card key={product.id} className="w-full">
+        <CardHeader className="pb-3 flex flex-row items-start gap-4">
+          {imageCell && product.imageUrl && ( // Only render if imageCell and imageUrl exist
+            <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-md overflow-hidden border">
+              {flexRender(imageCell.column.columnDef.cell, imageCell.getContext())}
+            </div>
+          )}
+          <div className="flex-grow">
+            <CardTitle className="text-lg mb-1">{product.name}</CardTitle>
+            <CardDescription>
+              {product.sku ? `SKU: ${product.sku}` : ''}
+              {product.sku && unitCell ? ' - ' : ''}
+              {unitCell && `ĐVT: ${flexRender(unitCell.column.columnDef.cell, unitCell.getContext())}`}
+              {!product.sku && !unitCell && <span className="italic">Không có SKU/ĐVT</span>}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-1.5 text-sm pt-0">
+          {stockCell && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Tồn kho:</span>
+              <span>{flexRender(stockCell.column.columnDef.cell, stockCell.getContext())}</span>
+            </div>
+          )}
+          {statusCell && (
+             <div className="flex justify-between items-center">
+              <span className="text-muted-foreground font-medium">Trạng thái:</span>
+              <div className="text-right">{flexRender(statusCell.column.columnDef.cell, statusCell.getContext())}</div>
+            </div>
+          )}
+          {product.sellingPrice !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Giá bán:</span>
+              <span>{product.sellingPrice.toLocaleString('vi-VN')} đ</span>
+            </div>
+          )}
+          {product.costPrice !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Giá vốn:</span>
+              <span>{product.costPrice.toLocaleString('vi-VN')} đ</span>
+            </div>
+          )}
+           {product.minStockLevel !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Tồn tối thiểu:</span>
+              <span>{product.minStockLevel}</span>
+            </div>
+          )}
+        </CardContent>
+        {actionsCell && (
+          <CardFooter className="flex justify-end pt-4">
+            {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+          </CardFooter>
+        )}
+      </Card>
+    );
+  };
+
+
   return (
     <>
       <PageHeader title="Quản Lý Sản Phẩm" description="Thêm mới, chỉnh sửa và xem danh sách sản phẩm của bạn.">
@@ -233,7 +305,7 @@ export default function ProductsPage() {
         >
           {(closeModal) => (
             <ProductFormContent
-              key={editingProduct ? `edit-content-${editingProduct.id}` : "new-product-form-content-main"}
+              key={editingProduct ? `edit-content-${editingProduct.id}-new` : "new-product-form-content-main"}
               editingProductFull={null}
               onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
               closeModalSignal={closeModal}
@@ -245,7 +317,7 @@ export default function ProductsPage() {
       </PageHeader>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-0 sm:pt-6"> {/* pt-0 for mobile to reduce top space */}
           <DataTable 
             columns={columns} 
             data={products} 
@@ -253,6 +325,7 @@ export default function ProductsPage() {
             filterPlaceholder="Lọc theo tên sản phẩm..."
             columnVisibility={columnVisibility}
             onColumnVisibilityChange={setColumnVisibility}
+            renderCardRow={renderProductCard}
           />
         </CardContent>
       </Card>
@@ -270,7 +343,7 @@ interface ProductFormContentProps {
 
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
     
-    const getInitialFormValues = React.useCallback(() => {
+    const getInitialFormValues = React.useCallback((): ProductFormValues => {
         return editingProductFull ? {
             name: editingProductFull.name,
             sku: editingProductFull.sku || '',
@@ -278,7 +351,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
             sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
             minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
-            initialStock: editingProductFull.initialStock,
+            initialStock: editingProductFull.initialStock, // Should reflect actual initialStock, not current
             imageUrl: editingProductFull.imageUrl || '',
         } : {
             name: '',
@@ -356,7 +429,3 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
-
-    
-
-    
