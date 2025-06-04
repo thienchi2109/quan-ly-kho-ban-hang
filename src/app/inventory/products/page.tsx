@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormContext, FormProvider } from "@/components/ui/form"; // Keep Form components
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormContext } from "@/components/ui/form"; // Keep Form components. Form is FormProvider
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -100,7 +100,7 @@ export default function ProductsPage() {
         );
       },
       enableSorting: false,
-      enableHiding: false,
+      enableHiding: !isMobile, // Hide image on mobile by default for more space if needed, adjust as per actual design
     },
     { 
       accessorKey: "name", 
@@ -135,7 +135,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Changed from orange to yellow
           )}>
             {product.currentStock}
           </span>
@@ -156,7 +156,7 @@ export default function ProductsPage() {
           return <span className="text-destructive font-semibold px-2 py-1 rounded-md bg-destructive/10">Sắp hết hàng</span>;
         }
         if (product.currentStock === 0) {
-          return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10">Hết hàng</span>;
+          return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10">Hết hàng</span>; // Changed from orange
         }
         return <span className="text-green-600 font-semibold px-2 py-1 rounded-md bg-green-500/10">Còn hàng</span>;
       },
@@ -192,7 +192,7 @@ export default function ProductsPage() {
               return (
                 <ProductFormContent
                   // Key ensures re-mount if the product being edited changes or if switching between edit/new
-                  key={productForForm ? productForForm.id : `edit-content-${row.original.id}`}
+                  key={productForForm ? `edit-content-${productForForm.id}` : `edit-content-${row.original.id}`}
                   editingProductFull={productForForm}
                   onSubmit={(formValues) => handleProductFormSubmit(formValues, productForForm, closeModal)}
                   closeModalSignal={closeModal} // Pass closeModal for cancel button
@@ -269,7 +269,7 @@ interface ProductFormContentProps {
 
 // ProductFormContent now manages its own form instance
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
-    const form = React.useMemo(() => new (require('react-hook-form').useForm)({ // Dynamically require to avoid SSR issues if any, though not typical
+    const formMethods = React.useMemo(() => new (require('react-hook-form').useForm)({ // Dynamically require to avoid SSR issues if any, though not typical
         resolver: zodResolver(ProductSchema),
         defaultValues: editingProductFull ? {
             name: editingProductFull.name,
@@ -314,25 +314,25 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             initialStock: 0,
             imageUrl: '',
         };
-        form.reset(defaultVals);
-    }, [editingProductFull, form]); // form is stable from useMemo
+        formMethods.reset(defaultVals);
+    }, [editingProductFull, formMethods]); // formMethods is stable from useMemo
 
     const handleInternalSubmit = (data: ProductFormValues) => {
         onSubmit(data);
     };
 
     return (
-        <FormProvider {...form}>
-            <form onSubmit={form.handleSubmit(handleInternalSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
+        <Form {...formMethods}> {/* Use Form here which is FormProvider */}
+            <form onSubmit={formMethods.handleSubmit(handleInternalSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormField control={formMethods.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Tên Sản Phẩm</FormLabel><FormControl><Input placeholder="VD: Sách Kỹ Năng A" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField control={form.control} name="sku" render={({ field }) => (
+                    <FormField control={formMethods.control} name="sku" render={({ field }) => (
                         <FormItem><FormLabel>Mã SKU (tùy chọn)</FormLabel><FormControl><Input placeholder="VD: SP001" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
-                <FormField control={form.control} name="unit" render={({ field }) => (
+                <FormField control={formMethods.control} name="unit" render={({ field }) => (
                     <FormItem><FormLabel>Đơn Vị Tính</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger></FormControl>
@@ -341,15 +341,15 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                     </FormItem>
                 )} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="costPrice" render={({ field }) => (
+                    <FormField control={formMethods.control} name="costPrice" render={({ field }) => (
                         <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField control={form.control} name="sellingPrice" render={({ field }) => (
+                    <FormField control={formMethods.control} name="sellingPrice" render={({ field }) => (
                         <FormItem><FormLabel>Giá Bán (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="initialStock" render={({ field }) => (
+                    <FormField control={formMethods.control} name="initialStock" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Tồn Kho Ban Đầu</FormLabel>
                           <FormControl><Input type="number" placeholder="0" {...field} disabled={isEditing} onChange={e => field.onChange(parseInt(e.target.value,10) || 0)} /></FormControl>
@@ -357,11 +357,11 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                           <FormMessage />
                         </FormItem>
                     )} />
-                    <FormField control={form.control} name="minStockLevel" render={({ field }) => (
+                    <FormField control={formMethods.control} name="minStockLevel" render={({ field }) => (
                         <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
-                <FormField control={form.control} name="imageUrl" render={({ field }) => (
+                <FormField control={formMethods.control} name="imageUrl" render={({ field }) => (
                     <FormItem><FormLabel>URL Hình Ảnh (tùy chọn)</FormLabel><FormControl><Input type="url" placeholder="https://placehold.co/100x100.png" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <div className="flex justify-end gap-2 pt-4">
@@ -369,7 +369,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                     <Button type="submit">Lưu</Button>
                 </div>
             </form>
-        </FormProvider>
+        </Form>
     );
 }
 
