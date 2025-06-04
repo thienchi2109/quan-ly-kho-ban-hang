@@ -2,17 +2,17 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-// Removed useForm from here as ProductFormContent will manage its own form
+import { useForm } from 'react-hook-form'; // Import useForm directly
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ProductSchema } from '@/lib/schemas'; // ProductSchema is still needed by ProductFormContent
-import type { Product, ProductUnit, ProductFormValues as ProductFormValuesType } from '@/lib/types'; // Renamed to avoid conflict
+import { ProductSchema } from '@/lib/schemas';
+import type { Product, ProductUnit, ProductFormValues as ProductFormValuesType } from '@/lib/types';
 import { useData } from '@/hooks';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormContext } from "@/components/ui/form"; // Keep Form components. Form is FormProvider
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Form is FormProvider
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -23,9 +23,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Textarea } from '@/components/ui/textarea'; // Added for consistency if description field were added to product
+import { Textarea } from '@/components/ui/textarea';
 
-// Type for form values remains the same
 type ProductFormValues = ProductFormValuesType;
 
 const SortableHeader = ({ column, title }: { column: any, title: string }) => {
@@ -59,23 +58,24 @@ export default function ProductsPage() {
         costPrice: false,
         sellingPrice: false,
         minStockLevel: false,
+        imageUrl: false, // Also hide image on mobile by default for more space
       });
     } else {
-      setColumnVisibility({});
+      setColumnVisibility({
+         imageUrl: true, // Ensure image is visible on desktop
+      });
     }
   }, [isMobile]);
 
-  // Main submit handler, called by ProductFormContent
   const handleProductFormSubmit = (values: ProductFormValues, productBeingEdited: Product | null, closeModalFn: () => void) => {
     if (productBeingEdited) {
-      // When updating, ensure we merge with the existing product ID and recalculate currentStock contextually
       updateProduct({ ...productBeingEdited, ...values, currentStock: getProductStock(productBeingEdited.id) });
       toast({ title: "Thành công!", description: "Đã cập nhật sản phẩm." });
     } else {
-      addProduct(values); // addProduct expects Omit<Product, 'id' | 'currentStock'>
+      addProduct(values);
       toast({ title: "Thành công!", description: "Đã thêm sản phẩm mới." });
     }
-    setEditingProduct(null); // Clear the product being edited state
+    setEditingProduct(null);
     closeModalFn();
   };
 
@@ -100,7 +100,7 @@ export default function ProductsPage() {
         );
       },
       enableSorting: false,
-      enableHiding: !isMobile, // Hide image on mobile by default for more space if needed, adjust as per actual design
+      enableHiding: true,
     },
     { 
       accessorKey: "name", 
@@ -110,6 +110,7 @@ export default function ProductsPage() {
       accessorKey: "sku", 
       header: ({ column }) => <SortableHeader column={column} title="SKU" />,
       cell: ({ row }) => row.original.sku || 'N/A',
+      enableHiding: true,
     },
     { 
       accessorKey: "unit", 
@@ -118,12 +119,14 @@ export default function ProductsPage() {
     { 
       accessorKey: "costPrice", 
       header: ({ column }) => <SortableHeader column={column} title="Giá Vốn" />,
-      cell: ({ row }) => row.original.costPrice?.toLocaleString('vi-VN') + ' đ' || 'N/A'
+      cell: ({ row }) => row.original.costPrice?.toLocaleString('vi-VN') + ' đ' || 'N/A',
+      enableHiding: true,
     },
     { 
       accessorKey: "sellingPrice", 
       header: ({ column }) => <SortableHeader column={column} title="Giá Bán" />,
-      cell: ({ row }) => row.original.sellingPrice?.toLocaleString('vi-VN') + ' đ' || 'N/A'
+      cell: ({ row }) => row.original.sellingPrice?.toLocaleString('vi-VN') + ' đ' || 'N/A',
+      enableHiding: true,
     },
     { 
       accessorKey: "currentStock", 
@@ -135,7 +138,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Changed from orange to yellow
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
           )}>
             {product.currentStock}
           </span>
@@ -145,7 +148,8 @@ export default function ProductsPage() {
     { 
       accessorKey: "minStockLevel", 
       header: ({ column }) => <SortableHeader column={column} title="Tồn Tối Thiểu" />,
-      cell: ({ row }) => row.original.minStockLevel ?? 'N/A' 
+      cell: ({ row }) => row.original.minStockLevel ?? 'N/A',
+      enableHiding: true,
     },
     {
       id: "status",
@@ -153,12 +157,12 @@ export default function ProductsPage() {
       cell: ({ row }) => {
         const product = row.original;
         if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
-          return <span className="text-destructive font-semibold px-2 py-1 rounded-md bg-destructive/10">Sắp hết hàng</span>;
+          return <span className="text-destructive font-semibold px-2 py-1 rounded-md bg-destructive/10 text-xs sm:text-sm">Sắp hết</span>;
         }
         if (product.currentStock === 0) {
-          return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10">Hết hàng</span>; // Changed from orange
+          return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10 text-xs sm:text-sm">Hết hàng</span>;
         }
-        return <span className="text-green-600 font-semibold px-2 py-1 rounded-md bg-green-500/10">Còn hàng</span>;
+        return <span className="text-green-600 font-semibold px-2 py-1 rounded-md bg-green-500/10 text-xs sm:text-sm">Còn hàng</span>;
       },
       enableSorting: false,
     },
@@ -178,7 +182,6 @@ export default function ProductsPage() {
                 if (isOpen) {
                   setEditingProduct(row.original);
                 } else {
-                  // Only clear editingProduct if this specific modal is closing
                   if (editingProduct && editingProduct.id === row.original.id) {
                     setEditingProduct(null);
                   }
@@ -187,15 +190,13 @@ export default function ProductsPage() {
               defaultOpen={false} 
             >
             {(closeModal) => {
-              // Determine the product to pass for editing, ensuring it's the correct one
               const productForForm = editingProduct && editingProduct.id === row.original.id ? editingProduct : null;
               return (
                 <ProductFormContent
-                  // Key ensures re-mount if the product being edited changes or if switching between edit/new
-                  key={productForForm ? `edit-content-${productForForm.id}` : `edit-content-${row.original.id}`}
+                  key={productForForm ? `edit-content-${productForForm.id}` : `edit-content-noop-${row.original.id}`}
                   editingProductFull={productForForm}
                   onSubmit={(formValues) => handleProductFormSubmit(formValues, productForForm, closeModal)}
-                  closeModalSignal={closeModal} // Pass closeModal for cancel button
+                  closeModalSignal={closeModal}
                   isEditing={!!productForForm}
                   formHtmlId={`product-form-edit-${row.original.id}`}
                 />
@@ -226,14 +227,14 @@ export default function ProductsPage() {
           }
           onOpenChange={(isOpen) => {
             if (isOpen) {
-              setEditingProduct(null); // Ensure we are in "new" mode
+              setEditingProduct(null);
             }
           }}
         >
           {(closeModal) => (
             <ProductFormContent
-              key={editingProduct ? editingProduct.id : "new-product-form-content-main"}
-              editingProductFull={null} // Explicitly null for new product
+              key={editingProduct ? `edit-content-${editingProduct.id}` : "new-product-form-content-main"}
+              editingProductFull={null}
               onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
               closeModalSignal={closeModal}
               isEditing={false}
@@ -262,40 +263,15 @@ export default function ProductsPage() {
 interface ProductFormContentProps {
     editingProductFull: Product | null;
     onSubmit: (values: ProductFormValues) => void;
-    closeModalSignal: () => void; // For the cancel button
+    closeModalSignal: () => void;
     isEditing: boolean;
     formHtmlId: string;
 }
 
-// ProductFormContent now manages its own form instance
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
-    const formMethods = React.useMemo(() => new (require('react-hook-form').useForm)({ // Dynamically require to avoid SSR issues if any, though not typical
-        resolver: zodResolver(ProductSchema),
-        defaultValues: editingProductFull ? {
-            name: editingProductFull.name,
-            sku: editingProductFull.sku || '',
-            unit: editingProductFull.unit,
-            costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
-            sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
-            minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
-            initialStock: editingProductFull.initialStock,
-            imageUrl: editingProductFull.imageUrl || '',
-        } : {
-            name: '',
-            sku: '',
-            unit: PRODUCT_UNITS[0],
-            costPrice: '', // Use empty string for optional number inputs for easier clearing
-            sellingPrice: '',
-            minStockLevel: '',
-            initialStock: 0,
-            imageUrl: '',
-        },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }), []); // Empty dependency array: form is created once per mount. Reset is handled by useEffect.
-
-
-    React.useEffect(() => {
-        const defaultVals = editingProductFull ? {
+    
+    const getInitialFormValues = React.useCallback(() => {
+        return editingProductFull ? {
             name: editingProductFull.name,
             sku: editingProductFull.sku || '',
             unit: editingProductFull.unit,
@@ -314,15 +290,23 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             initialStock: 0,
             imageUrl: '',
         };
-        formMethods.reset(defaultVals);
-    }, [editingProductFull, formMethods]); // formMethods is stable from useMemo
+    }, [editingProductFull]);
+
+    const formMethods = useForm<ProductFormValues>({
+        resolver: zodResolver(ProductSchema),
+        defaultValues: getInitialFormValues(),
+    });
+
+    React.useEffect(() => {
+        formMethods.reset(getInitialFormValues());
+    }, [editingProductFull, formMethods, getInitialFormValues]);
 
     const handleInternalSubmit = (data: ProductFormValues) => {
         onSubmit(data);
     };
 
     return (
-        <Form {...formMethods}> {/* Use Form here which is FormProvider */}
+        <Form {...formMethods}>
             <form onSubmit={formMethods.handleSubmit(handleInternalSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="name" render={({ field }) => (
@@ -372,5 +356,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
+
+    
 
     
