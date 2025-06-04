@@ -24,21 +24,19 @@ AccordionItem.displayName = "AccordionItem"
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, asChild, ...props }, ref) => (
+  // Removed { asChild?: boolean } from props type
+>(({ className, children, ...props }, ref) => ( // Removed asChild from destructuring
   <AccordionPrimitive.Header className="flex">
-    <AccordionPrimitive.Trigger
+    <AccordionPrimitive.Trigger // asChild is not used here, so it renders its own button
       ref={ref}
-      asChild={asChild}
       className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg:last-child]:rotate-180",
+        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg:last-of-type]:rotate-180", // Rotates its own ChevronDown
         className
       )}
       {...props}
     >
-      {children}
-      {!asChild && (
-        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-      )}
+      {children} {/* Children are content OF the button */}
+      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" /> {/* Default Chevron */}
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
 ))
