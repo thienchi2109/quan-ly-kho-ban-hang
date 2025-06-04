@@ -1,10 +1,14 @@
+
 "use client";
 
+import React, { useMemo } from 'react';
+import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
 import { BarChart, LineChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Bar, Line, Pie, Cell } from 'recharts';
-import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -42,14 +46,17 @@ export default function DashboardPage() {
         dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0 };
       }
       
-      if ('category' in entry && incomeEntries.includes(entry as any)) { // Check if it's an income entry
+      if ('category' in entry && incomeEntries.some(ie => ie.id === entry.id)) { 
         dataMap[monthKey].income += entry.amount;
       } else {
         dataMap[monthKey].expenses += entry.amount;
       }
     });
 
-    return Object.values(dataMap).sort((a,b) => a.month.localeCompare(b.month));
+    // Sort data by month key before returning, to ensure chronological order for charts
+    return Object.keys(dataMap)
+      .sort()
+      .map(key => dataMap[key]);
   }, [incomeEntries, expenseEntries]);
 
 
@@ -63,12 +70,48 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader title="Tổng Quan Tài Chính" description="Tóm tắt tình hình tài chính và kho hàng của bạn." />
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Tác Vụ Nhanh</CardTitle>
+          <CardDescription>Truy cập nhanh các chức năng thường dùng.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/inventory/products" passHref legacyBehavior>
+              <Button asChild>
+                <a><PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm</a>
+              </Button>
+            </Link>
+            <Link href="/inventory/imports" passHref legacyBehavior>
+              <Button asChild>
+                <a><PackagePlus className="mr-2 h-4 w-4" /> Tạo Phiếu Nhập</a>
+              </Button>
+            </Link>
+            <Link href="/inventory/exports" passHref legacyBehavior>
+              <Button asChild>
+                <a><PackageMinus className="mr-2 h-4 w-4" /> Tạo Phiếu Xuất</a>
+              </Button>
+            </Link>
+            <Link href="/income" passHref legacyBehavior>
+              <Button asChild>
+                <a><PlusCircle className="mr-2 h-4 w-4" /> Thêm Thu Nhập</a>
+              </Button>
+            </Link>
+            <Link href="/expenses" passHref legacyBehavior>
+              <Button asChild>
+                <a><PlusCircle className="mr-2 h-4 w-4" /> Thêm Chi Tiêu</a>
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng Thu Nhập</CardTitle>
-            <ArrowUpCircle className="h-4 w-4 text-muted-foreground text-green-500" />
+            <ArrowUpCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalIncome.toLocaleString('vi-VN')} đ</div>
@@ -78,7 +121,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng Chi Tiêu</CardTitle>
-            <ArrowDownCircle className="h-4 w-4 text-muted-foreground text-red-500" />
+            <ArrowDownCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalExpenses.toLocaleString('vi-VN')} đ</div>
@@ -116,22 +159,26 @@ export default function DashboardPage() {
             <CardDescription>So sánh tổng thu nhập và chi phí qua các tháng.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={incomeExpenseChartConfig} className="h-[300px] w-full">
-              <BarChart accessibilityLayer data={monthlyChartData}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                />
-                <YAxis tickFormatter={chartDataFormatter} />
-                <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
-                <Legend />
-                <Bar dataKey="income" fill="var(--color-income)" radius={4} name="Thu Nhập" />
-                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} name="Chi Phí" />
-              </BarChart>
-            </ChartContainer>
+            {monthlyChartData.length > 0 ? (
+              <ChartContainer config={incomeExpenseChartConfig} className="h-[300px] w-full">
+                <BarChart accessibilityLayer data={monthlyChartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                  />
+                  <YAxis tickFormatter={chartDataFormatter} />
+                  <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
+                  <Legend />
+                  <Bar dataKey="income" fill="var(--color-income)" radius={4} name="Thu Nhập" />
+                  <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} name="Chi Phí" />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-muted-foreground text-center py-10">Chưa có dữ liệu thu nhập/chi phí để vẽ biểu đồ tháng.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -144,7 +191,7 @@ export default function DashboardPage() {
               {incomeCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
                    <PieChart>
-                    <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
+                    <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                       {incomeCategories.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -166,7 +213,7 @@ export default function DashboardPage() {
                {expenseCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
                   <PieChart>
-                    <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
+                    <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                        {expenseCategories.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -186,5 +233,3 @@ export default function DashboardPage() {
   );
 }
 
-// Minimal useMemo to avoid re-renders if data hasn't changed
-import { useMemo } from 'react';
