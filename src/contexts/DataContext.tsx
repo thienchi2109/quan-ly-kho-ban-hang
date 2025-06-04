@@ -1,206 +1,295 @@
+
 "use client";
 
-import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, InventoryTransactionType } from '@/lib/types';
-import React, { createContext, useContext, useReducer, ReactNode, useCallback, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
-
-// Initial state with some sample data for development
-const initialProducts: Product[] = [
-  { id: uuidv4(), name: "Sách Kỹ Năng A", unit: "cuốn", initialStock: 10, costPrice: 50000, sellingPrice: 75000, currentStock: 10, imageUrl: "https://placehold.co/100x100.png?text=Sách+A", dataAiHint:"book skill" },
-  { id: uuidv4(), name: "Nguyên liệu B", unit: "kg", initialStock: 25, costPrice: 20000, sellingPrice: 0, currentStock: 25, imageUrl: "https://placehold.co/100x100.png?text=NL+B", dataAiHint:"material ingredient" },
-];
-
-const initialIncomeEntries: IncomeEntry[] = [
-  { id: uuidv4(), date: new Date(2024, 0, 15).toISOString(), amount: 5000000, category: "Lương", description: "Lương tháng 1" },
-  { id: uuidv4(), date: new Date(2024, 0, 20).toISOString(), amount: 1200000, category: "Bán hàng", description: "Bán sách A" },
-];
-
-const initialExpenseEntries: ExpenseEntry[] = [
-  { id: uuidv4(), date: new Date(2024, 0, 5).toISOString(), amount: 1500000, category: "Nhà ở", description: "Tiền thuê nhà" },
-  { id: uuidv4(), date: new Date(2024, 0, 10).toISOString(), amount: 300000, category: "Thực phẩm", description: "Đi chợ" },
-];
-
-const initialInventoryTransactions: InventoryTransaction[] = [];
-
+import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction } from '@/lib/types';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  writeBatch,
+  getDocs,
+  where,
+} from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast'; // Đảm bảo import useToast
 
 interface AppData {
   products: Product[];
   incomeEntries: IncomeEntry[];
   expenseEntries: ExpenseEntry[];
   inventoryTransactions: InventoryTransaction[];
+  loading: {
+    products: boolean;
+    income: boolean;
+    expenses: boolean;
+    transactions: boolean;
+  };
+  error: string | null;
 }
 
-interface AppContextType extends AppData {
-  addProduct: (product: Omit<Product, 'id' | 'currentStock'>) => void;
-  updateProduct: (product: Product) => void;
-  deleteProduct: (productId: string) => void;
-  addIncomeEntry: (entry: Omit<IncomeEntry, 'id'>) => void;
-  deleteIncomeEntry: (entryId: string) => void;
-  addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>) => void;
-  deleteExpenseEntry: (entryId: string) => void;
-  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>) => string | null; // Returns error message or null
+interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
+  addProduct: (product: Omit<Product, 'id' | 'currentStock'>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  deleteProduct: (productId: string) => Promise<void>;
+  addIncomeEntry: (entry: Omit<IncomeEntry, 'id'>) => Promise<void>;
+  deleteIncomeEntry: (entryId: string) => Promise<void>;
+  addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>) => Promise<void>;
+  deleteExpenseEntry: (entryId: string) => Promise<void>;
+  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>) => Promise<string | null>;
   getProductById: (productId: string) => Product | undefined;
   getProductStock: (productId: string) => number;
   getCategoryTotals: (type: 'income' | 'expense') => { name: string; value: number }[];
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
+  isLoading: boolean; // Trạng thái loading tổng thể
 }
 
 const DataContext = createContext<AppContextType | undefined>(undefined);
 
-type Action =
-  | { type: 'ADD_PRODUCT'; payload: Product }
-  | { type: 'UPDATE_PRODUCT'; payload: Product }
-  | { type: 'DELETE_PRODUCT'; payload: string }
-  | { type: 'ADD_INCOME'; payload: IncomeEntry }
-  | { type: 'DELETE_INCOME'; payload: string }
-  | { type: 'ADD_EXPENSE'; payload: ExpenseEntry }
-  | { type: 'DELETE_EXPENSE'; payload: string }
-  | { type: 'ADD_TRANSACTION'; payload: InventoryTransaction };
-
-const initialState: AppData = {
-  products: initialProducts,
-  incomeEntries: initialIncomeEntries,
-  expenseEntries: initialExpenseEntries,
-  inventoryTransactions: initialInventoryTransactions,
-};
-
-function dataReducer(state: AppData, action: Action): AppData {
-  switch (action.type) {
-    case 'ADD_PRODUCT':
-      return { ...state, products: [...state.products, action.payload] };
-    case 'UPDATE_PRODUCT':
-      return {
-        ...state,
-        products: state.products.map(p => p.id === action.payload.id ? action.payload : p),
-      };
-    case 'DELETE_PRODUCT':
-      // Also remove related inventory transactions. This is a simplification.
-      // In a real app, you might prevent deletion if transactions exist or handle it differently.
-      return {
-        ...state,
-        products: state.products.filter(p => p.id !== action.payload),
-        inventoryTransactions: state.inventoryTransactions.filter(t => t.productId !== action.payload),
-      };
-    case 'ADD_INCOME':
-      return { ...state, incomeEntries: [...state.incomeEntries, action.payload] };
-    case 'DELETE_INCOME':
-      return { ...state, incomeEntries: state.incomeEntries.filter(i => i.id !== action.payload) };
-    case 'ADD_EXPENSE':
-      return { ...state, expenseEntries: [...state.expenseEntries, action.payload] };
-    case 'DELETE_EXPENSE':
-      return { ...state, expenseEntries: state.expenseEntries.filter(e => e.id !== action.payload) };
-    case 'ADD_TRANSACTION':
-      return { ...state, inventoryTransactions: [...state.inventoryTransactions, action.payload] };
-    default:
-      return state;
-  }
-}
-
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(dataReducer, initialState);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
+  const [expenseEntries, setExpenseEntries] = useState<ExpenseEntry[]>([]);
+  const [inventoryTransactions, setInventoryTransactions] = useState<InventoryTransaction[]>([]);
+  const [loadingStates, setLoadingStates] = useState({
+    products: true,
+    income: true,
+    expenses: true,
+    transactions: true,
+  });
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const overallLoading = useMemo(() => {
+    return Object.values(loadingStates).some(state => state === true);
+  }, [loadingStates]);
+
+  // Firestore collection references
+  const productsCol = collection(db, 'products');
+  const incomeCol = collection(db, 'incomeEntries');
+  const expensesCol = collection(db, 'expenseEntries');
+  const transactionsCol = collection(db, 'inventoryTransactions');
+
+  useEffect(() => {
+    const qProducts = query(productsCol, orderBy("name"));
+    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
+      setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+      setLoadingStates(prev => ({ ...prev, products: false }));
+    }, (err) => {
+      console.error("Error fetching products:", err);
+      setError("Không thể tải dữ liệu sản phẩm.");
+      setLoadingStates(prev => ({ ...prev, products: false }));
+    });
+
+    const qIncome = query(incomeCol, orderBy("date", "desc"));
+    const unsubscribeIncome = onSnapshot(qIncome, (snapshot) => {
+      setIncomeEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as IncomeEntry)));
+      setLoadingStates(prev => ({ ...prev, income: false }));
+    }, (err) => {
+      console.error("Error fetching income entries:", err);
+      setError("Không thể tải dữ liệu thu nhập.");
+      setLoadingStates(prev => ({ ...prev, income: false }));
+    });
+
+    const qExpenses = query(expensesCol, orderBy("date", "desc"));
+    const unsubscribeExpenses = onSnapshot(qExpenses, (snapshot) => {
+      setExpenseEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ExpenseEntry)));
+      setLoadingStates(prev => ({ ...prev, expenses: false }));
+    }, (err) => {
+      console.error("Error fetching expense entries:", err);
+      setError("Không thể tải dữ liệu chi tiêu.");
+      setLoadingStates(prev => ({ ...prev, expenses: false }));
+    });
+    
+    const qTransactions = query(transactionsCol, orderBy("date", "desc"));
+    const unsubscribeTransactions = onSnapshot(qTransactions, (snapshot) => {
+      setInventoryTransactions(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InventoryTransaction)));
+      setLoadingStates(prev => ({ ...prev, transactions: false }));
+    }, (err) => {
+      console.error("Error fetching inventory transactions:", err);
+      setError("Không thể tải dữ liệu giao dịch kho.");
+      setLoadingStates(prev => ({ ...prev, transactions: false }));
+    });
+
+    return () => {
+      unsubscribeProducts();
+      unsubscribeIncome();
+      unsubscribeExpenses();
+      unsubscribeTransactions();
+    };
+  }, []);
 
   const getProductStock = useCallback((productId: string): number => {
-    const product = state.products.find(p => p.id === productId);
+    const product = products.find(p => p.id === productId);
     if (!product) return 0;
 
-    let stock = product.initialStock;
-    state.inventoryTransactions.forEach(transaction => {
+    let stock = product.initialStock || 0; // Mặc định initialStock là 0 nếu không có
+    inventoryTransactions.forEach(transaction => {
       if (transaction.productId === productId) {
         if (transaction.type === 'import') {
           stock += transaction.quantity;
-        } else {
+        } else if (transaction.type === 'export') {
           stock -= transaction.quantity;
         }
       }
     });
     return stock;
-  }, [state.products, state.inventoryTransactions]);
+  }, [products, inventoryTransactions]);
 
-  const addProduct = (productData: Omit<Product, 'id' | 'currentStock'>) => {
-    const newProduct: Product = { 
-      ...productData, 
-      id: uuidv4(), 
-      currentStock: productData.initialStock // Initial current stock is the initial stock
-    };
-    dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
-  };
+  const productsWithCurrentStock = useMemo(() => {
+    return products.map(product => ({
+      ...product,
+      currentStock: getProductStock(product.id)
+    }));
+  }, [products, getProductStock]);
 
-  const updateProduct = (productData: Product) => {
-    // Recalculate currentStock in case initialStock was changed.
-    // This is a simple approach; a more robust system might handle this differently.
-    const currentStock = getProductStock(productData.id);
-    const updatedProduct = { ...productData, currentStock };
-    dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
-  };
-  
-  const deleteProduct = (productId: string) => {
-    dispatch({ type: 'DELETE_PRODUCT', payload: productId });
-  };
-
-  const addIncomeEntry = (entryData: Omit<IncomeEntry, 'id'>) => {
-    const newEntry: IncomeEntry = { ...entryData, id: uuidv4() };
-    dispatch({ type: 'ADD_INCOME', payload: newEntry });
-  };
-
-  const deleteIncomeEntry = (entryId: string) => {
-    dispatch({ type: 'DELETE_INCOME', payload: entryId });
-  };
-
-  const addExpenseEntry = (entryData: Omit<ExpenseEntry, 'id'>) => {
-    const newEntry: ExpenseEntry = { ...entryData, id: uuidv4() };
-    dispatch({ type: 'ADD_EXPENSE', payload: newEntry });
-  };
-
-  const deleteExpenseEntry = (entryId: string) => {
-    dispatch({ type: 'DELETE_EXPENSE', payload: entryId });
-  };
-
-  const addInventoryTransaction = (transactionData: Omit<InventoryTransaction, 'id'>): string | null => {
-    if (transactionData.type === 'export') {
-      const currentStock = getProductStock(transactionData.productId);
-      if (transactionData.quantity > currentStock) {
-        return `Không đủ hàng tồn kho. Hiện có: ${currentStock}.`;
-      }
+  const addProduct = async (productData: Omit<Product, 'id' | 'currentStock'>) => {
+    try {
+      // currentStock không lưu vào Firestore, nó sẽ được tính toán
+      const dataToSave = { ...productData };
+      await addDoc(productsCol, dataToSave);
+      toast({ title: "Thành công", description: "Đã thêm sản phẩm mới vào Firestore." });
+    } catch (e) {
+      console.error("Error adding product: ", e);
+      toast({ title: "Lỗi", description: "Không thể thêm sản phẩm.", variant: "destructive" });
+      setError("Không thể thêm sản phẩm.");
     }
-    const newTransaction: InventoryTransaction = { ...transactionData, id: uuidv4() };
-    dispatch({ type: 'ADD_TRANSACTION', payload: newTransaction });
-    return null; // Success
+  };
+
+  const updateProduct = async (productData: Product) => {
+    try {
+      const { id, currentStock, ...dataToUpdate } = productData; // Không lưu currentStock
+      const productRef = doc(db, 'products', id);
+      await updateDoc(productRef, dataToUpdate);
+      toast({ title: "Thành công", description: "Đã cập nhật sản phẩm." });
+    } catch (e) {
+      console.error("Error updating product: ", e);
+      toast({ title: "Lỗi", description: "Không thể cập nhật sản phẩm.", variant: "destructive" });
+      setError("Không thể cập nhật sản phẩm.");
+    }
+  };
+
+  const deleteProduct = async (productId: string) => {
+    try {
+      // Trước khi xóa sản phẩm, xóa tất cả giao dịch kho liên quan
+      const q = query(transactionsCol, where("productId", "==", productId));
+      const transactionDocs = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      transactionDocs.forEach(docSnapshot => {
+        batch.delete(doc(db, 'inventoryTransactions', docSnapshot.id));
+      });
+      batch.delete(doc(db, 'products', productId)); // Xóa sản phẩm
+      await batch.commit();
+
+      toast({ title: "Đã xóa", description: "Đã xóa sản phẩm và các giao dịch liên quan.", variant: "destructive" });
+    } catch (e) {
+      console.error("Error deleting product: ", e);
+      toast({ title: "Lỗi", description: "Không thể xóa sản phẩm.", variant: "destructive" });
+      setError("Không thể xóa sản phẩm.");
+    }
   };
   
+  const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>) => {
+    try {
+      await addDoc(incomeCol, entryData);
+      toast({ title: "Thành công", description: "Đã thêm khoản thu nhập." });
+    } catch (e) {
+      console.error("Error adding income entry: ", e);
+      toast({ title: "Lỗi", description: "Không thể thêm khoản thu nhập.", variant: "destructive" });
+      setError("Không thể thêm khoản thu nhập.");
+    }
+  };
+
+  const deleteIncomeEntry = async (entryId: string) => {
+    try {
+      await deleteDoc(doc(db, 'incomeEntries', entryId));
+      toast({ title: "Đã xóa", description: "Đã xóa khoản thu nhập.", variant: "destructive" });
+    } catch (e) {
+      console.error("Error deleting income entry: ", e);
+      toast({ title: "Lỗi", description: "Không thể xóa khoản thu nhập.", variant: "destructive" });
+      setError("Không thể xóa khoản thu nhập.");
+    }
+  };
+
+  const addExpenseEntry = async (entryData: Omit<ExpenseEntry, 'id'>) => {
+    try {
+      await addDoc(expensesCol, entryData);
+      toast({ title: "Thành công", description: "Đã thêm khoản chi tiêu." });
+    } catch (e) {
+      console.error("Error adding expense entry: ", e);
+      toast({ title: "Lỗi", description: "Không thể thêm khoản chi tiêu.", variant: "destructive" });
+      setError("Không thể thêm khoản chi tiêu.");
+    }
+  };
+
+  const deleteExpenseEntry = async (entryId: string) => {
+    try {
+      await deleteDoc(doc(db, 'expenseEntries', entryId));
+      toast({ title: "Đã xóa", description: "Đã xóa khoản chi tiêu.", variant: "destructive" });
+    } catch (e) {
+      console.error("Error deleting expense entry: ", e);
+      toast({ title: "Lỗi", description: "Không thể xóa khoản chi tiêu.", variant: "destructive" });
+      setError("Không thể xóa khoản chi tiêu.");
+    }
+  };
+
+  const addInventoryTransaction = async (transactionData: Omit<InventoryTransaction, 'id'>): Promise<string | null> => {
+    try {
+      if (transactionData.type === 'export') {
+        const currentStock = getProductStock(transactionData.productId);
+        if (transactionData.quantity > currentStock) {
+          const message = `Không đủ hàng tồn kho. Hiện có: ${currentStock}.`;
+          toast({ title: "Lỗi xuất kho", description: message, variant: "destructive" });
+          return message;
+        }
+      }
+      await addDoc(transactionsCol, transactionData);
+      toast({ title: "Thành công", description: "Đã ghi nhận giao dịch kho." });
+      return null;
+    } catch (e) {
+      console.error("Error adding inventory transaction: ", e);
+      const message = "Không thể ghi nhận giao dịch kho.";
+      toast({ title: "Lỗi", description: message, variant: "destructive" });
+      setError(message);
+      return message;
+    }
+  };
+
   const getProductById = useCallback((productId: string) => {
-    return state.products.find(p => p.id === productId);
-  }, [state.products]);
+    return productsWithCurrentStock.find(p => p.id === productId);
+  }, [productsWithCurrentStock]);
 
   const getCategoryTotals = useCallback((type: 'income' | 'expense'): { name: string; value: number }[] => {
     const totals: { [key: string]: number } = {};
-    const entries = type === 'income' ? state.incomeEntries : state.expenseEntries;
+    const entries = type === 'income' ? incomeEntries : expenseEntries;
 
     entries.forEach(entry => {
       totals[entry.category] = (totals[entry.category] || 0) + entry.amount;
     });
 
     return Object.entries(totals).map(([name, value]) => ({ name, value }));
-  }, [state.incomeEntries, state.expenseEntries]);
+  }, [incomeEntries, expenseEntries]);
 
   const getTotalIncome = useCallback((): number => {
-    return state.incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  }, [state.incomeEntries]);
+    return incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  }, [incomeEntries]);
 
   const getTotalExpenses = useCallback((): number => {
-    return state.expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  }, [state.expenseEntries]);
+    return expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  }, [expenseEntries]);
 
-  const productsWithCurrentStock = useMemo(() => {
-    return state.products.map(product => ({
-      ...product,
-      currentStock: getProductStock(product.id)
-    }));
-  }, [state.products, getProductStock]);
-
-  const value = {
-    ...state,
-    products: productsWithCurrentStock, // Provide products with updated currentStock
+  const value: AppContextType = {
+    products: productsWithCurrentStock,
+    incomeEntries,
+    expenseEntries,
+    inventoryTransactions,
     addProduct,
     updateProduct,
     deleteProduct,
@@ -214,7 +303,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getCategoryTotals,
     getTotalIncome,
     getTotalExpenses,
+    isLoading: overallLoading,
   };
+
+  // Hiển thị lỗi nếu có
+  useEffect(() => {
+    if (error) {
+      toast({ title: "Lỗi dữ liệu", description: error, variant: "destructive" });
+      setError(null); // Reset lỗi sau khi hiển thị
+    }
+  }, [error, toast]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
