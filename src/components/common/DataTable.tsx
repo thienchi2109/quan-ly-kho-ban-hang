@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,6 +12,7 @@ import {
   getSortedRowModel,
   ColumnFiltersState,
   getFilteredRowModel,
+  VisibilityState,
 } from "@tanstack/react-table"
 
 import {
@@ -30,11 +32,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  filterColumn?: string // accessorKey of the column to filter
+  filterColumn?: string
   filterPlaceholder?: string
 }
 
@@ -46,8 +49,7 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState({})
-
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
 
   const table = useReactTable({
     data,
@@ -69,7 +71,12 @@ export function DataTable<TData, TValue>({
   return (
     <div>
       {(filterColumn || columns.some(col => col.enableHiding !== false)) && (
-        <div className="flex items-center py-4 gap-2">
+        <div className={cn(
+          "flex flex-col gap-2 py-4 sm:flex-row sm:items-center",
+          // Dynamically set justify content for sm screens and up
+          (filterColumn && columns.some(col => col.enableHiding !== false)) ? "sm:justify-between" : 
+          filterColumn ? "sm:justify-start" : "sm:justify-end"
+        )}>
           {filterColumn && (
             <Input
               placeholder={filterPlaceholder}
@@ -77,13 +84,13 @@ export function DataTable<TData, TValue>({
               onChange={(event) =>
                 table.getColumn(filterColumn)?.setFilterValue(event.target.value)
               }
-              className="max-w-sm"
+              className="w-full sm:max-w-xs md:max-w-sm" // Full width on mobile, max-w on larger screens
             />
           )}
           {columns.some(col => col.enableHiding !== false) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto">
+                <Button variant="outline" className="w-full sm:w-auto"> {/* Full width on mobile, auto on sm+ */}
                   Cột <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -94,6 +101,19 @@ export function DataTable<TData, TValue>({
                     (column) => column.getCanHide()
                   )
                   .map((column) => {
+                    let headerText = column.id;
+                    const headerDef = column.columnDef.header;
+                    if (typeof headerDef === 'string') {
+                      headerText = headerDef;
+                    } else if (headerDef && typeof headerDef !== 'function' && (headerDef as any).props && (headerDef as any).props.title) {
+                      // Attempt to get title from SortableHeader-like structure
+                      headerText = (headerDef as any).props.title || column.id;
+                    } else if (typeof column.columnDef.header === 'function') {
+                       // If it's a function (likely a custom component), fallback to id or try to extract simply
+                       // This part is tricky without knowing the exact structure of all header components
+                       // For now, we'll use id for complex headers
+                    }
+
                     return (
                       <DropdownMenuCheckboxItem
                         key={column.id}
@@ -103,7 +123,7 @@ export function DataTable<TData, TValue>({
                           column.toggleVisibility(!!value)
                         }
                       >
-                        {typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id}
+                        {headerText}
                       </DropdownMenuCheckboxItem>
                     )
                   })}
