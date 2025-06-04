@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -33,7 +34,7 @@ export default function AppSidebarNavigation() {
         {navLinks.map((link, index) => (
           link.subLinks ? (
             <AccordionItem value={`item-${index}`} key={link.label} className="border-none">
-              <AccordionTrigger className="p-0 hover:no-underline">
+              <AccordionTrigger asChild className="p-0 hover:no-underline">
                 <SidebarMenuButton 
                   asChild={false} 
                   className="w-full justify-start"
@@ -82,3 +83,4 @@ export default function AppSidebarNavigation() {
     </nav>
   );
 }
+
