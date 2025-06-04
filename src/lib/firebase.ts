@@ -1,6 +1,8 @@
 
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage'; // Thêm import này
+
 // import { getAnalytics } from "firebase/analytics"; // Nếu bạn muốn sử dụng Analytics
 
 const firebaseConfig = {
@@ -21,6 +23,7 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(app);
+const storage = getStorage(app); // Khởi tạo storage
 // const analytics = getAnalytics(app); // Nếu bạn muốn sử dụng Analytics
 
-export { app, db };
+export { app, db, storage }; // Export storage

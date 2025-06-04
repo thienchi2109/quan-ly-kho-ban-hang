@@ -17,7 +17,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState, Row } from '@tanstack/react-table';
 import { flexRender } from "@tanstack/react-table";
-import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from "@/components/ui/slider";
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress'; // Thêm Progress
+import { storage } from '@/lib/firebase'; // Thêm Firebase Storage
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 
 type ProductFormValues = ProductFormValuesType;
@@ -62,17 +65,15 @@ export default function ProductsPage() {
       .filter(price => typeof price === 'number' && price >= 0) as number[];
 
     if (sellingPrices.length === 0) {
-      return { minSellingPrice: 0, maxSellingPrice: 1000000 }; // Default range if no products have prices
+      return { minSellingPrice: 0, maxSellingPrice: 1000000 }; 
     }
 
     let min = Math.min(...sellingPrices);
     let max = Math.max(...sellingPrices);
 
     if (min === max) {
-      // If all products have the same price, or only one product with a price
-      // Create a sensible range for the slider to be interactive
-      const basePrice = min; // or max, they are the same
-      const offset = basePrice > 100000 ? basePrice * 0.2 : 50000; // 20% offset or fixed 50k
+      const basePrice = min; 
+      const offset = basePrice > 100000 ? basePrice * 0.2 : 50000; 
       return { 
         minSellingPrice: Math.max(0, basePrice - offset), 
         maxSellingPrice: basePrice + offset 
@@ -84,16 +85,14 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
 
   useEffect(() => {
-    // Initialize priceRange to full available range when component mounts or bounds change
-    // This ensures the slider is initialized correctly
     setPriceRange([minSellingPrice, maxSellingPrice]);
   }, [minSellingPrice, maxSellingPrice]);
 
 
   const displayedProducts = useMemo(() => {
-    if (!priceRange) return products; // Return all products if priceRange isn't set yet
+    if (!priceRange) return products; 
     return products.filter(product => {
-      if (product.sellingPrice === undefined) return true; // Include products without a price, or change to false if they should be excluded
+      if (product.sellingPrice === undefined) return true; 
       return product.sellingPrice >= priceRange[0] && product.sellingPrice <= priceRange[1];
     });
   }, [products, priceRange]);
@@ -242,14 +241,13 @@ export default function ProductsPage() {
                   setEditingProduct(row.original);
                 } else {
                   if (editingProduct && editingProduct.id === row.original.id) {
-                    setEditingProduct(null); // Clear editing state when modal closes
+                    setEditingProduct(null); 
                   }
                 }
               }}
               defaultOpen={false} 
             >
             {(closeModal) => {
-              // Ensure editingProduct is correctly identified for this specific row's modal instance
               const productForForm = editingProduct && editingProduct.id === row.original.id ? editingProduct : null;
               return (
                 <ProductFormContent
@@ -347,7 +345,7 @@ export default function ProductsPage() {
           title="Thêm Sản Phẩm Mới"
           description="Điền thông tin chi tiết về sản phẩm."
           formId="product-form-main-new"
-          key="add-new-product-modal-main" // Static key for "add new" modal
+          key="add-new-product-modal-main" 
           triggerButton={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
@@ -355,13 +353,13 @@ export default function ProductsPage() {
           }
           onOpenChange={(isOpen) => {
             if (isOpen) {
-              setEditingProduct(null); // Ensure we are in "add new" mode
+              setEditingProduct(null); 
             }
           }}
         >
           {(closeModal) => (
             <ProductFormContent
-              key={"new-product-form-content-main"} // Consistent key for new product form
+              key={"new-product-form-content-main"} 
               editingProductFull={null}
               onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
               closeModalSignal={closeModal}
@@ -374,7 +372,6 @@ export default function ProductsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          {/* Price Filter Section - Moved inside main card */}
           <div className="mb-6">
             {priceRange ? (
               <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-card">
@@ -447,19 +444,23 @@ interface ProductFormContentProps {
     formHtmlId: string;
 }
 
-// ProductFormContent now manages its own form instance
+
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
+    const { toast } = useToast();
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [imagePreview, setImagePreview] = useState<string | null>(editingProductFull?.imageUrl || null);
     
     const getInitialFormValues = useCallback((): ProductFormValues => {
-        return editingProductFull ? {
+        const initialValues = editingProductFull ? {
             name: editingProductFull.name,
             sku: editingProductFull.sku || '',
             unit: editingProductFull.unit,
-            // Ensure empty strings for form if undefined, matching ProductFormValues type
             costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
             sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
             minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
-            initialStock: editingProductFull.initialStock, // Should be a number
+            initialStock: editingProductFull.initialStock, 
             imageUrl: editingProductFull.imageUrl || '',
         } : {
             name: '',
@@ -471,26 +472,74 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             initialStock: 0,
             imageUrl: '',
         };
+        return initialValues;
     }, [editingProductFull]);
 
-    // Call useForm at the top level
     const formMethods = useForm<ProductFormValues>({
         resolver: zodResolver(ProductSchema),
-        defaultValues: getInitialFormValues(), // Initialize with potentially editing product's data
+        defaultValues: getInitialFormValues(), 
     });
     
-    // Effect to reset form when editingProductFull changes (e.g., user edits a different product)
     useEffect(() => {
-        formMethods.reset(getInitialFormValues());
+        const initialVals = getInitialFormValues();
+        formMethods.reset(initialVals);
+        setImagePreview(initialVals.imageUrl || null);
+        setImageFile(null); // Reset selected file on new form/edit
     }, [editingProductFull, formMethods, getInitialFormValues]);
 
+    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (event.target.files && event.target.files[0]) {
+        const file = event.target.files[0];
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
+        formMethods.setValue('imageUrl', ''); // Clear any existing URL if new file is chosen
+      }
+    };
 
-    const handleInternalSubmit = (data: ProductFormValues) => {
-        onSubmit(data); // Pass data to parent's submit handler
+    const handleInternalSubmit = async (data: ProductFormValues) => {
+        setIsUploading(true);
+        setUploadProgress(0);
+        let finalImageUrl = editingProductFull?.imageUrl || data.imageUrl || ''; 
+
+        if (imageFile) {
+            const fileName = `products/${Date.now()}-${imageFile.name.replace(/\s+/g, '_')}`;
+            const fileRef = storageRef(storage, fileName);
+            const uploadTask = uploadBytesResumable(fileRef, imageFile);
+
+            try {
+                await new Promise<void>((resolve, reject) => {
+                    uploadTask.on('state_changed',
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            setUploadProgress(progress);
+                        },
+                        (error) => {
+                            console.error("Upload failed:", error);
+                            toast({ title: "Lỗi tải lên", description: `Không thể tải lên hình ảnh: ${error.message}`, variant: "destructive" });
+                            reject(error);
+                        },
+                        async () => {
+                            finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                            resolve();
+                        }
+                    );
+                });
+            } catch (error) {
+                setIsUploading(false);
+                setUploadProgress(null);
+                return; 
+            }
+        }
+        
+        setIsUploading(false);
+        setUploadProgress(null);
+        const submissionData = { ...data, imageUrl: finalImageUrl };
+        onSubmit(submissionData);
+        setImageFile(null); 
     };
 
     return (
-        <Form {...formMethods}> {/* Use Form (which is FormProvider) */}
+        <Form {...formMethods}> 
             <form onSubmit={formMethods.handleSubmit(handleInternalSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="name" render={({ field }) => (
@@ -508,6 +557,42 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                         </Select><FormMessage />
                     </FormItem>
                 )} />
+                 <FormItem>
+                    <FormLabel>Hình Ảnh Sản Phẩm</FormLabel>
+                    <FormControl>
+                        <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="mb-2"
+                        />
+                    </FormControl>
+                    {imagePreview && !isUploading && (
+                        <div className="mt-2">
+                        <Image
+                            src={imagePreview}
+                            alt="Xem trước sản phẩm"
+                            width={100}
+                            height={100}
+                            className="h-24 w-24 object-cover rounded-md border"
+                            data-ai-hint="product preview"
+                            onError={() => setImagePreview(null)} // Handle broken image links for existing URLs
+                        />
+                        </div>
+                    )}
+                    {isUploading && uploadProgress !== null && (
+                        <Progress value={uploadProgress} className="w-full mt-2" />
+                    )}
+                    {isUploading && <p className="text-xs text-muted-foreground">Đang tải lên: {uploadProgress?.toFixed(0)}%</p>}
+                    {/* Hidden input to hold the imageUrl for form submission for Zod, actual value set by upload or existing */}
+                    <FormField
+                        control={formMethods.control}
+                        name="imageUrl"
+                        render={({ field }) => <Input type="hidden" {...field} />}
+                    />
+                    <FormMessage>{formMethods.formState.errors.imageUrl?.message}</FormMessage>
+                </FormItem>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="costPrice" render={({ field }) => (
                         <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
@@ -529,15 +614,15 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                         <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
-                <FormField control={formMethods.control} name="imageUrl" render={({ field }) => (
-                    <FormItem><FormLabel>URL Hình Ảnh (tùy chọn)</FormLabel><FormControl><Input type="url" placeholder="https://placehold.co/100x100.png" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
+                
                 <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={closeModalSignal}>Hủy</Button>
-                    <Button type="submit">Lưu</Button>
+                    <Button type="button" variant="outline" onClick={() => { closeModalSignal(); setImageFile(null); setImagePreview(editingProductFull?.imageUrl || null); }}>Hủy</Button>
+                    <Button type="submit" disabled={isUploading}>
+                        {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Lưu
+                    </Button>
                 </div>
             </form>
         </Form>
     );
 }
-
