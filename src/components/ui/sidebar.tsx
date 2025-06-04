@@ -21,7 +21,7 @@ const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "6.5rem"
+const SIDEBAR_WIDTH_ICON = "6.5rem" // User confirmed this value
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -176,10 +176,7 @@ const Sidebar = React.forwardRef<
     }, []);
 
     if (!hasMounted) {
-      // Render nothing on the server and initial client render to avoid hydration mismatch
-      // A placeholder could be used here if layout shift is an issue,
-      // but `null` is safest for preventing hydration errors.
-      return null;
+      return null; 
     }
 
     if (collapsible === "none") {
@@ -318,9 +315,19 @@ const SidebarRail = React.forwardRef<
 SidebarRail.displayName = "SidebarRail"
 
 const SidebarInset = React.forwardRef<
-  HTMLDivElement,
+  HTMLDivElement, // Changed from HTMLElement to HTMLDivElement for <main>
   React.ComponentProps<"main">
 >(({ className, ...props }, ref) => {
+  const [hasMounted, setHasMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null; // Prevent server-side rendering and initial client render mismatch
+  }
+
   return (
     <main
       ref={ref}
