@@ -27,6 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from "@/components/ui/slider";
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 type ProductFormValues = ProductFormValuesType;
@@ -55,36 +56,44 @@ export default function ProductsPage() {
   const isMobile = useIsMobile();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
-  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
-
   const { minSellingPrice, maxSellingPrice } = useMemo(() => {
-    if (products.length === 0) {
-      return { minSellingPrice: 0, maxSellingPrice: 1000000 }; // Default if no products
+    const sellingPrices = products
+      .map(p => p.sellingPrice)
+      .filter(price => typeof price === 'number' && price >= 0) as number[];
+
+    if (sellingPrices.length === 0) {
+      return { minSellingPrice: 0, maxSellingPrice: 1000000 }; // Default range if no products have prices
     }
-    let min = Infinity;
-    let max = 0;
-    products.forEach(p => {
-      if (p.sellingPrice !== undefined) {
-        if (p.sellingPrice < min) min = p.sellingPrice;
-        if (p.sellingPrice > max) max = p.sellingPrice;
-      }
-    });
-    if (min === Infinity) min = 0; // If no products have selling price
-    if (max === 0 && min > 0) max = min; // if only one product with price
-    if (max === 0 && min === 0 && products.length > 0) max = 1000000; // if all products have 0 or no price
-    return { minSellingPrice: min, maxSellingPrice: max > min ? max : min + 100000 }; // Ensure max > min for slider
+
+    let min = Math.min(...sellingPrices);
+    let max = Math.max(...sellingPrices);
+
+    if (min === max) {
+      // If all products have the same price, or only one product with a price
+      // Create a sensible range for the slider to be interactive
+      const basePrice = min; // or max, they are the same
+      const offset = basePrice > 100000 ? basePrice * 0.2 : 50000; // 20% offset or fixed 50k
+      return { 
+        minSellingPrice: Math.max(0, basePrice - offset), 
+        maxSellingPrice: basePrice + offset 
+      };
+    }
+    return { minSellingPrice: min, maxSellingPrice: max };
   }, [products]);
 
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+
   useEffect(() => {
-    // Initialize priceRange to full range when component mounts or bounds change
+    // Initialize priceRange to full available range when component mounts or bounds change
+    // This ensures the slider is initialized correctly
     setPriceRange([minSellingPrice, maxSellingPrice]);
   }, [minSellingPrice, maxSellingPrice]);
 
 
   const displayedProducts = useMemo(() => {
-    if (!priceRange) return products;
+    if (!priceRange) return products; // Return all products if priceRange isn't set yet
     return products.filter(product => {
-      if (product.sellingPrice === undefined) return false; // Or true, depending on how you want to treat products without price
+      if (product.sellingPrice === undefined) return true; // Include products without a price, or change to false if they should be excluded
       return product.sellingPrice >= priceRange[0] && product.sellingPrice <= priceRange[1];
     });
   }, [products, priceRange]);
@@ -107,11 +116,22 @@ export default function ProductsPage() {
   }, [isMobile]);
 
   const handleProductFormSubmit = (values: ProductFormValues, productBeingEdited: Product | null, closeModalFn: () => void) => {
+    const costPrice = values.costPrice === '' ? undefined : Number(values.costPrice);
+    const sellingPrice = values.sellingPrice === '' ? undefined : Number(values.sellingPrice);
+    const minStockLevel = values.minStockLevel === '' ? undefined : Number(values.minStockLevel);
+
+    const processedValues = {
+      ...values,
+      costPrice,
+      sellingPrice,
+      minStockLevel,
+    };
+    
     if (productBeingEdited) {
-      updateProduct({ ...productBeingEdited, ...values, currentStock: getProductStock(productBeingEdited.id) });
+      updateProduct({ ...productBeingEdited, ...processedValues, currentStock: getProductStock(productBeingEdited.id) });
       toast({ title: "Thành công!", description: "Đã cập nhật sản phẩm." });
     } else {
-      addProduct(values);
+      addProduct(processedValues);
       toast({ title: "Thành công!", description: "Đã thêm sản phẩm mới." });
     }
     setEditingProduct(null);
@@ -177,7 +197,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Adjusted for better visibility
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
           )}>
             {product.currentStock}
           </span>
@@ -222,13 +242,14 @@ export default function ProductsPage() {
                   setEditingProduct(row.original);
                 } else {
                   if (editingProduct && editingProduct.id === row.original.id) {
-                    setEditingProduct(null);
+                    setEditingProduct(null); // Clear editing state when modal closes
                   }
                 }
               }}
               defaultOpen={false} 
             >
             {(closeModal) => {
+              // Ensure editingProduct is correctly identified for this specific row's modal instance
               const productForForm = editingProduct && editingProduct.id === row.original.id ? editingProduct : null;
               return (
                 <ProductFormContent
@@ -254,11 +275,9 @@ export default function ProductsPage() {
   const renderProductCard = (row: Row<Product>): React.ReactNode => {
     const product = row.original;
     
-    const imageCell = row.getVisibleCells().find(cell => cell.column.id === 'imageUrl');
     const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
     const statusCell = row.getVisibleCells().find(cell => cell.column.id === 'status');
     const stockCell = row.getVisibleCells().find(cell => cell.column.id === 'currentStock');
-    const unitCell = row.getVisibleCells().find(cell => cell.column.id === 'unit');
   
     return (
       <Card key={product.id} className="w-full">
@@ -328,7 +347,7 @@ export default function ProductsPage() {
           title="Thêm Sản Phẩm Mới"
           description="Điền thông tin chi tiết về sản phẩm."
           formId="product-form-main-new"
-          key="add-new-product-modal-main"
+          key="add-new-product-modal-main" // Static key for "add new" modal
           triggerButton={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
@@ -336,13 +355,13 @@ export default function ProductsPage() {
           }
           onOpenChange={(isOpen) => {
             if (isOpen) {
-              setEditingProduct(null);
+              setEditingProduct(null); // Ensure we are in "add new" mode
             }
           }}
         >
           {(closeModal) => (
             <ProductFormContent
-              key={editingProduct ? `add-content-${editingProduct.id}-new` : "new-product-form-content-main"}
+              key={"new-product-form-content-main"} // Consistent key for new product form
               editingProductFull={null}
               onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
               closeModalSignal={closeModal}
@@ -353,43 +372,58 @@ export default function ProductsPage() {
         </FormModal>
       </PageHeader>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Bộ Lọc Giá Bán</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {priceRange && (
-            <div className="space-y-4">
-              <Slider
-                min={minSellingPrice}
-                max={maxSellingPrice}
-                step={Math.max(1, Math.floor((maxSellingPrice - minSellingPrice) / 100))} // Dynamic step
-                value={priceRange}
-                onValueChange={(newRange) => setPriceRange(newRange as [number, number])}
-                className="w-full"
-                disabled={products.length === 0}
-              />
-              <div className="flex justify-between items-center text-sm text-muted-foreground">
-                <span>Từ: {priceRange[0].toLocaleString('vi-VN')} đ</span>
-                <span>Đến: {priceRange[1].toLocaleString('vi-VN')} đ</span>
-                 <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setPriceRange([minSellingPrice, maxSellingPrice])}
-                  disabled={priceRange[0] === minSellingPrice && priceRange[1] === maxSellingPrice}
-                  title="Xóa bộ lọc giá"
-                >
-                  <FilterX className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Xóa Lọc</span>
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <Card>
-        <CardContent className="pt-0 sm:pt-6">
+        <CardContent className="pt-6">
+          {/* Price Filter Section - Moved inside main card */}
+          <div className="mb-6">
+            {priceRange ? (
+              <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-card">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2">
+                  <Label htmlFor="price-range-slider" className="text-base font-semibold mb-2 sm:mb-0">Lọc theo giá bán:</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setPriceRange([minSellingPrice, maxSellingPrice])}
+                    disabled={(priceRange[0] === minSellingPrice && priceRange[1] === maxSellingPrice) || products.length === 0 || minSellingPrice >= maxSellingPrice }
+                    title="Xóa bộ lọc giá"
+                    className="text-xs"
+                  >
+                    <FilterX className="h-4 w-4 mr-1" />
+                    Xóa Lọc
+                  </Button>
+                </div>
+                <Slider
+                  id="price-range-slider"
+                  min={minSellingPrice}
+                  max={maxSellingPrice}
+                  step={Math.max(1, Math.floor((maxSellingPrice - minSellingPrice) / 100) || 1)}
+                  value={priceRange}
+                  onValueChange={(newRange) => {
+                    if (Array.isArray(newRange) && newRange.length === 2) {
+                       setPriceRange(newRange as [number, number]);
+                    }
+                  }}
+                  className="w-full"
+                  disabled={products.length === 0 || minSellingPrice >= maxSellingPrice}
+                />
+                <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
+                  <span>Từ: {priceRange[0].toLocaleString('vi-VN')} đ</span>
+                  <span>Đến: {priceRange[1].toLocaleString('vi-VN')} đ</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 border rounded-lg">
+                <Label className="text-base font-semibold">Lọc theo giá bán:</Label>
+                <Skeleton className="h-5 w-full" />
+                <div className="flex justify-between items-center text-xs">
+                   <Skeleton className="h-4 w-1/3" />
+                   <Skeleton className="h-4 w-1/3" />
+                </div>
+                 <Skeleton className="h-8 w-24 mt-1" />
+              </div>
+            )}
+          </div>
+
           <DataTable 
             columns={columns} 
             data={displayedProducts} 
@@ -413,6 +447,7 @@ interface ProductFormContentProps {
     formHtmlId: string;
 }
 
+// ProductFormContent now manages its own form instance
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
     
     const getInitialFormValues = useCallback((): ProductFormValues => {
@@ -420,10 +455,11 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             name: editingProductFull.name,
             sku: editingProductFull.sku || '',
             unit: editingProductFull.unit,
+            // Ensure empty strings for form if undefined, matching ProductFormValues type
             costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
             sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
             minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
-            initialStock: editingProductFull.initialStock,
+            initialStock: editingProductFull.initialStock, // Should be a number
             imageUrl: editingProductFull.imageUrl || '',
         } : {
             name: '',
@@ -437,21 +473,24 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         };
     }, [editingProductFull]);
 
+    // Call useForm at the top level
     const formMethods = useForm<ProductFormValues>({
         resolver: zodResolver(ProductSchema),
-        defaultValues: getInitialFormValues(),
+        defaultValues: getInitialFormValues(), // Initialize with potentially editing product's data
     });
     
+    // Effect to reset form when editingProductFull changes (e.g., user edits a different product)
     useEffect(() => {
         formMethods.reset(getInitialFormValues());
     }, [editingProductFull, formMethods, getInitialFormValues]);
 
+
     const handleInternalSubmit = (data: ProductFormValues) => {
-        onSubmit(data);
+        onSubmit(data); // Pass data to parent's submit handler
     };
 
     return (
-        <Form {...formMethods}>
+        <Form {...formMethods}> {/* Use Form (which is FormProvider) */}
             <form onSubmit={formMethods.handleSubmit(handleInternalSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="name" render={({ field }) => (
