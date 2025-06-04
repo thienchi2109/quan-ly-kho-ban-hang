@@ -8,7 +8,7 @@ import { ProductSchema } from '@/lib/schemas';
 import type { Product, ProductUnit, ProductFormValues as ProductFormValuesType } from '@/lib/types';
 import { useData } from '@/hooks';
 import PageHeader from '@/components/PageHeader';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button'; // Import buttonVariants
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,7 +17,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState, Row } from '@tanstack/react-table';
 import { flexRender } from "@tanstack/react-table";
-import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX, Loader2, Upload } from 'lucide-react'; // Added Upload icon
 import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,8 +28,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from "@/components/ui/slider";
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress'; // Thêm Progress
-import { storage } from '@/lib/firebase'; // Thêm Firebase Storage
+import { Progress } from '@/components/ui/progress';
+import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 
@@ -451,6 +451,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
     const [uploadProgress, setUploadProgress] = useState<number | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [imagePreview, setImagePreview] = useState<string | null>(editingProductFull?.imageUrl || null);
+    const fileInputId = useMemo(() => `file-upload-${formHtmlId}-${editingProductFull?.id || 'new'}`, [formHtmlId, editingProductFull?.id]);
     
     const getInitialFormValues = useCallback((): ProductFormValues => {
         const initialValues = editingProductFull ? {
@@ -484,7 +485,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         const initialVals = getInitialFormValues();
         formMethods.reset(initialVals);
         setImagePreview(initialVals.imageUrl || null);
-        setImageFile(null); // Reset selected file on new form/edit
+        setImageFile(null); 
     }, [editingProductFull, formMethods, getInitialFormValues]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -492,7 +493,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         const file = event.target.files[0];
         setImageFile(file);
         setImagePreview(URL.createObjectURL(file));
-        formMethods.setValue('imageUrl', ''); // Clear any existing URL if new file is chosen
+        formMethods.setValue('imageUrl', ''); 
       }
     };
 
@@ -559,16 +560,30 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                 )} />
                  <FormItem>
                     <FormLabel>Hình Ảnh Sản Phẩm</FormLabel>
-                    <FormControl>
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="mb-2"
-                        />
-                    </FormControl>
+                    <div className="mt-1">
+                        <FormControl>
+                             <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="hidden" // Hide the default input
+                                id={fileInputId} 
+                            />
+                        </FormControl>
+                        <Label 
+                            htmlFor={fileInputId}
+                            className={cn(
+                                buttonVariants({ variant: "outline" }),
+                                "cursor-pointer inline-flex items-center"
+                            )}
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Chọn hoặc kéo thả ảnh
+                        </Label>
+                    </div>
+                    
                     {imagePreview && !isUploading && (
-                        <div className="mt-2">
+                        <div className="mt-4">
                         <Image
                             src={imagePreview}
                             alt="Xem trước sản phẩm"
@@ -576,15 +591,15 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                             height={100}
                             className="h-24 w-24 object-cover rounded-md border"
                             data-ai-hint="product preview"
-                            onError={() => setImagePreview(null)} // Handle broken image links for existing URLs
+                            onError={() => setImagePreview(null)} 
                         />
                         </div>
                     )}
                     {isUploading && uploadProgress !== null && (
                         <Progress value={uploadProgress} className="w-full mt-2" />
                     )}
-                    {isUploading && <p className="text-xs text-muted-foreground">Đang tải lên: {uploadProgress?.toFixed(0)}%</p>}
-                    {/* Hidden input to hold the imageUrl for form submission for Zod, actual value set by upload or existing */}
+                    {isUploading && <p className="text-xs text-muted-foreground mt-1">Đang tải lên: {uploadProgress?.toFixed(0)}%</p>}
+                    
                     <FormField
                         control={formMethods.control}
                         name="imageUrl"
@@ -626,3 +641,4 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
+
