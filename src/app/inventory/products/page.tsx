@@ -2,17 +2,17 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+// Removed useForm from here as ProductFormContent will manage its own form
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ProductSchema } from '@/lib/schemas';
-import type { Product, ProductUnit } from '@/lib/types';
+import { ProductSchema } from '@/lib/schemas'; // ProductSchema is still needed by ProductFormContent
+import type { Product, ProductUnit, ProductFormValues as ProductFormValuesType } from '@/lib/types'; // Renamed to avoid conflict
 import { useData } from '@/hooks';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormContext, FormProvider } from "@/components/ui/form"; // Keep Form components
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -23,8 +23,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Textarea } from '@/components/ui/textarea'; // Added for consistency if description field were added to product
 
-type ProductFormValues = Omit<Product, 'id' | 'currentStock'>;
+// Type for form values remains the same
+type ProductFormValues = ProductFormValuesType;
 
 const SortableHeader = ({ column, title }: { column: any, title: string }) => {
   const isSorted = column.getIsSorted();
@@ -59,73 +61,29 @@ export default function ProductsPage() {
         minStockLevel: false,
       });
     } else {
-      setColumnVisibility({}); // Show all columns on desktop
+      setColumnVisibility({});
     }
   }, [isMobile]);
 
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(ProductSchema),
-    defaultValues: {
-      name: '',
-      sku: '',
-      unit: PRODUCT_UNITS[0],
-      costPrice: undefined,
-      sellingPrice: undefined,
-      minStockLevel: undefined,
-      initialStock: 0,
-      imageUrl: '',
-    },
-  });
-  
-  React.useEffect(() => {
-    if (editingProduct) {
-      form.reset({
-        name: editingProduct.name,
-        sku: editingProduct.sku || '',
-        unit: editingProduct.unit,
-        costPrice: editingProduct.costPrice,
-        sellingPrice: editingProduct.sellingPrice,
-        minStockLevel: editingProduct.minStockLevel,
-        initialStock: editingProduct.initialStock, 
-        imageUrl: editingProduct.imageUrl || '',
-      });
-    } else {
-      form.reset({
-        name: '', sku: '', unit: PRODUCT_UNITS[0], costPrice: undefined, sellingPrice: undefined,
-        minStockLevel: undefined, initialStock: 0, imageUrl: '',
-      });
-    }
-  }, [editingProduct, form]);
-
-
-  const onSubmit = (values: ProductFormValues, closeModal: () => void) => {
-    if (editingProduct) {
-      updateProduct({ ...editingProduct, ...values, currentStock: getProductStock(editingProduct.id) }); 
+  // Main submit handler, called by ProductFormContent
+  const handleProductFormSubmit = (values: ProductFormValues, productBeingEdited: Product | null, closeModalFn: () => void) => {
+    if (productBeingEdited) {
+      // When updating, ensure we merge with the existing product ID and recalculate currentStock contextually
+      updateProduct({ ...productBeingEdited, ...values, currentStock: getProductStock(productBeingEdited.id) });
       toast({ title: "Thành công!", description: "Đã cập nhật sản phẩm." });
     } else {
-      addProduct(values);
+      addProduct(values); // addProduct expects Omit<Product, 'id' | 'currentStock'>
       toast({ title: "Thành công!", description: "Đã thêm sản phẩm mới." });
     }
-    form.reset();
-    setEditingProduct(null);
-    closeModal();
+    setEditingProduct(null); // Clear the product being edited state
+    closeModalFn();
   };
 
   const handleDelete = (id: string) => {
     deleteProduct(id);
     toast({ title: "Đã xóa", description: "Đã xóa sản phẩm.", variant: "destructive" });
   };
-
-  const openEditModal = (product: Product, openModalFn: () => void) => {
-    setEditingProduct(product);
-    openModalFn();
-  };
   
-  const openNewModal = (openModalFn: () => void) => {
-    setEditingProduct(null);
-    openModalFn();
-  }
-
   const columns: ColumnDef<Product>[] = [
     {
       accessorKey: "imageUrl",
@@ -177,7 +135,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Changed from yellow-500 to yellow-600 for consistency
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
           )}>
             {product.currentStock}
           </span>
@@ -209,23 +167,40 @@ export default function ProductsPage() {
       cell: ({ row }) => (
         <div className="flex gap-1">
            <FormModal<ProductFormValues>
-              title={editingProduct?.id === row.original.id ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
-              formId={`product-form-${row.id}`} 
-              key={editingProduct?.id === row.original.id ? row.original.id : `action-modal-${row.id}`} // ensure re-render for edit
+              title="Chỉnh Sửa Sản Phẩm"
+              formId={`product-form-edit-${row.original.id}`}
               triggerButton={
-                <Button variant="ghost" size="icon" onClick={() => {/* Click handled by onOpenChange */}}>
+                <Button variant="ghost" size="icon">
                   <Edit2 className="h-4 w-4" />
                 </Button>
               }
               onOpenChange={(isOpen) => {
-                if (isOpen) openEditModal(row.original, () => {});
-                else if (editingProduct?.id === row.original.id) setEditingProduct(null);
+                if (isOpen) {
+                  setEditingProduct(row.original);
+                } else {
+                  // Only clear editingProduct if this specific modal is closing
+                  if (editingProduct && editingProduct.id === row.original.id) {
+                    setEditingProduct(null);
+                  }
+                }
               }}
               defaultOpen={false} 
             >
-            {(closeModal) => (
-              <ProductFormContent form={form} onSubmit={(values) => onSubmit(values, closeModal)} closeModal={closeModal} isEditing={!!editingProduct} formHtmlId={`product-form-${row.id}`} />
-            )}
+            {(closeModal) => {
+              // Determine the product to pass for editing, ensuring it's the correct one
+              const productForForm = editingProduct && editingProduct.id === row.original.id ? editingProduct : null;
+              return (
+                <ProductFormContent
+                  // Key ensures re-mount if the product being edited changes or if switching between edit/new
+                  key={productForForm ? productForForm.id : `edit-content-${row.original.id}`}
+                  editingProductFull={productForForm}
+                  onSubmit={(formValues) => handleProductFormSubmit(formValues, productForForm, closeModal)}
+                  closeModalSignal={closeModal} // Pass closeModal for cancel button
+                  isEditing={!!productForForm}
+                  formHtmlId={`product-form-edit-${row.original.id}`}
+                />
+              );
+            }}
           </FormModal>
           <DeleteConfirmDialog 
             onConfirm={() => handleDelete(row.original.id)}
@@ -242,20 +217,28 @@ export default function ProductsPage() {
         <FormModal<ProductFormValues>
           title="Thêm Sản Phẩm Mới"
           description="Điền thông tin chi tiết về sản phẩm."
-          formId="product-form-new"
-          key="add-new-product"
+          formId="product-form-main-new"
+          key="add-new-product-modal-main"
           triggerButton={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
             </Button>
           }
           onOpenChange={(isOpen) => {
-            if (!isOpen && !editingProduct) setEditingProduct(null); 
-            else if (isOpen) openNewModal(() => {}); 
+            if (isOpen) {
+              setEditingProduct(null); // Ensure we are in "new" mode
+            }
           }}
         >
           {(closeModal) => (
-            <ProductFormContent form={form} onSubmit={(values) => onSubmit(values, closeModal)} closeModal={closeModal} isEditing={false} formHtmlId="product-form-new" />
+            <ProductFormContent
+              key={editingProduct ? editingProduct.id : "new-product-form-content-main"}
+              editingProductFull={null} // Explicitly null for new product
+              onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
+              closeModalSignal={closeModal}
+              isEditing={false}
+              formHtmlId="product-form-main-new"
+            />
           )}
         </FormModal>
       </PageHeader>
@@ -277,17 +260,70 @@ export default function ProductsPage() {
 }
 
 interface ProductFormContentProps {
-    form: any; 
-    onSubmit: (values: ProductFormValues, closeModal: () => void) => void;
-    closeModal: () => void;
+    editingProductFull: Product | null;
+    onSubmit: (values: ProductFormValues) => void;
+    closeModalSignal: () => void; // For the cancel button
     isEditing: boolean;
     formHtmlId: string;
 }
 
-function ProductFormContent({ form, onSubmit, closeModal, isEditing, formHtmlId }: ProductFormContentProps) {
+// ProductFormContent now manages its own form instance
+function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
+    const form = React.useMemo(() => new (require('react-hook-form').useForm)({ // Dynamically require to avoid SSR issues if any, though not typical
+        resolver: zodResolver(ProductSchema),
+        defaultValues: editingProductFull ? {
+            name: editingProductFull.name,
+            sku: editingProductFull.sku || '',
+            unit: editingProductFull.unit,
+            costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
+            sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
+            minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
+            initialStock: editingProductFull.initialStock,
+            imageUrl: editingProductFull.imageUrl || '',
+        } : {
+            name: '',
+            sku: '',
+            unit: PRODUCT_UNITS[0],
+            costPrice: '', // Use empty string for optional number inputs for easier clearing
+            sellingPrice: '',
+            minStockLevel: '',
+            initialStock: 0,
+            imageUrl: '',
+        },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), []); // Empty dependency array: form is created once per mount. Reset is handled by useEffect.
+
+
+    React.useEffect(() => {
+        const defaultVals = editingProductFull ? {
+            name: editingProductFull.name,
+            sku: editingProductFull.sku || '',
+            unit: editingProductFull.unit,
+            costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
+            sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
+            minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
+            initialStock: editingProductFull.initialStock,
+            imageUrl: editingProductFull.imageUrl || '',
+        } : {
+            name: '',
+            sku: '',
+            unit: PRODUCT_UNITS[0],
+            costPrice: '',
+            sellingPrice: '',
+            minStockLevel: '',
+            initialStock: 0,
+            imageUrl: '',
+        };
+        form.reset(defaultVals);
+    }, [editingProductFull, form]); // form is stable from useMemo
+
+    const handleInternalSubmit = (data: ProductFormValues) => {
+        onSubmit(data);
+    };
+
     return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit((data: ProductFormValues) => onSubmit(data, closeModal))} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
+        <FormProvider {...form}>
+            <form onSubmit={form.handleSubmit(handleInternalSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Tên Sản Phẩm</FormLabel><FormControl><Input placeholder="VD: Sách Kỹ Năng A" {...field} /></FormControl><FormMessage /></FormItem>
@@ -298,7 +334,7 @@ function ProductFormContent({ form, onSubmit, closeModal, isEditing, formHtmlId 
                 </div>
                 <FormField control={form.control} name="unit" render={({ field }) => (
                     <FormItem><FormLabel>Đơn Vị Tính</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger></FormControl>
                             <SelectContent>{PRODUCT_UNITS.map(unit => (<SelectItem key={unit} value={unit}>{unit}</SelectItem>))}</SelectContent>
                         </Select><FormMessage />
@@ -306,10 +342,10 @@ function ProductFormContent({ form, onSubmit, closeModal, isEditing, formHtmlId 
                 )} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="costPrice" render={({ field }) => (
-                        <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="sellingPrice" render={({ field }) => (
-                        <FormItem><FormLabel>Giá Bán (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Giá Bán (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -322,22 +358,19 @@ function ProductFormContent({ form, onSubmit, closeModal, isEditing, formHtmlId 
                         </FormItem>
                     )} />
                     <FormField control={form.control} name="minStockLevel" render={({ field }) => (
-                        <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <FormField control={form.control} name="imageUrl" render={({ field }) => (
                     <FormItem><FormLabel>URL Hình Ảnh (tùy chọn)</FormLabel><FormControl><Input type="url" placeholder="https://placehold.co/100x100.png" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={closeModal}>Hủy</Button>
+                    <Button type="button" variant="outline" onClick={closeModalSignal}>Hủy</Button>
                     <Button type="submit">Lưu</Button>
                 </div>
             </form>
-        </Form>
+        </FormProvider>
     );
 }
-
-
-    
 
     

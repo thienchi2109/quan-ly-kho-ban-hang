@@ -1,3 +1,4 @@
+
 export type ProductCategory = 'Lương' | 'Bán hàng' | 'Đầu tư' | 'Khác';
 export type ExpenseCategory = 'Thực phẩm' | 'Di chuyển' | 'Nhà ở' | 'Giải trí' | 'Giáo dục' | 'Sức khỏe' | 'Nguyên vật liệu' | 'Khác';
 export type ProductUnit = 'cái' | 'cuốn' | 'kg' | 'lít' | 'bộ' | 'm' | 'thùng' | 'chai' | 'hộp';
@@ -14,6 +15,19 @@ export interface Product {
   currentStock: number; // This will be calculated
   imageUrl?: string; // Optional image for product
 }
+
+// This type is specifically for form values, can differ from Product interface if needed for form processing
+export interface ProductFormValues {
+  name: string;
+  sku?: string;
+  unit: ProductUnit;
+  costPrice?: number | ''; // Allow empty string for optional number inputs
+  sellingPrice?: number | '';
+  minStockLevel?: number | '';
+  initialStock: number;
+  imageUrl?: string;
+}
+
 
 export interface IncomeEntry {
   id: string;
@@ -84,3 +98,4 @@ export type NavLinkIcon =
   | "LineChart" 
   | "BrainCircuit";
 
+    
