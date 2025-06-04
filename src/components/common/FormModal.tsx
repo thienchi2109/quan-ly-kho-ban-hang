@@ -40,22 +40,13 @@ export function FormModal<TFormValues>({
   const isControlled = openProp !== undefined;
   const isOpen = isControlled ? openProp! : internalIsOpen;
 
-  useEffect(() => {
-    // Sync internal state if defaultOpen changes and not controlled
-    // This is mostly for scenarios where defaultOpen might be dynamic, which is rare.
-    if (!isControlled && defaultOpen !== internalIsOpen) {
-      setInternalIsOpen(defaultOpen);
-    }
-  }, [defaultOpen, isControlled, internalIsOpen]);
+  // Removed problematic useEffect that was resetting internalIsOpen
 
   // Effect to handle changes to the controlled 'openProp'
-  // This ensures that if the parent forces the modal open/closed, it reflects.
   useEffect(() => {
     if (isControlled) {
-      // If parent changes openProp, and it differs from internal (though internal isn't strictly used for isOpen calculation when controlled)
-      // this is more about ensuring onOpenChange is called if the prop forces a state that wasn't the last one reported.
-      // However, the Dialog's onOpenChange will typically handle this.
-      // For now, we rely on the Dialog's own onOpenChange to call our handleOpenChange.
+      // If parent changes openProp, this ensures the Dialog component itself is aware.
+      // The Dialog's own onOpenChange will typically handle calling our handleOpenChange.
     }
   }, [openProp, isControlled]);
 
@@ -91,3 +82,4 @@ export function FormModal<TFormValues>({
     </Dialog>
   );
 }
+
