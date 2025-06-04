@@ -14,14 +14,14 @@ import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  TooltipProvider, // Keep TooltipProvider if other parts of sidebar use tooltips internally
+  TooltipProvider,
 } from "@/components/ui/tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "4.5rem" // Updated from 3.5rem
+const SIDEBAR_WIDTH_ICON = "4.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -78,15 +78,17 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState)
         }
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        if (typeof document !== 'undefined') {
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        }
       },
       [setOpenProp, open]
     )
 
     const toggleSidebar = React.useCallback(() => {
       return isMobile
-        ? setOpenMobile((open) => !open)
-        : setOpen((open) => !open)
+        ? setOpenMobile((currentOpen) => !currentOpen)
+        : setOpen((currentOpen) => !currentOpen)
     }, [isMobile, setOpen, setOpenMobile])
 
     React.useEffect(() => {
@@ -119,17 +121,18 @@ const SidebarProvider = React.forwardRef<
       [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
     )
 
+    const baseStyle: React.CSSProperties = {
+      "--sidebar-width": SIDEBAR_WIDTH,
+      "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+    };
+    const combinedStyle = style ? { ...baseStyle, ...style } : baseStyle;
+
+
     return (
       <SidebarContext.Provider value={contextValue}>
         <TooltipProvider delayDuration={0}>
           <div
-            style={
-              {
-                "--sidebar-width": SIDEBAR_WIDTH,
-                "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-                ...style,
-              } as React.CSSProperties
-            }
+            style={combinedStyle}
             className={cn(
               "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
               className
@@ -166,6 +169,18 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const [hasMounted, setHasMounted] = React.useState(false);
+
+    React.useEffect(() => {
+      setHasMounted(true);
+    }, []);
+
+    if (!hasMounted) {
+      // Render nothing on the server and initial client render to avoid hydration mismatch
+      // A placeholder could be used here if layout shift is an issue,
+      // but `null` is safest for preventing hydration errors.
+      return null;
+    }
 
     if (collapsible === "none") {
       return (
@@ -521,15 +536,15 @@ export const sidebarMenuButtonVariants = cva(
 )
 
 const SidebarMenuButton = React.forwardRef<
-  HTMLElement, // More generic as Slot can pass to <a> or <button>
-  React.HTMLAttributes<HTMLElement> & { // Use generic HTMLAttributes
+  HTMLElement, 
+  React.HTMLAttributes<HTMLElement> & { 
     asChild?: boolean;
     isActive?: boolean;
   } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
     {
-      asChild = false, // Default to false, so it renders a button if not specified
+      asChild = false, 
       isActive = false,
       variant = "default",
       size = "default",
@@ -543,12 +558,12 @@ const SidebarMenuButton = React.forwardRef<
 
     return (
       <Comp
-        ref={ref as React.Ref<HTMLButtonElement & HTMLAnchorElement>} // Cast ref appropriately for common targets
+        ref={ref as React.Ref<HTMLButtonElement & HTMLAnchorElement>} 
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...props} // props include children from the caller
+        {...props} 
       >
         {children}
       </Comp>
@@ -670,36 +685,22 @@ const SidebarMenuSubItem = React.forwardRef<
 SidebarMenuSubItem.displayName = "SidebarMenuSubItem"
 
 const SidebarMenuSubButton = React.forwardRef<
-  HTMLAnchorElement, // Usually an anchor if it's a sub-navigation item
-  Omit<React.ComponentProps<typeof Link>, "href"> & // LinkProps excluding href as it's passed by parent
-  React.ComponentProps<"a"> & { // Anchor props for styling and other attributes
+  HTMLAnchorElement, 
+  Omit<React.ComponentProps<typeof Link>, "href"> & 
+  React.ComponentProps<"a"> & { 
     asChild?: boolean;
     size?: "sm" | "md";
     isActive?: boolean;
-    href: string; // href is required
+    href: string; 
   }
 >(({ asChild = false, size = "md", isActive, className, children, href, ...props }, ref) => {
-  // If asChild, Slot will be used. If not, use 'a' directly.
-  // However, since this is inside a Link in AppSidebarNavigation, this component itself
-  // will be the child of Link. Link will render an <a>.
-  // So, this component should probably just be a styled div/span or use Slot if it's complex.
-  // For simplicity, let's assume it renders an 'a' directly for now, and Link wraps it.
-  // Or, if Link is the parent, this SidebarMenuSubButton should be `asChild={true}` and Link is its child.
-  // Let's follow the pattern where this is the styled element, and Link in AppSidebarNav wraps it if needed
-  // or this directly is the Link.
   
-  // The typical usage is <Link><SidebarMenuSubButton/></Link> where SidebarMenuSubButton is the <a>
-  // or <SidebarMenuSubButton asChild><Link/></SidebarMenuSubButton>
-  // Given AppSidebarNavigation uses <Link><SidebarMenuSubButton/></Link>, 
-  // SidebarMenuSubButton should effectively render an <a> or be compatible.
-
   const Comp = asChild ? Slot : "a";
-
 
   return (
     <Comp
       ref={ref}
-      href={href} // Ensure href is passed if Comp is 'a'
+      href={href} 
       data-sidebar="menu-sub-button"
       data-size={size}
       data-active={isActive}
@@ -711,7 +712,7 @@ const SidebarMenuSubButton = React.forwardRef<
         "group-data-[collapsible=icon]:hidden",
         className
       )}
-      {...props} // {...props} should come before children if children are explicit
+      {...props} 
     >
       {children}
     </Comp>
