@@ -2,6 +2,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link" // Added this import
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
@@ -315,7 +316,7 @@ const SidebarRail = React.forwardRef<
 SidebarRail.displayName = "SidebarRail"
 
 const SidebarInset = React.forwardRef<
-  HTMLDivElement, // Changed from HTMLElement to HTMLDivElement for <main>
+  HTMLDivElement, 
   React.ComponentProps<"main">
 >(({ className, ...props }, ref) => {
   const [hasMounted, setHasMounted] = React.useState(false);
@@ -325,7 +326,7 @@ const SidebarInset = React.forwardRef<
   }, []);
 
   if (!hasMounted) {
-    return null; // Prevent server-side rendering and initial client render mismatch
+    return null; 
   }
 
   return (
