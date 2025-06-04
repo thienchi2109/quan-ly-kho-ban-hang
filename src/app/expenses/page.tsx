@@ -21,9 +21,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Edit2, Trash2, ExternalLink } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
 import Image from 'next/image';
+import { Card, CardContent } from '@/components/ui/card';
 
 type ExpenseFormValues = Omit<ExpenseEntry, 'id'>;
 

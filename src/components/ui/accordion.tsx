@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -31,6 +32,8 @@ const AccordionTrigger = React.forwardRef<
         "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
         className
       )}
+      // Ensure AccordionPrimitive.Trigger always renders its own button by not passing asChild or setting it to false.
+      // asChild={false} // This is the default behavior
       {...props}
     >
       {children}

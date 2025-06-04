@@ -16,7 +16,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { ColumnDef } from '@tanstack/react-table';
 import { PlusCircle, Edit2, Trash2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
@@ -241,4 +241,3 @@ function ProductFormContent({ form, onSubmit, closeModal }: ProductFormContentPr
         </Form>
     );
 }
-

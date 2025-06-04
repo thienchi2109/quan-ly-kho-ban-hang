@@ -21,8 +21,9 @@ import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Edit2, Trash2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks';
 import { PRODUCT_CATEGORIES } from '@/lib/types';
+import { Card, CardContent } from '@/components/ui/card';
 
 type IncomeFormValues = Omit<IncomeEntry, 'id'>;
 
