@@ -13,7 +13,7 @@ import {
   ColumnFiltersState,
   getFilteredRowModel,
   VisibilityState,
-  Row, // Import Row type
+  Row, 
 } from "@tanstack/react-table"
 
 import {
@@ -32,6 +32,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -43,7 +44,7 @@ interface DataTableProps<TData, TValue> {
   filterPlaceholder?: string
   columnVisibility?: VisibilityState
   onColumnVisibilityChange?: (visibility: VisibilityState) => void
-  renderCardRow?: (row: Row<TData>) => React.ReactNode; // New prop for mobile card rendering
+  renderCardRow?: (row: Row<TData>) => React.ReactNode; 
 }
 
 export function DataTable<TData, TValue>({
@@ -58,7 +59,6 @@ export function DataTable<TData, TValue>({
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   
-  // Use the passed-in columnVisibility and onColumnVisibilityChange if provided, else use internal state
   const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility || {});
   const currentColumnVisibility = initialColumnVisibility !== undefined ? initialColumnVisibility : internalColumnVisibility;
   const setCurrentColumnVisibility = onColumnVisibilityChange !== undefined ? onColumnVisibilityChange : setInternalColumnVisibility;
@@ -78,6 +78,11 @@ export function DataTable<TData, TValue>({
       columnFilters,
       columnVisibility: currentColumnVisibility,
     },
+    initialState: {
+      pagination: {
+        pageSize: 10, // Default page size
+      }
+    }
   })
 
   const isMobile = useIsMobile();
@@ -120,6 +125,17 @@ export function DataTable<TData, TValue>({
                       headerText = headerDef;
                     } else if (headerDef && typeof headerDef !== 'function' && (headerDef as any).props?.title) {
                       headerText = (headerDef as any).props.title || column.id;
+                    } else if (typeof headerDef === 'function') {
+                        // Attempt to render the header to get text if it's a simple functional component
+                        // This is a heuristic and might not cover all cases
+                        try {
+                            const renderedHeader = headerDef({ column } as any); // Pass a mock context if needed
+                            if (React.isValidElement(renderedHeader) && renderedHeader.props.title) {
+                                headerText = renderedHeader.props.title;
+                            }
+                        } catch (e) {
+                            // Fallback to column.id if rendering fails or title prop isn't found
+                        }
                     }
                     return (
                       <DropdownMenuCheckboxItem
@@ -141,7 +157,6 @@ export function DataTable<TData, TValue>({
       )}
 
       {isMobile && renderCardRow ? (
-        // Mobile Card View
         <div className="space-y-3 pb-4">
           {table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => renderCardRow(row))
@@ -152,7 +167,6 @@ export function DataTable<TData, TValue>({
           )}
         </div>
       ) : (
-        // Desktop Table View
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -199,23 +213,48 @@ export function DataTable<TData, TValue>({
         </div>
       )}
       
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Trước
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Sau
-        </Button>
+      <div className="flex items-center justify-between space-x-2 py-4">
+        <div className="flex items-center space-x-2">
+          <p className="text-sm text-muted-foreground">Số mục mỗi trang</p>
+          <Select
+            value={`${table.getState().pagination.pageSize}`}
+            onValueChange={(value) => {
+              table.setPageSize(Number(value))
+            }}
+          >
+            <SelectTrigger className="h-8 w-[70px]">
+              <SelectValue placeholder={table.getState().pagination.pageSize} />
+            </SelectTrigger>
+            <SelectContent side="top">
+              {[10, 20, 30, 40, 50, 100].map((pageSize) => (
+                <SelectItem key={pageSize} value={`${pageSize}`}>
+                  {pageSize}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center space-x-2">
+           <span className="text-sm text-muted-foreground">
+            Trang {table.getState().pagination.pageIndex + 1} của {table.getPageCount()}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Trước
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Sau
+          </Button>
+        </div>
       </div>
     </div>
   )

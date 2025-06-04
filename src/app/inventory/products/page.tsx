@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProductSchema } from '@/lib/schemas';
@@ -12,12 +12,12 @@ import { Button } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; 
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState, Row } from '@tanstack/react-table';
 import { flexRender } from "@tanstack/react-table";
-import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,9 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Textarea } from '@/components/ui/textarea';
+import { Slider } from "@/components/ui/slider";
+import { Label } from '@/components/ui/label';
+
 
 type ProductFormValues = ProductFormValuesType;
 
@@ -52,6 +55,41 @@ export default function ProductsPage() {
   const isMobile = useIsMobile();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+
+  const { minSellingPrice, maxSellingPrice } = useMemo(() => {
+    if (products.length === 0) {
+      return { minSellingPrice: 0, maxSellingPrice: 1000000 }; // Default if no products
+    }
+    let min = Infinity;
+    let max = 0;
+    products.forEach(p => {
+      if (p.sellingPrice !== undefined) {
+        if (p.sellingPrice < min) min = p.sellingPrice;
+        if (p.sellingPrice > max) max = p.sellingPrice;
+      }
+    });
+    if (min === Infinity) min = 0; // If no products have selling price
+    if (max === 0 && min > 0) max = min; // if only one product with price
+    if (max === 0 && min === 0 && products.length > 0) max = 1000000; // if all products have 0 or no price
+    return { minSellingPrice: min, maxSellingPrice: max > min ? max : min + 100000 }; // Ensure max > min for slider
+  }, [products]);
+
+  useEffect(() => {
+    // Initialize priceRange to full range when component mounts or bounds change
+    setPriceRange([minSellingPrice, maxSellingPrice]);
+  }, [minSellingPrice, maxSellingPrice]);
+
+
+  const displayedProducts = useMemo(() => {
+    if (!priceRange) return products;
+    return products.filter(product => {
+      if (product.sellingPrice === undefined) return false; // Or true, depending on how you want to treat products without price
+      return product.sellingPrice >= priceRange[0] && product.sellingPrice <= priceRange[1];
+    });
+  }, [products, priceRange]);
+
+
   useEffect(() => {
     if (isMobile) {
       setColumnVisibility({
@@ -59,7 +97,6 @@ export default function ProductsPage() {
         costPrice: false,
         sellingPrice: false,
         minStockLevel: false,
-        // imageUrl is handled by Card view now, so can be "false" for table context
         imageUrl: false, 
       });
     } else {
@@ -121,13 +158,13 @@ export default function ProductsPage() {
     { 
       accessorKey: "costPrice", 
       header: ({ column }) => <SortableHeader column={column} title="Giá Vốn" />,
-      cell: ({ row }) => row.original.costPrice?.toLocaleString('vi-VN') + ' đ' || 'N/A',
+      cell: ({ row }) => row.original.costPrice !== undefined ? row.original.costPrice.toLocaleString('vi-VN') + ' đ' : 'N/A',
       enableHiding: true,
     },
     { 
       accessorKey: "sellingPrice", 
       header: ({ column }) => <SortableHeader column={column} title="Giá Bán" />,
-      cell: ({ row }) => row.original.sellingPrice?.toLocaleString('vi-VN') + ' đ' || 'N/A',
+      cell: ({ row }) => row.original.sellingPrice !== undefined ? row.original.sellingPrice.toLocaleString('vi-VN') + ' đ' : 'N/A',
       enableHiding: true,
     },
     { 
@@ -140,7 +177,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Adjusted for better visibility
           )}>
             {product.currentStock}
           </span>
@@ -195,7 +232,7 @@ export default function ProductsPage() {
               const productForForm = editingProduct && editingProduct.id === row.original.id ? editingProduct : null;
               return (
                 <ProductFormContent
-                  key={productForForm ? `edit-content-${productForForm.id}` : `edit-content-noop-${row.original.id}`}
+                  key={productForForm ? `edit-form-${productForForm.id}` : `edit-form-noop-${row.original.id}`}
                   editingProductFull={productForForm}
                   onSubmit={(formValues) => handleProductFormSubmit(formValues, productForForm, closeModal)}
                   closeModalSignal={closeModal}
@@ -218,7 +255,6 @@ export default function ProductsPage() {
     const product = row.original;
     
     const imageCell = row.getVisibleCells().find(cell => cell.column.id === 'imageUrl');
-    const nameCell = row.getVisibleCells().find(cell => cell.column.id === 'name'); // Not used for title directly if product.name is better
     const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
     const statusCell = row.getVisibleCells().find(cell => cell.column.id === 'status');
     const stockCell = row.getVisibleCells().find(cell => cell.column.id === 'currentStock');
@@ -227,18 +263,20 @@ export default function ProductsPage() {
     return (
       <Card key={product.id} className="w-full">
         <CardHeader className="pb-3 flex flex-row items-start gap-4">
-          {imageCell && product.imageUrl && ( // Only render if imageCell and imageUrl exist
-            <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-md overflow-hidden border">
-              {flexRender(imageCell.column.columnDef.cell, imageCell.getContext())}
+          {product.imageUrl ? (
+             <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-md overflow-hidden border">
+              <Image src={product.imageUrl} alt={product.name} width={80} height={80} className="h-full w-full object-cover" data-ai-hint="product item" />
             </div>
+          ) : (
+             <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-md bg-muted flex items-center justify-center text-muted-foreground text-xs">N/A</div>
           )}
           <div className="flex-grow">
             <CardTitle className="text-lg mb-1">{product.name}</CardTitle>
             <CardDescription>
               {product.sku ? `SKU: ${product.sku}` : ''}
-              {product.sku && unitCell ? ' - ' : ''}
-              {unitCell && `ĐVT: ${flexRender(unitCell.column.columnDef.cell, unitCell.getContext())}`}
-              {!product.sku && !unitCell && <span className="italic">Không có SKU/ĐVT</span>}
+              {product.sku && product.unit ? ' - ' : ''}
+              {product.unit && `ĐVT: ${product.unit}`}
+              {!product.sku && !product.unit && <span className="italic">Không có SKU/ĐVT</span>}
             </CardDescription>
           </div>
         </CardHeader>
@@ -283,7 +321,6 @@ export default function ProductsPage() {
     );
   };
 
-
   return (
     <>
       <PageHeader title="Quản Lý Sản Phẩm" description="Thêm mới, chỉnh sửa và xem danh sách sản phẩm của bạn.">
@@ -305,7 +342,7 @@ export default function ProductsPage() {
         >
           {(closeModal) => (
             <ProductFormContent
-              key={editingProduct ? `edit-content-${editingProduct.id}-new` : "new-product-form-content-main"}
+              key={editingProduct ? `add-content-${editingProduct.id}-new` : "new-product-form-content-main"}
               editingProductFull={null}
               onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
               closeModalSignal={closeModal}
@@ -316,11 +353,46 @@ export default function ProductsPage() {
         </FormModal>
       </PageHeader>
 
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Bộ Lọc Giá Bán</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {priceRange && (
+            <div className="space-y-4">
+              <Slider
+                min={minSellingPrice}
+                max={maxSellingPrice}
+                step={Math.max(1, Math.floor((maxSellingPrice - minSellingPrice) / 100))} // Dynamic step
+                value={priceRange}
+                onValueChange={(newRange) => setPriceRange(newRange as [number, number])}
+                className="w-full"
+                disabled={products.length === 0}
+              />
+              <div className="flex justify-between items-center text-sm text-muted-foreground">
+                <span>Từ: {priceRange[0].toLocaleString('vi-VN')} đ</span>
+                <span>Đến: {priceRange[1].toLocaleString('vi-VN')} đ</span>
+                 <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setPriceRange([minSellingPrice, maxSellingPrice])}
+                  disabled={priceRange[0] === minSellingPrice && priceRange[1] === maxSellingPrice}
+                  title="Xóa bộ lọc giá"
+                >
+                  <FilterX className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Xóa Lọc</span>
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
-        <CardContent className="pt-0 sm:pt-6"> {/* pt-0 for mobile to reduce top space */}
+        <CardContent className="pt-0 sm:pt-6">
           <DataTable 
             columns={columns} 
-            data={products} 
+            data={displayedProducts} 
             filterColumn="name" 
             filterPlaceholder="Lọc theo tên sản phẩm..."
             columnVisibility={columnVisibility}
@@ -343,7 +415,7 @@ interface ProductFormContentProps {
 
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
     
-    const getInitialFormValues = React.useCallback((): ProductFormValues => {
+    const getInitialFormValues = useCallback((): ProductFormValues => {
         return editingProductFull ? {
             name: editingProductFull.name,
             sku: editingProductFull.sku || '',
@@ -351,7 +423,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
             sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
             minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
-            initialStock: editingProductFull.initialStock, // Should reflect actual initialStock, not current
+            initialStock: editingProductFull.initialStock,
             imageUrl: editingProductFull.imageUrl || '',
         } : {
             name: '',
@@ -369,8 +441,8 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         resolver: zodResolver(ProductSchema),
         defaultValues: getInitialFormValues(),
     });
-
-    React.useEffect(() => {
+    
+    useEffect(() => {
         formMethods.reset(getInitialFormValues());
     }, [editingProductFull, formMethods, getInitialFormValues]);
 
@@ -429,3 +501,4 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
+
