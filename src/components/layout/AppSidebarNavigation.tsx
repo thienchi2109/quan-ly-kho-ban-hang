@@ -39,21 +39,29 @@ export default function AppSidebarNavigation() {
           {navLinks.map((link, index) => {
             const isActiveParent = link.subLinks ? link.subLinks.some(subLink => pathname.startsWith(subLink.href)) : false;
             const isActiveDirect = !link.subLinks && pathname === link.href;
+            const isCollapsedAndDesktop = sidebarState === 'collapsed' && !isMobile;
 
             return link.subLinks ? (
               <AccordionItem value={`item-${index}`} key={link.label} className="border-none">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                     <UiAccordionTrigger // Removed asChild here
+                     <UiAccordionTrigger
                         className={cn(
                           sidebarMenuButtonVariants({variant: "default", size: "default"}),
-                          "justify-between", // Ensure space between content and chevron
+                          !isCollapsedAndDesktop && "justify-between", // Apply justify-between only if expanded or mobile
                           { "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90": isActiveParent },
                         )}
                       >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className={cn(
+                          "flex items-center gap-2 min-w-0",
+                          !isCollapsedAndDesktop && "flex-1" // flex-1 only if expanded or mobile
+                        )}>
                            <LucideIcon name={link.icon as NavLinkIcon} />
-                           <span className="flex-1 min-w-0 truncate group-data-[collapsible=icon]:hidden">
+                           <span className={cn(
+                             "min-w-0 truncate",
+                             !isCollapsedAndDesktop && "flex-1",
+                             isCollapsedAndDesktop && "hidden" // Directly hide label when collapsed on desktop
+                           )}>
                              {link.label}
                            </span>
                         </div>
@@ -62,7 +70,7 @@ export default function AppSidebarNavigation() {
                   </TooltipTrigger>
                   <TooltipContent side="right" align="center"
                                   className={cn("bg-popover text-popover-foreground",
-                                               {"hidden": !(sidebarState === 'collapsed' && !isMobile)})}
+                                               {"hidden": !isCollapsedAndDesktop})}
                   >
                     {link.label}
                   </TooltipContent>
@@ -108,13 +116,16 @@ export default function AppSidebarNavigation() {
                         )}
                       >
                         <LucideIcon name={link.icon as NavLinkIcon} />
-                        <span className="flex-1 min-w-0 truncate group-data-[collapsible=icon]:hidden">{link.label}</span>
+                        <span className={cn(
+                          "flex-1 min-w-0 truncate",
+                          isCollapsedAndDesktop && "hidden" // Directly hide label when collapsed on desktop
+                        )}>{link.label}</span>
                       </a>
                     </Link>
                   </TooltipTrigger>
                    <TooltipContent side="right" align="center"
                                   className={cn("bg-popover text-popover-foreground",
-                                               {"hidden": !(sidebarState === 'collapsed' && !isMobile)})}
+                                               {"hidden": !isCollapsedAndDesktop})}
                   >
                     {link.label}
                   </TooltipContent>
