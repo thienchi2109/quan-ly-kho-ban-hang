@@ -1,12 +1,12 @@
+
 "use client";
 
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar"; // SidebarTrigger for desktop, useSidebar for mobile state
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import AppSidebarNavigation from "./AppSidebarNavigation";
+// Removed Sheet, SheetContent, SheetTrigger as ShadcnSheetTrigger from here as AppHeader won't define its own sheet.
+// The Sheet is managed by the Sidebar component from @/components/ui/sidebar based on isMobile and openMobile state.
+import AppSidebarNavigation from "./AppSidebarNavigation"; // This import was unused here, potentially for an old structure. Removing if truly unused by AppHeader directly.
 import { PanelLeft } from "lucide-react";
-import { useIsMobile } from "@/hooks";
-import { useSidebar } from "@/components/ui/sidebar"; // Corrected import path
 
 export default function AppHeader() {
   const { toggleSidebar, isMobile } = useSidebar();
@@ -14,21 +14,20 @@ export default function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
       {isMobile ? (
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button size="icon" variant="outline" className="sm:hidden">
-              <PanelLeft className="h-5 w-5" />
-              <span className="sr-only">Toggle Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="sm:max-w-xs bg-sidebar text-sidebar-foreground p-0">
-             <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-                <h1 className="text-lg font-semibold text-sidebar-foreground">QUẢN LÝ KHO</h1>
-              </div>
-            <AppSidebarNavigation />
-          </SheetContent>
-        </Sheet>
+        // This button now correctly calls toggleSidebar which manages the 'openMobile' state
+        // for the Sheet rendered by the main Sidebar component.
+        <Button 
+          size="icon" 
+          variant="outline" 
+          className="sm:hidden" 
+          onClick={toggleSidebar}
+          aria-label="Toggle Menu"
+        >
+          <PanelLeft className="h-5 w-5" />
+          <span className="sr-only">Toggle Menu</span>
+        </Button>
       ) : (
+        // This is the desktop sidebar trigger (e.g., to collapse/expand if collapsible="icon" on desktop)
         <SidebarTrigger className="hidden md:flex" />
       )}
       <div className="flex-1">
@@ -38,3 +37,4 @@ export default function AppHeader() {
     </header>
   );
 }
+
