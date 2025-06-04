@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProductSchema } from '@/lib/schemas';
@@ -15,13 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type ProductFormValues = Omit<Product, 'id' | 'currentStock'>;
 
@@ -46,6 +47,21 @@ export default function ProductsPage() {
   const { products, addProduct, updateProduct, deleteProduct, getProductStock } = useData();
   const { toast } = useToast();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const isMobile = useIsMobile();
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+
+  useEffect(() => {
+    if (isMobile) {
+      setColumnVisibility({
+        sku: false,
+        costPrice: false,
+        sellingPrice: false,
+        minStockLevel: false,
+      });
+    } else {
+      setColumnVisibility({}); // Show all columns on desktop
+    }
+  }, [isMobile]);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(ProductSchema),
@@ -161,7 +177,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Changed from yellow-500 to yellow-600 for consistency
           )}>
             {product.currentStock}
           </span>
@@ -194,7 +210,8 @@ export default function ProductsPage() {
         <div className="flex gap-1">
            <FormModal<ProductFormValues>
               title={editingProduct?.id === row.original.id ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
-              formId={`product-form-${row.id}`} // Unique formId
+              formId={`product-form-${row.id}`} 
+              key={editingProduct?.id === row.original.id ? row.original.id : `action-modal-${row.id}`} // ensure re-render for edit
               triggerButton={
                 <Button variant="ghost" size="icon" onClick={() => {/* Click handled by onOpenChange */}}>
                   <Edit2 className="h-4 w-4" />
@@ -207,7 +224,7 @@ export default function ProductsPage() {
               defaultOpen={false} 
             >
             {(closeModal) => (
-              <ProductFormContent form={form} onSubmit={(values) => onSubmit(values, closeModal)} closeModal={closeModal} isEditing={!!editingProduct} />
+              <ProductFormContent form={form} onSubmit={(values) => onSubmit(values, closeModal)} closeModal={closeModal} isEditing={!!editingProduct} formHtmlId={`product-form-${row.id}`} />
             )}
           </FormModal>
           <DeleteConfirmDialog 
@@ -225,7 +242,8 @@ export default function ProductsPage() {
         <FormModal<ProductFormValues>
           title="Thêm Sản Phẩm Mới"
           description="Điền thông tin chi tiết về sản phẩm."
-          formId="product-form-new" // Unique formId
+          formId="product-form-new"
+          key="add-new-product"
           triggerButton={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
@@ -237,14 +255,21 @@ export default function ProductsPage() {
           }}
         >
           {(closeModal) => (
-            <ProductFormContent form={form} onSubmit={(values) => onSubmit(values, closeModal)} closeModal={closeModal} isEditing={false} />
+            <ProductFormContent form={form} onSubmit={(values) => onSubmit(values, closeModal)} closeModal={closeModal} isEditing={false} formHtmlId="product-form-new" />
           )}
         </FormModal>
       </PageHeader>
 
       <Card>
         <CardContent className="pt-6">
-          <DataTable columns={columns} data={products} filterColumn="name" filterPlaceholder="Lọc theo tên sản phẩm..." />
+          <DataTable 
+            columns={columns} 
+            data={products} 
+            filterColumn="name" 
+            filterPlaceholder="Lọc theo tên sản phẩm..."
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
+          />
         </CardContent>
       </Card>
     </>
@@ -256,12 +281,13 @@ interface ProductFormContentProps {
     onSubmit: (values: ProductFormValues, closeModal: () => void) => void;
     closeModal: () => void;
     isEditing: boolean;
+    formHtmlId: string;
 }
 
-function ProductFormContent({ form, onSubmit, closeModal, isEditing }: ProductFormContentProps) {
+function ProductFormContent({ form, onSubmit, closeModal, isEditing, formHtmlId }: ProductFormContentProps) {
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit((data: ProductFormValues) => onSubmit(data, closeModal))} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={form.formId}>
+            <form onSubmit={form.handleSubmit((data: ProductFormValues) => onSubmit(data, closeModal))} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto p-1" id={formHtmlId}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Tên Sản Phẩm</FormLabel><FormControl><Input placeholder="VD: Sách Kỹ Năng A" {...field} /></FormControl><FormMessage /></FormItem>
@@ -311,5 +337,7 @@ function ProductFormContent({ form, onSubmit, closeModal, isEditing }: ProductFo
     );
 }
 
+
+    
 
     

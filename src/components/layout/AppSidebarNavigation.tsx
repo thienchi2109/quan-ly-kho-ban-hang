@@ -12,13 +12,12 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { cn } from '@/lib/utils';
 import { navLinks, NavLinkIcon } from '@/lib/types';
 import * as Icons from 'lucide-react';
-// ChevronDown might be re-added by UiAccordionTrigger itself, or we might need to adjust if UiAccordionTrigger's chevron is styled differently
-// For now, assume UiAccordionTrigger will provide its own, correctly styled and rotating chevron.
+// ChevronDown will be rendered by UiAccordionTrigger itself
 
 const LucideIcon = ({ name, className }: { name: NavLinkIcon; className?: string }) => {
   const IconComponent = Icons[name as keyof typeof Icons] as React.ElementType;
   if (!IconComponent) {
-    // Fallback icon if the name is not found
+    // Fallback icon if specified icon name is invalid
     return <Icons.AlertCircle className={cn("h-4 w-4", className)} />;
   }
   return <IconComponent className={cn("h-4 w-4", className)} />;
@@ -26,10 +25,16 @@ const LucideIcon = ({ name, className }: { name: NavLinkIcon; className?: string
 
 export default function AppSidebarNavigation() {
   const pathname = usePathname();
-  const { isMobile, state: sidebarState } = useSidebar();
+  const { isMobile, setOpenMobile, state: sidebarState } = useSidebar();
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
-    <nav className="flex flex-col gap-1 px-2 py-4"> {/* Reduced gap-2 to gap-1 for tighter packing if needed */}
+    <nav className="flex flex-col gap-1 px-2 py-4">
       <TooltipProvider delayDuration={0}>
         <Accordion type="multiple" className="w-full">
           {navLinks.map((link, index) => {
@@ -39,24 +44,24 @@ export default function AppSidebarNavigation() {
             return link.subLinks ? (
               <AccordionItem value={`item-${index}`} key={link.label} className="border-none">
                 <Tooltip>
-                  <TooltipTrigger> {/* No asChild, TooltipTrigger renders its own element */}
-                    <UiAccordionTrigger // This will render a button with its own chevron
+                  <TooltipTrigger asChild>
+                    <UiAccordionTrigger
+                      // NO asChild here. UiAccordionTrigger renders its own button.
+                      // TooltipTrigger's asChild makes this button the tooltip trigger.
                       className={cn(
                         sidebarMenuButtonVariants({variant: "default", size: "default"}),
-                        // Standard AccordionTrigger has justify-between by default,
-                        // sidebarMenuButtonVariants ensures consistent padding/height.
-                        // The rotation class is part of UiAccordionTrigger's internal svg targeting.
-                        { "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90": isActiveParent }
+                        { "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90": isActiveParent },
+                        // The chevron inside UiAccordionTrigger will handle its own rotation via its classes
                       )}
                     >
-                      {/* Content for the AccordionTrigger's button */}
+                      {/* Content for the button rendered by UiAccordionTrigger */}
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <LucideIcon name={link.icon as NavLinkIcon} />
                         <span className="flex-1 min-w-0 truncate group-data-[collapsible=icon]:hidden">
                           {link.label}
                         </span>
                       </div>
-                      {/* UiAccordionTrigger will append its own ChevronDown here and handle rotation */}
+                      {/* UiAccordionTrigger will append its own ChevronDown */}
                     </UiAccordionTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="right" align="center"
@@ -67,13 +72,16 @@ export default function AppSidebarNavigation() {
                   </TooltipContent>
                 </Tooltip>
                 <AccordionContent className="pb-0 pl-4 group-data-[collapsible=icon]:hidden">
-                  <ul className="ml-4 my-1 space-y-1 list-none border-l border-sidebar-border pl-2"> {/* Adjusted sub-item list styling */}
+                  <ul className="ml-4 my-1 space-y-1 list-none border-l border-sidebar-border pl-2">
                     {link.subLinks.map((subLink) => (
                       <li key={subLink.href} className="list-none">
-                        <Link href={subLink.href} legacyBehavior={false}
+                        <Link 
+                          href={subLink.href} 
+                          legacyBehavior={false} // Use default behavior for Next.js 13+ Link
+                          onClick={handleLinkClick}
                           className={cn(
                             sidebarMenuButtonVariants({variant: "default", size: "sm"}),
-                            "pl-3", // Adjusted padding for sub-items
+                            "pl-3", // Specific padding for sub-item
                             (pathname === subLink.href || (pathname.startsWith(subLink.href) && subLink.href !== '/inventory')) && "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/90"
                           )}
                         >
@@ -85,12 +93,13 @@ export default function AppSidebarNavigation() {
                   </ul>
                 </AccordionContent>
               </AccordionItem>
-            ) : ( // Non-accordion item
+            ) : ( 
               <li key={link.href} className="list-none">
                 <Tooltip>
                   <TooltipTrigger asChild>
                      <Link
                       href={link.href}
+                      onClick={handleLinkClick}
                       className={cn(
                         sidebarMenuButtonVariants({variant: "default", size: "default"}),
                         isActiveDirect && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
