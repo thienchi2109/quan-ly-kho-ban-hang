@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { DataProvider } from '@/contexts/DataContext';
 import AppLayout from '@/components/layout/AppLayout';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const inter = Inter({ subsets: ['latin'] }); // Removed variable option
 
 export const metadata: Metadata = {
   title: 'QUẢN LÝ KHO - THU CHI',
@@ -22,7 +22,7 @@ export default function RootLayout({
       <head>
         {/* Standard Next.js font handling does not require manual <link> tags for Google Fonts when using next/font */}
       </head>
-      <body className={`${inter.variable} font-body antialiased`}>
+      <body className={`${inter.className} antialiased`}> {/* Used inter.className, removed font-body from here */}
         <DataProvider>
           <AppLayout>
             {children}
