@@ -2,6 +2,7 @@
 export type ProductCategory = 'Lương' | 'Bán hàng' | 'Đầu tư' | 'Khác';
 export type ExpenseCategory = 'Thực phẩm' | 'Di chuyển' | 'Nhà ở' | 'Giải trí' | 'Giáo dục' | 'Sức khỏe' | 'Nguyên vật liệu' | 'Khác';
 export type ProductUnit = 'cái' | 'cuốn' | 'kg' | 'lít' | 'bộ' | 'm' | 'thùng' | 'chai' | 'hộp';
+export type SalesOrderStatus = 'Mới' | 'Hoàn thành' | 'Đã hủy';
 
 export interface Product {
   id: string;
@@ -16,12 +17,11 @@ export interface Product {
   imageUrl?: string; // Optional image for product
 }
 
-// This type is specifically for form values, can differ from Product interface if needed for form processing
 export interface ProductFormValues {
   name: string;
   sku?: string;
   unit: ProductUnit;
-  costPrice?: number | ''; // Allow empty string for optional number inputs
+  costPrice?: number | '';
   sellingPrice?: number | '';
   minStockLevel?: number | '';
   initialStock: number;
@@ -31,15 +31,16 @@ export interface ProductFormValues {
 
 export interface IncomeEntry {
   id: string;
-  date: string; // ISO string
+  date: string; 
   amount: number;
   category: ProductCategory;
   description?: string;
+  relatedOrderId?: string; // To link income to a sales order
 }
 
 export interface ExpenseEntry {
   id: string;
-  date: string; // ISO string
+  date: string; 
   amount: number;
   category: ExpenseCategory;
   description?: string;
@@ -53,19 +54,47 @@ export interface InventoryTransaction {
   productId: string;
   type: InventoryTransactionType;
   quantity: number;
+  date: string; 
+  relatedParty?: string; 
+  notes?: string;
+  relatedOrderId?: string; // To link transaction to a sales order
+}
+
+export interface OrderItem {
+  id: string; // Temporary ID for form handling, or actual ID if fetched
+  productId: string;
+  productName: string; // Denormalized for display
+  quantity: number;
+  unitPrice: number; // Price at which it was sold
+  costPrice: number; // Cost price of the product at the time of sale
+  totalPrice: number; // quantity * unitPrice
+}
+
+export interface SalesOrder {
+  id: string;
+  orderNumber: string; // Auto-generated or manual
+  customerId?: string; // Optional, can be simple text field for now
+  customerName?: string;
   date: string; // ISO string
-  relatedParty?: string; // Supplier for import, Customer for export
+  items: OrderItem[];
+  totalAmount: number;
+  totalCost: number; // Sum of (item.costPrice * item.quantity)
+  totalProfit: number; // totalAmount - totalCost
+  status: SalesOrderStatus;
   notes?: string;
 }
+
 
 export const PRODUCT_CATEGORIES: ProductCategory[] = ['Lương', 'Bán hàng', 'Đầu tư', 'Khác'];
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Thực phẩm', 'Di chuyển', 'Nhà ở', 'Giải trí', 'Giáo dục', 'Sức khỏe', 'Nguyên vật liệu', 'Khác'];
 export const PRODUCT_UNITS: ProductUnit[] = ['cái', 'cuốn', 'kg', 'lít', 'bộ', 'm', 'thùng', 'chai', 'hộp'];
+export const SALES_ORDER_STATUSES: SalesOrderStatus[] = ['Mới', 'Hoàn thành', 'Đã hủy'];
 
 export const navLinks = [
   { href: "/dashboard", label: "Tổng Quan", icon: "LayoutDashboard" },
   { href: "/income", label: "Thu Nhập", icon: "TrendingUp" },
   { href: "/expenses", label: "Chi Tiêu", icon: "TrendingDown" },
+  { href: "/sales/orders", label: "Đơn Hàng Bán", icon: "ShoppingCart" },
   {
     label: "Quản Lý Kho",
     icon: "Warehouse",
@@ -85,6 +114,7 @@ export const navLinks = [
   },
   { href: "/forecasting", label: "Dự Báo AI", icon: "BrainCircuit" },
 ];
+
 export type NavLinkIcon = 
   | "LayoutDashboard" 
   | "TrendingUp" 
@@ -96,6 +126,6 @@ export type NavLinkIcon =
   | "BarChart3" 
   | "Boxes" 
   | "LineChart" 
-  | "BrainCircuit";
-
+  | "BrainCircuit"
+  | "ShoppingCart"; // Added ShoppingCart
     
