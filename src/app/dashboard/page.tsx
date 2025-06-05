@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
 import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -15,6 +16,30 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 const chartDataFormatter = (value: number) => value.toLocaleString('vi-VN') + ' đ';
+
+const tooltipContentFormatter = (value: number, name: string, props: Payload<number, string>) => {
+    const formattedValue = chartDataFormatter(value);
+    // props.color should contain the stroke color from the <Line /> component e.g. "var(--color-income)"
+    // props.payload.color might also work in some recharts versions or for other chart types
+    const indicatorColor = props.color || (props.payload && (props.payload as any).fill) || (props.payload && (props.payload as any).stroke);
+
+    return (
+        <div className="flex w-full items-center justify-start gap-1.5 text-sm" style={{ minWidth: '150px' }}>
+            <span style={{
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: indicatorColor,
+                marginRight: '4px',
+                flexShrink: 0,
+            }} />
+            <span className="text-muted-foreground flex-shrink-0 min-w-[60px]">{name}:</span>
+            <span className="font-semibold ml-1 truncate text-right flex-grow">{formattedValue}</span>
+        </div>
+    );
+};
+
 
 export default function DashboardPage() {
   const { 
@@ -47,9 +72,11 @@ export default function DashboardPage() {
         dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0, balance: 0 };
       }
       
-      if ('category' in entry && incomeEntries.some(ie => ie.id === entry.id)) { 
+      // Check if entry is an IncomeEntry by checking if it's present in incomeEntries array
+      // This is a simplified check; more robust type guards or a 'type' field would be better in a complex scenario
+      if (incomeEntries.some(ie => ie.id === entry.id && 'category' in ie)) { 
         dataMap[monthKey].income += entry.amount;
-      } else {
+      } else { // Assumed to be an ExpenseEntry
         dataMap[monthKey].expenses += entry.amount;
       }
       dataMap[monthKey].balance = dataMap[monthKey].income - dataMap[monthKey].expenses;
@@ -228,7 +255,7 @@ export default function DashboardPage() {
                     axisLine={false}
                   />
                   <YAxis tickFormatter={chartDataFormatter} axisLine={false} tickLine={false} />
-                  <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
+                  <RechartsTooltip content={<ChartTooltipContent formatter={tooltipContentFormatter} />} />
                   <Legend />
                   <Line type="monotone" dataKey="income" strokeWidth={2} stroke="var(--color-income)" name="Thu Nhập" dot={{ r: 4, fill: "var(--color-income)" }} activeDot={{ r: 6 }} />
                   <Line type="monotone" dataKey="expenses" strokeWidth={2} stroke="var(--color-expenses)" name="Chi Phí" dot={{ r: 4, fill: "var(--color-expenses)" }} activeDot={{ r: 6 }} />
@@ -295,3 +322,4 @@ export default function DashboardPage() {
     </>
   );
 }
+
