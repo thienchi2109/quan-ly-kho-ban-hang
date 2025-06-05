@@ -13,17 +13,16 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Popover and Calendar removed
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_CATEGORIES } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 type IncomeFormValues = Omit<IncomeEntry, 'id'>;
 
@@ -31,7 +30,6 @@ export default function IncomePage() {
   const { incomeEntries, addIncomeEntry, deleteIncomeEntry } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // isDatePickerOpen state removed
 
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(IncomeEntrySchema),
@@ -78,6 +76,7 @@ export default function IncomePage() {
     {
       accessorKey: "description",
       header: "Mô Tả",
+      cell: ({ row }) => row.getValue("description") || <span className="text-muted-foreground italic">Không có</span>,
     },
     {
       id: "actions",
@@ -91,6 +90,47 @@ export default function IncomePage() {
       ),
     },
   ];
+
+  const renderIncomeCard = (row: Row<IncomeEntry>): React.ReactNode => {
+    const income = row.original;
+    const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+    const dateCell = row.getVisibleCells().find(cell => cell.column.id === 'date');
+    const amountCell = row.getVisibleCells().find(cell => cell.column.id === 'amount');
+    
+    return (
+      <Card key={income.id} className="w-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base mb-1">{income.category}</CardTitle>
+          {dateCell && <CardDescription>{flexRender(dateCell.column.columnDef.cell, dateCell.getContext())}</CardDescription>}
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm pt-0">
+          {amountCell && 
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Số tiền:</span>
+              <span>{flexRender(amountCell.column.columnDef.cell, amountCell.getContext())}</span>
+            </div>
+          }
+          {income.description && (
+            <div>
+              <span className="text-muted-foreground font-medium">Mô tả: </span>
+              <span>{income.description}</span>
+            </div>
+          )}
+           {!income.description && (
+             <div>
+                <span className="text-muted-foreground font-medium">Mô tả: </span>
+                <span className="text-muted-foreground italic">Không có</span>
+            </div>
+          )}
+        </CardContent>
+        {actionsCell && (
+          <CardFooter className="flex justify-end pt-3 pb-3">
+            {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+          </CardFooter>
+        )}
+      </Card>
+    );
+  };
 
   return (
     <>
@@ -190,7 +230,13 @@ export default function IncomePage() {
 
       <Card>
         <CardContent className="pt-6">
-          <DataTable columns={columns} data={incomeEntries} filterColumn="description" filterPlaceholder="Lọc theo mô tả..." />
+          <DataTable 
+            columns={columns} 
+            data={incomeEntries} 
+            filterColumn="description" 
+            filterPlaceholder="Lọc theo mô tả..."
+            renderCardRow={renderIncomeCard}
+          />
         </CardContent>
       </Card>
     </>

@@ -86,13 +86,15 @@ export function DataTable<TData, TValue>({
   })
 
   const isMobile = useIsMobile();
+  const hasHideableColumns = React.useMemo(() => columns.some(col => col.enableHiding !== false && col.getCanHide && col.getCanHide()), [columns]);
+
 
   return (
     <div>
-      {(filterColumn || columns.some(col => col.enableHiding !== false)) && (
+      {(filterColumn || hasHideableColumns) && (
         <div className={cn(
           "flex flex-col gap-2 py-4 sm:flex-row sm:items-center",
-          (filterColumn && columns.some(col => col.enableHiding !== false)) ? "sm:justify-between" : 
+          (filterColumn && hasHideableColumns) ? "sm:justify-between" : 
           filterColumn ? "sm:justify-start" : "sm:justify-end"
         )}>
           {filterColumn && (
@@ -105,7 +107,7 @@ export function DataTable<TData, TValue>({
               className="w-full sm:max-w-xs md:max-w-sm"
             />
           )}
-          {columns.some(col => col.enableHiding !== false) && (
+          {hasHideableColumns && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-auto">
@@ -126,15 +128,15 @@ export function DataTable<TData, TValue>({
                     } else if (headerDef && typeof headerDef !== 'function' && (headerDef as any).props?.title) {
                       headerText = (headerDef as any).props.title || column.id;
                     } else if (typeof headerDef === 'function') {
-                        // Attempt to render the header to get text if it's a simple functional component
-                        // This is a heuristic and might not cover all cases
                         try {
-                            const renderedHeader = headerDef({ column } as any); // Pass a mock context if needed
+                            const renderedHeader = headerDef({ column } as any); 
                             if (React.isValidElement(renderedHeader) && renderedHeader.props.title) {
                                 headerText = renderedHeader.props.title;
+                            } else if (React.isValidElement(renderedHeader) && typeof renderedHeader.props.children === 'string') {
+                                headerText = renderedHeader.props.children;
                             }
                         } catch (e) {
-                            // Fallback to column.id if rendering fails or title prop isn't found
+                           // fallback to column.id
                         }
                     }
                     return (

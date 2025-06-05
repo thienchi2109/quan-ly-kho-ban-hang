@@ -13,18 +13,17 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Popover and Calendar removed
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
 import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 type ExpenseFormValues = Omit<ExpenseEntry, 'id'>;
 
@@ -32,7 +31,6 @@ export default function ExpensesPage() {
   const { expenseEntries, addExpenseEntry, deleteExpenseEntry } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // isDatePickerOpen state removed
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(ExpenseEntrySchema),
@@ -81,6 +79,7 @@ export default function ExpensesPage() {
     {
       accessorKey: "description",
       header: "Mô Tả",
+      cell: ({ row }) => row.getValue("description") || <span className="text-muted-foreground italic">Không có</span>,
     },
     {
       accessorKey: "receiptImageUrl",
@@ -95,7 +94,7 @@ export default function ExpensesPage() {
             </a>
           );
         }
-        return <span className="text-muted-foreground">Không có</span>;
+        return <span className="text-muted-foreground italic">Không có</span>;
       },
     },
     {
@@ -110,6 +109,55 @@ export default function ExpensesPage() {
       ),
     },
   ];
+
+  const renderExpenseCard = (row: Row<ExpenseEntry>): React.ReactNode => {
+    const expense = row.original;
+    const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+    const dateCell = row.getVisibleCells().find(cell => cell.column.id === 'date');
+    const amountCell = row.getVisibleCells().find(cell => cell.column.id === 'amount');
+    const receiptCell = row.getVisibleCells().find(cell => cell.column.id === 'receiptImageUrl');
+    
+    return (
+      <Card key={expense.id} className="w-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base mb-1">{expense.category}</CardTitle>
+          {dateCell && <CardDescription>{flexRender(dateCell.column.columnDef.cell, dateCell.getContext())}</CardDescription>}
+        </CardHeader>
+        <CardContent className="space-y-1.5 text-sm pt-0">
+          {amountCell && 
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Số tiền:</span>
+              <span>{flexRender(amountCell.column.columnDef.cell, amountCell.getContext())}</span>
+            </div>
+          }
+          {expense.description && (
+            <div>
+              <span className="text-muted-foreground font-medium">Mô tả: </span>
+              <span>{expense.description}</span>
+            </div>
+          )}
+           {!expense.description && (
+             <div>
+                <span className="text-muted-foreground font-medium">Mô tả: </span>
+                <span className="text-muted-foreground italic">Không có</span>
+            </div>
+          )}
+          {receiptCell && (
+            <div className="mt-1">
+              <span className="text-muted-foreground font-medium">Biên lai: </span>
+              {flexRender(receiptCell.column.columnDef.cell, receiptCell.getContext())}
+            </div>
+          )}
+        </CardContent>
+        {actionsCell && (
+          <CardFooter className="flex justify-end pt-3 pb-3">
+            {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+          </CardFooter>
+        )}
+      </Card>
+    );
+  };
+
 
   return (
     <>
@@ -223,7 +271,13 @@ export default function ExpensesPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <DataTable columns={columns} data={expenseEntries} filterColumn="description" filterPlaceholder="Lọc theo mô tả..." />
+          <DataTable 
+            columns={columns} 
+            data={expenseEntries} 
+            filterColumn="description" 
+            filterPlaceholder="Lọc theo mô tả..."
+            renderCardRow={renderExpenseCard}
+          />
         </CardContent>
       </Card>
     </>
