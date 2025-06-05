@@ -17,11 +17,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
-import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'; // Might be used for cancelling orders
+// import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'; // Might be used for cancelling orders
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
+import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal'; // Import the new modal
 
 // Form values type, slightly different from SalesOrder to handle form state
 type SalesOrderFormValues = {
@@ -44,9 +46,11 @@ type SalesOrderFormValues = {
 
 
 export default function SalesOrdersPage() {
-  const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataLoading } = useData();
+  const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataLoading, getProductStock } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
+
 
   const form = useForm<SalesOrderFormValues>({
     resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true })), // orderNumber is auto-generated
@@ -101,7 +105,7 @@ export default function SalesOrdersPage() {
     const product = products.find(p => p.id === productId);
     if (product) {
       update(itemIndex, {
-        ...fields[itemIndex],
+        ...fields[itemIndex], // Keep tempId and other potentially set values
         productId: product.id,
         productName: product.name,
         unitPrice: product.sellingPrice || 0,
@@ -134,7 +138,11 @@ export default function SalesOrdersPage() {
     {
       accessorKey: "totalProfit",
       header: "Lợi Nhuận",
-      cell: ({ row }) => `${row.getValue<number>("totalProfit").toLocaleString('vi-VN')} đ`,
+      cell: ({ row }) => {
+        const profit = row.getValue<number>("totalProfit");
+        const profitColor = profit > 0 ? "text-green-600" : profit < 0 ? "text-red-600" : "text-muted-foreground";
+        return <span className={profitColor}>{profit.toLocaleString('vi-VN')} đ</span>;
+      }
     },
     {
       accessorKey: "status",
@@ -144,9 +152,9 @@ export default function SalesOrdersPage() {
         return (
           <span className={cn(
             "px-2 py-1 rounded-md text-xs font-medium",
-            status === "Mới" && "bg-blue-100 text-blue-700",
-            status === "Hoàn thành" && "bg-green-100 text-green-700",
-            status === "Đã hủy" && "bg-red-100 text-red-700",
+            status === "Mới" && "bg-blue-500 text-white",
+            status === "Hoàn thành" && "bg-green-500 text-white",
+            status === "Đã hủy" && "bg-red-500 text-white",
           )}>
             {status}
           </span>
@@ -164,11 +172,14 @@ export default function SalesOrdersPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => console.log("View order", row.original.id)}>
+            <DropdownMenuItem onClick={() => setViewingOrder(row.original)}>
+              <Eye className="mr-2 h-4 w-4" />
               Xem Chi Tiết
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {row.original.status === 'Mới' && (
               <DropdownMenuItem onClick={() => updateSalesOrderStatus(row.original.id, 'Hoàn thành')}>
+                <Edit3 className="mr-2 h-4 w-4" />
                 Đánh Dấu Hoàn Thành
               </DropdownMenuItem>
             )}
@@ -177,6 +188,7 @@ export default function SalesOrdersPage() {
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
                 onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}
               >
+                <Trash2 className="mr-2 h-4 w-4" />
                 Hủy Đơn Hàng
               </DropdownMenuItem>
             )}
@@ -197,7 +209,7 @@ export default function SalesOrdersPage() {
           onOpenChange={setIsModalOpen}
           triggerButton={
             <Button onClick={() => {
-              form.reset({ // Reset form fully when opening for a new order
+              form.reset({ 
                   date: new Date().toISOString().split('T')[0],
                   customerName: '',
                   items: [],
@@ -278,8 +290,8 @@ export default function SalesOrdersPage() {
                                   <FormControl><SelectTrigger><SelectValue placeholder="Chọn sản phẩm" /></SelectTrigger></FormControl>
                                   <SelectContent>
                                     {products.map(p => (
-                                      <SelectItem key={p.id} value={p.id}>
-                                        {p.name} (Tồn: {p.currentStock})
+                                      <SelectItem key={p.id} value={p.id} disabled={getProductStock(p.id) <= 0 && !watchedItems.find(item => item.productId === p.id && item.tempId === field.tempId)}>
+                                        {p.name} (Tồn: {getProductStock(p.id)})
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -298,8 +310,22 @@ export default function SalesOrdersPage() {
                                   <Input 
                                     type="number" 
                                     placeholder="0" 
+                                    min="1"
                                     {...quantityField} 
-                                    onChange={e => quantityField.onChange(parseInt(e.target.value, 10) || 0)} 
+                                    onChange={e => {
+                                        const newQuantity = parseInt(e.target.value, 10) || 1;
+                                        const currentProduct = products.find(p => p.id === watchedItems[index]?.productId);
+                                        if (currentProduct && newQuantity > getProductStock(currentProduct.id)) {
+                                            toast({
+                                                title: "Số lượng vượt tồn kho",
+                                                description: `Sản phẩm ${currentProduct.name} chỉ còn ${getProductStock(currentProduct.id)}.`,
+                                                variant: "destructive"
+                                            });
+                                            quantityField.onChange(getProductStock(currentProduct.id));
+                                        } else {
+                                            quantityField.onChange(newQuantity);
+                                        }
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -318,6 +344,7 @@ export default function SalesOrdersPage() {
                                   <Input 
                                     type="number" 
                                     placeholder="0" 
+                                    min="0"
                                     {...priceField}
                                     onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)} 
                                   />
@@ -379,7 +406,7 @@ export default function SalesOrdersPage() {
                 />
                 <div className="flex justify-end gap-2 pt-6">
                   <Button type="button" variant="outline" onClick={closeModal}>Hủy</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting || isDataLoading}>Lưu Đơn Hàng</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting || isDataLoading || fields.length === 0}>Lưu Đơn Hàng</Button>
                 </div>
               </form>
             </Form>
@@ -392,6 +419,8 @@ export default function SalesOrdersPage() {
           <DataTable columns={columns} data={salesOrders} filterColumn="orderNumber" filterPlaceholder="Lọc theo mã ĐH..." />
         </CardContent>
       </Card>
+      
+      <SalesOrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} />
     </>
   );
 }
