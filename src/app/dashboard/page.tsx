@@ -7,7 +7,7 @@ import PageHeader from '@/components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
-import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts'; // Updated imports
+import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -37,14 +37,14 @@ export default function DashboardPage() {
   const lowStockProducts = products.filter(p => p.minStockLevel !== undefined && p.currentStock < p.minStockLevel).length;
 
   const monthlyChartData = useMemo(() => {
-    const dataMap: Record<string, { month: string, income: number, expenses: number, balance: number }> = {}; // Added balance
+    const dataMap: Record<string, { month: string, income: number, expenses: number, balance: number }> = {};
     
     [...incomeEntries, ...expenseEntries].forEach(entry => {
       const monthKey = format(new Date(entry.date), "yyyy-MM");
       const monthLabel = format(new Date(entry.date), "MMM yyyy", { locale: vi });
       
       if (!dataMap[monthKey]) {
-        dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0, balance: 0 }; // Added balance
+        dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0, balance: 0 };
       }
       
       if ('category' in entry && incomeEntries.some(ie => ie.id === entry.id)) { 
@@ -52,7 +52,7 @@ export default function DashboardPage() {
       } else {
         dataMap[monthKey].expenses += entry.amount;
       }
-      dataMap[monthKey].balance = dataMap[monthKey].income - dataMap[monthKey].expenses; // Calculate balance
+      dataMap[monthKey].balance = dataMap[monthKey].income - dataMap[monthKey].expenses;
     });
 
     return Object.keys(dataMap)
@@ -64,7 +64,7 @@ export default function DashboardPage() {
   const incomeExpenseChartConfig = {
     income: { label: "Thu Nhập", color: "hsl(var(--chart-1))" },
     expenses: { label: "Chi Phí", color: "hsl(var(--chart-2))" },
-    balance: { label: "Lợi Nhuận", color: "hsl(var(--chart-3))" }, // Added balance config
+    balance: { label: "Lợi Nhuận", color: "hsl(var(--chart-3))" },
   } satisfies ChartConfig;
 
   const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -219,7 +219,7 @@ export default function DashboardPage() {
           <CardContent>
             {monthlyChartData.length > 0 ? (
               <ChartContainer config={incomeExpenseChartConfig} className="h-[300px] w-full">
-                <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 20, bottom: 5, left: 40 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis
                     dataKey="month"
@@ -295,5 +295,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
