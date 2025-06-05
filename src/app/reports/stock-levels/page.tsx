@@ -15,22 +15,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 const ProductKanbanCard = ({ product }: { product: Product }) => {
   let statusBorderColor = 'border-border'; // Default border
   let statusIndicatorText = 'Còn hàng';
-  let statusTextClass = 'text-green-600';
+  let statusTextClass = 'text-green-600 dark:text-green-400';
 
   if (product.currentStock === 0) {
-    statusBorderColor = 'border-l-yellow-500 dark:border-l-yellow-400';
+    statusBorderColor = 'border-l-red-500 dark:border-l-red-400'; // Changed to Red
     statusIndicatorText = 'Hết hàng';
-    statusTextClass = 'text-yellow-600 dark:text-yellow-400';
+    statusTextClass = 'text-red-600 dark:text-red-400'; // Changed to Red
   } else if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
-    statusBorderColor = 'border-l-red-500 dark:border-l-red-400';
+    statusBorderColor = 'border-l-orange-500 dark:border-l-orange-400'; // Changed to Orange
     statusIndicatorText = 'Sắp hết';
-    statusTextClass = 'text-red-600 dark:text-red-400';
+    statusTextClass = 'text-orange-600 dark:text-orange-400'; // Changed to Orange
   } else {
-    statusBorderColor = 'border-l-green-500 dark:border-l-green-400';
+    statusBorderColor = 'border-l-green-500 dark:border-l-green-400'; // Stays Green
   }
 
   return (
-    <Card className={cn("mb-2 shadow-sm hover:shadow-md transition-shadow border-l-4", statusBorderColor)}>
+    <Card className={cn("mb-2 shadow-sm hover:shadow-md transition-shadow border-l-4 rounded-lg", statusBorderColor)}>
       <CardHeader className="flex flex-row items-center gap-3 p-3 space-y-0">
         {product.imageUrl ? (
           <Image 
@@ -74,7 +74,7 @@ const ProductKanbanCard = ({ product }: { product: Product }) => {
 };
 
 interface KanbanColumn {
-  id: 'inStock' | 'lowStock' | 'outOfStock';
+  id: 'inStock' | 'outOfStock' | 'lowStock';
   title: string;
   products: Product[];
   headerClassName: string;
@@ -98,6 +98,7 @@ export default function StockLevelsKanbanPage() {
       }
     });
 
+    // New column order: In Stock, Out of Stock, Low Stock
     return [
       { 
         id: 'inStock', 
@@ -106,16 +107,16 @@ export default function StockLevelsKanbanPage() {
         headerClassName: "bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-200 border-green-300 dark:border-green-700" 
       },
       { 
-        id: 'lowStock', 
-        title: `Sắp hết hàng (${lowStockProducts.length})`, 
-        products: lowStockProducts, 
-        headerClassName: "bg-red-100 text-red-800 dark:bg-red-800/30 dark:text-red-200 border-red-300 dark:border-red-700"
-      },
-      { 
-        id: 'outOfStock', 
+        id: 'outOfStock', // Moved here
         title: `Hết hàng (${outOfStockProducts.length})`, 
         products: outOfStockProducts, 
-        headerClassName: "bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700"
+        headerClassName: "bg-red-100 text-red-800 dark:bg-red-800/30 dark:text-red-200 border-red-300 dark:border-red-700" // Changed to Red
+      },
+      { 
+        id: 'lowStock', // Moved here
+        title: `Sắp hết hàng (${lowStockProducts.length})`, 
+        products: lowStockProducts, 
+        headerClassName: "bg-orange-100 text-orange-800 dark:bg-orange-800/30 dark:text-orange-200 border-orange-300 dark:border-orange-700" // Changed to Orange
       },
     ];
   }, [allProducts]);
@@ -127,17 +128,17 @@ export default function StockLevelsKanbanPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             "Đang tải cột Còn hàng...", 
-            "Đang tải cột Sắp hết...", 
-            "Đang tải cột Hết hàng..."
+            "Đang tải cột Hết hàng...", // Updated placeholder text
+            "Đang tải cột Sắp hết..."  // Updated placeholder text
           ].map((title, i) => (
-            <Card key={i} className="flex flex-col overflow-hidden">
+            <Card key={i} className="flex flex-col overflow-hidden rounded-lg">
               <CardHeader className="p-3 border-b">
                 <Skeleton className="h-5 w-3/4" />
               </CardHeader>
               <CardContent className="p-3 flex-grow space-y-2">
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full rounded-md" />
+                <Skeleton className="h-24 w-full rounded-md" />
+                <Skeleton className="h-24 w-full rounded-md" />
               </CardContent>
             </Card>
           ))}
@@ -156,7 +157,6 @@ export default function StockLevelsKanbanPage() {
             <CardHeader className={cn("p-3 border-b sticky top-0 bg-card/80 backdrop-blur-sm z-10", column.headerClassName)}>
               <CardTitle className="text-sm font-semibold tracking-wide">{column.title}</CardTitle>
             </CardHeader>
-            {/* CardContent applied to ScrollArea parent for padding consistency */}
             <ScrollArea className="flex-grow"> 
               <div className="p-3 space-y-2">
                 {column.products.length === 0 ? (
