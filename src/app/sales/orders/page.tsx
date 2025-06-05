@@ -17,11 +17,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
-// import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'; // Might be used for cancelling orders
 import { ColumnDef } from '@tanstack/react-table';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -33,29 +32,29 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
-import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal'; // Import the new modal
+import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
 
-// Form values type, slightly different from SalesOrder to handle form state
 type SalesOrderFormValues = {
   customerName?: string;
   date: string;
-  items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId: string }>; // costPrice is fetched, totalPrice calculated
+  items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId: string }>;
   status: SalesOrderStatus;
   notes?: string;
 };
 
 
 export default function SalesOrdersPage() {
-  const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataLoading, getProductStock } = useData();
+  const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataContextLoading, getProductStock } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
 
   const form = useForm<SalesOrderFormValues>({
-    resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true })), // orderNumber is auto-generated
+    resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true })),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: format(new Date(), 'yyyy-MM-dd'),
       customerName: '',
       items: [],
       status: 'Mới',
@@ -66,7 +65,7 @@ export default function SalesOrdersPage() {
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
-    keyName: "fieldId", // Important for React key prop
+    keyName: "fieldId",
   });
 
   const watchedItems = form.watch("items");
@@ -76,12 +75,13 @@ export default function SalesOrdersPage() {
   }, [watchedItems]);
 
 
-  const onSubmit = async (values: SalesOrderFormValues, closeModal: () => void) => {
+  const onSubmit = async (values: SalesOrderFormValues) => {
+    setIsSubmittingOrder(true);
     const itemsForOrder = values.items.map(item => {
       const productDetails = products.find(p => p.id === item.productId);
       return {
         ...item,
-        costPrice: productDetails?.costPrice || 0, // Ensure costPrice is set
+        costPrice: productDetails?.costPrice || 0,
       };
     });
 
@@ -89,28 +89,27 @@ export default function SalesOrdersPage() {
     if (orderId) {
       toast({ title: "Thành công!", description: "Đã tạo đơn hàng mới." });
       form.reset({
-        date: new Date().toISOString().split('T')[0],
+        date: format(new Date(), 'yyyy-MM-dd'),
         customerName: '',
         items: [],
         status: 'Mới',
         notes: '',
       });
-      closeModal();
-    } else {
-      // Error toast is handled by addSalesOrder in DataContext
+      setIsModalOpen(false); // Close modal on success
     }
+    setIsSubmittingOrder(false);
   };
 
   const handleProductChange = (itemIndex: number, productId: string) => {
     const product = products.find(p => p.id === productId);
     if (product) {
       update(itemIndex, {
-        ...fields[itemIndex], // Keep tempId and other potentially set values
+        ...fields[itemIndex],
         productId: product.id,
         productName: product.name,
         unitPrice: product.sellingPrice || 0,
-        costPrice: product.costPrice || 0, // Store cost price at time of selection
-        quantity: fields[itemIndex].quantity || 1, // Default quantity to 1 if not set
+        costPrice: product.costPrice || 0,
+        quantity: fields[itemIndex].quantity || 1,
       });
     }
   };
@@ -123,7 +122,7 @@ export default function SalesOrdersPage() {
     {
       accessorKey: "date",
       header: "Ngày Tạo",
-      cell: ({ row }) => format(new Date(row.getValue("date")), "dd/MM/yyyy", { locale: vi }),
+      cell: ({ row }) => format(parse(row.getValue("date"), 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }),
     },
     {
       accessorKey: "customerName",
@@ -203,7 +202,7 @@ export default function SalesOrdersPage() {
       <PageHeader title="Quản Lý Đơn Hàng Bán" description="Tạo và theo dõi các đơn hàng bán ra.">
         <Button onClick={() => {
           form.reset({ 
-              date: new Date().toISOString().split('T')[0],
+              date: format(new Date(), 'yyyy-MM-dd'),
               customerName: '',
               items: [],
               status: 'Mới',
@@ -221,11 +220,10 @@ export default function SalesOrdersPage() {
         formId="add-sales-order-form"
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        // No triggerButton prop here
       >
         {(closeModal) => (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => onSubmit(data, closeModal))} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-1" id="add-sales-order-form">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-1" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -237,15 +235,15 @@ export default function SalesOrdersPage() {
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button variant="outline" className="w-full pl-3 text-left font-normal">
-                              {field.value ? format(new Date(field.value), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
+                              {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                            selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
+                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -272,101 +270,120 @@ export default function SalesOrdersPage() {
                   <CardTitle className="text-lg">Chi Tiết Sản Phẩm</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {fields.map((field, index) => (
-                    <div key={field.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                         <FormField
-                          control={form.control}
-                          name={`items.${index}.productId`}
-                          render={({ field: selectField }) => (
-                            <FormItem>
-                              <FormLabel>Sản Phẩm</FormLabel>
-                              <Select
-                                onValueChange={(value) => {
-                                  selectField.onChange(value);
-                                  handleProductChange(index, value);
-                                }}
-                                value={selectField.value}
-                              >
-                                <FormControl><SelectTrigger><SelectValue placeholder="Chọn sản phẩm" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  {products.map(p => (
-                                    <SelectItem key={p.id} value={p.id} disabled={getProductStock(p.id) <= 0 && !watchedItems.find(item => item.productId === p.id && item.tempId === field.tempId)}>
-                                      {p.name} (Tồn: {getProductStock(p.id)})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.quantity`}
-                          render={({ field: quantityField }) => (
-                            <FormItem>
-                              <FormLabel>Số Lượng</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number" 
-                                  placeholder="0" 
-                                  min="1"
-                                  {...quantityField} 
-                                  onChange={e => {
-                                      const newQuantity = parseInt(e.target.value, 10) || 1;
-                                      const currentProduct = products.find(p => p.id === watchedItems[index]?.productId);
-                                      if (currentProduct && newQuantity > getProductStock(currentProduct.id)) {
-                                          toast({
-                                              title: "Số lượng vượt tồn kho",
-                                              description: `Sản phẩm ${currentProduct.name} chỉ còn ${getProductStock(currentProduct.id)}.`,
-                                              variant: "destructive"
-                                          });
-                                          quantityField.onChange(getProductStock(currentProduct.id));
-                                      } else {
-                                          quantityField.onChange(newQuantity);
-                                      }
+                  {fields.map((field, index) => {
+                    const currentProductInForm = watchedItems[index];
+                    const currentStock = currentProductInForm?.productId ? getProductStock(currentProductInForm.productId) : 0;
+                    return (
+                      <div key={field.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                           <FormField
+                            control={form.control}
+                            name={`items.${index}.productId`}
+                            render={({ field: selectField }) => (
+                              <FormItem>
+                                <FormLabel>Sản Phẩm</FormLabel>
+                                <Select
+                                  onValueChange={(value) => {
+                                    selectField.onChange(value);
+                                    handleProductChange(index, value);
                                   }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                         <FormField
-                          control={form.control}
-                          name={`items.${index}.unitPrice`}
-                          render={({ field: priceField }) => (
-                            <FormItem>
-                              <FormLabel>Đơn Giá</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number" 
-                                  placeholder="0" 
-                                  min="0"
-                                  {...priceField}
-                                  onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="md:col-span-1">
-                          <FormLabel>Thành Tiền</FormLabel>
-                          <p className="font-semibold text-sm h-10 flex items-center">
-                            {( (watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0) ).toLocaleString('vi-VN')} đ
-                          </p>
+                                  value={selectField.value}
+                                >
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn sản phẩm" /></SelectTrigger></FormControl>
+                                  <SelectContent>
+                                    {products.map(p => {
+                                      const stock = getProductStock(p.id);
+                                      const isAlreadyInCart = watchedItems.some(item => item.productId === p.id && item.tempId !== field.tempId);
+                                      return (
+                                        <SelectItem 
+                                          key={p.id} 
+                                          value={p.id} 
+                                          disabled={stock <= 0 && !isAlreadyInCart}
+                                        >
+                                          {p.name} (Tồn: {stock})
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field: quantityField }) => (
+                              <FormItem>
+                                <FormLabel>Số Lượng</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    placeholder="1" 
+                                    min="1"
+                                    {...quantityField} 
+                                    onChange={e => {
+                                        let newQuantity = parseInt(e.target.value, 10);
+                                        if (isNaN(newQuantity) || newQuantity < 1) {
+                                            newQuantity = 1;
+                                        }
+                                        
+                                        const productForStockCheck = products.find(p => p.id === watchedItems[index]?.productId);
+                                        if (productForStockCheck) {
+                                            const availableStock = getProductStock(productForStockCheck.id);
+                                            if (newQuantity > availableStock) {
+                                                toast({
+                                                    title: "Số lượng vượt tồn kho",
+                                                    description: `Sản phẩm ${productForStockCheck.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
+                                                    variant: "default", // More like a warning
+                                                    className: "bg-yellow-500 text-black",
+                                                });
+                                                newQuantity = availableStock;
+                                            }
+                                        }
+                                        quantityField.onChange(newQuantity < 1 ? 1 : newQuantity); // Ensure it's at least 1 after potential stock adjustment
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-end md:ml-auto">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                           <FormField
+                            control={form.control}
+                            name={`items.${index}.unitPrice`}
+                            render={({ field: priceField }) => (
+                              <FormItem>
+                                <FormLabel>Đơn Giá</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    placeholder="0" 
+                                    min="0"
+                                    {...priceField}
+                                    onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="md:col-span-1">
+                            <FormLabel>Thành Tiền</FormLabel>
+                            <p className="font-semibold text-sm h-10 flex items-center">
+                              {( (watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0) ).toLocaleString('vi-VN')} đ
+                            </p>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-end md:ml-auto">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" onClick={() => append({ tempId: Date.now().toString(), productId: '', productName: '', quantity: 1, unitPrice: 0 })}>
+                    )
+                  })}
+                  <Button type="button" variant="outline" onClick={() => append({ tempId: Date.now().toString(), productId: '', productName: '', quantity: 1, unitPrice: 0, costPrice: 0 })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
                   </Button>
                 </CardContent>
@@ -406,8 +423,11 @@ export default function SalesOrdersPage() {
                 )}
               />
               <div className="flex justify-end gap-2 pt-6">
-                <Button type="button" variant="outline" onClick={closeModal}>Hủy</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || isDataLoading || fields.length === 0}>Lưu Đơn Hàng</Button>
+                <Button type="button" variant="outline" onClick={() => {form.reset(); closeModal();}}>Hủy</Button>
+                <Button type="submit" disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0}>
+                  {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Lưu Đơn Hàng
+                </Button>
               </div>
             </form>
           </Form>

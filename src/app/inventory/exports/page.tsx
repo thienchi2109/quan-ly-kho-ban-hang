@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -17,7 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks';
@@ -29,6 +30,8 @@ export default function ExportsPage() {
   const { products, inventoryTransactions, addInventoryTransaction, getProductById, getProductStock } = useData();
   const { toast } = useToast();
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
 
   const exportTransactions = inventoryTransactions.filter(t => t.type === 'export');
 
@@ -37,7 +40,7 @@ export default function ExportsPage() {
     defaultValues: {
       productId: '',
       quantity: 1,
-      date: new Date().toISOString().split('T')[0],
+      date: format(new Date(), 'yyyy-MM-dd'),
       relatedParty: '',
       notes: '',
     },
@@ -47,7 +50,13 @@ export default function ExportsPage() {
     const result = addInventoryTransaction({ ...values, type: 'export' });
     if (result === null) {
       toast({ title: "Thành công!", description: "Đã ghi nhận phiếu xuất kho." });
-      form.reset();
+      form.reset({
+        productId: '',
+        quantity: 1,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        relatedParty: '',
+        notes: '',
+      });
       closeModal();
     } else {
       toast({ title: "Lỗi!", description: result, variant: "destructive" });
@@ -60,7 +69,7 @@ export default function ExportsPage() {
     {
       accessorKey: "date",
       header: "Ngày Xuất",
-      cell: ({ row }) => format(new Date(row.getValue("date")), "dd/MM/yyyy", { locale: vi }),
+      cell: ({ row }) => format(parse(row.getValue("date"), 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }),
     },
     {
       accessorKey: "productId",
@@ -86,15 +95,25 @@ export default function ExportsPage() {
   return (
     <>
       <PageHeader title="Xuất Kho" description="Ghi nhận các giao dịch xuất hàng khỏi kho.">
-        <FormModal<ExportFormValues>
+        <Button onClick={() => {
+           form.reset({
+            productId: '',
+            quantity: 1,
+            date: format(new Date(), 'yyyy-MM-dd'),
+            relatedParty: '',
+            notes: '',
+           });
+           setIsModalOpen(true);
+        }}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Xuất
+        </Button>
+      </PageHeader>
+      <FormModal<ExportFormValues>
           title="Tạo Phiếu Xuất Kho"
           description="Điền thông tin chi tiết về lô hàng xuất."
           formId="add-export-form"
-          triggerButton={
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Xuất
-            </Button>
-          }
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
         >
           {(closeModal) => (
             <Form {...form}>
@@ -109,15 +128,15 @@ export default function ExportsPage() {
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button variant="outline" className="w-full pl-3 text-left font-normal">
-                              {field.value ? format(new Date(field.value), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
+                              {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                            selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
+                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -199,14 +218,14 @@ export default function ExportsPage() {
                   )}
                 />
                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={closeModal}>Hủy</Button>
+                    <Button type="button" variant="outline" onClick={() => {form.reset(); closeModal();}}>Hủy</Button>
                     <Button type="submit">Lưu Phiếu Xuất</Button>
                 </div>
               </form>
             </Form>
           )}
         </FormModal>
-      </PageHeader>
+
 
       <Card>
         <CardContent className="pt-6">
@@ -216,3 +235,4 @@ export default function ExportsPage() {
     </>
   );
 }
+

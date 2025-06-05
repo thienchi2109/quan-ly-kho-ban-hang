@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -18,7 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { ColumnDef } from '@tanstack/react-table';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Edit2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks';
@@ -35,7 +36,7 @@ export default function IncomePage() {
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(IncomeEntrySchema),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: format(new Date(), 'yyyy-MM-dd'),
       amount: 0,
       category: PRODUCT_CATEGORIES[0],
       description: '',
@@ -45,7 +46,12 @@ export default function IncomePage() {
   const onSubmit = (values: IncomeFormValues, closeModal: () => void) => {
     addIncomeEntry(values);
     toast({ title: "Thành công!", description: "Đã thêm khoản thu nhập mới." });
-    form.reset();
+    form.reset({
+      date: format(new Date(), 'yyyy-MM-dd'),
+      amount: 0,
+      category: PRODUCT_CATEGORIES[0],
+      description: '',
+    });
     closeModal();
   };
 
@@ -58,7 +64,7 @@ export default function IncomePage() {
     {
       accessorKey: "date",
       header: "Ngày",
-      cell: ({ row }) => format(new Date(row.getValue("date")), "dd/MM/yyyy", { locale: vi }),
+      cell: ({ row }) => format(parse(row.getValue("date"), 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }),
     },
     {
       accessorKey: "amount",
@@ -91,15 +97,23 @@ export default function IncomePage() {
   return (
     <>
       <PageHeader title="Theo Dõi Thu Nhập" description="Quản lý các nguồn thu nhập của bạn.">
-        <FormModal<IncomeFormValues>
+         <Button onClick={() => {
+            form.reset({
+              date: format(new Date(), 'yyyy-MM-dd'),
+              amount: 0,
+              category: PRODUCT_CATEGORIES[0],
+              description: '',
+            });
+            setIsModalOpen(true);
+          }}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Thêm Mới
+        </Button>
+      </PageHeader>
+       <FormModal<IncomeFormValues>
           title="Thêm Khoản Thu Nhập Mới"
           description="Điền thông tin chi tiết về khoản thu nhập."
           formId="add-income-form"
-          triggerButton={
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Thêm Mới
-            </Button>
-          }
+          open={isModalOpen}
           onOpenChange={setIsModalOpen}
         >
           {(closeModal) => (
@@ -115,15 +129,15 @@ export default function IncomePage() {
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button variant="outline" className="w-full pl-3 text-left font-normal">
-                              {field.value ? format(new Date(field.value), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
+                               {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                            selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
+                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -181,14 +195,14 @@ export default function IncomePage() {
                   )}
                 />
                 <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={closeModal}>Hủy</Button>
+                    <Button type="button" variant="outline" onClick={() => {form.reset(); closeModal();}}>Hủy</Button>
                     <Button type="submit">Lưu</Button>
                 </div>
               </form>
             </Form>
           )}
         </FormModal>
-      </PageHeader>
+
 
       <Card>
         <CardContent className="pt-6">
@@ -198,3 +212,4 @@ export default function IncomePage() {
     </>
   );
 }
+
