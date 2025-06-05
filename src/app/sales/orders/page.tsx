@@ -20,7 +20,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -65,22 +65,41 @@ export default function SalesOrdersPage() {
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
-    keyName: "fieldId", // Ensure this matches the key used in your fields map if you're using `id` somewhere else for item.id
+    keyName: "fieldId", 
   });
 
   const watchedItems = form.watch("items");
 
   const calculateTotalAmount = useCallback(() => {
-    return watchedItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    return watchedItems.reduce((sum, item) => {
+        const quantity = Number(item.quantity) || 0;
+        const unitPrice = Number(item.unitPrice) || 0;
+        return sum + (quantity * unitPrice);
+    }, 0);
   }, [watchedItems]);
 
 
   const onSubmit = async (values: SalesOrderFormValues) => {
     setIsSubmittingOrder(true);
-    const itemsForOrder = values.items.map(item => {
+    // Filter out items with quantity 0 or invalid before submitting
+    const validItems = values.items.filter(item => Number(item.quantity) > 0 && item.productId);
+    
+    if (validItems.length === 0) {
+        toast({
+            title: "Đơn hàng trống",
+            description: "Vui lòng thêm ít nhất một sản phẩm hợp lệ vào đơn hàng.",
+            variant: "destructive",
+        });
+        setIsSubmittingOrder(false);
+        return;
+    }
+
+    const itemsForOrder = validItems.map(item => {
       const productDetails = products.find(p => p.id === item.productId);
       return {
         ...item,
+        quantity: Number(item.quantity), // Ensure quantity is a number
+        unitPrice: Number(item.unitPrice), // Ensure unitPrice is a number
         costPrice: productDetails?.costPrice || 0,
       };
     });
@@ -95,7 +114,7 @@ export default function SalesOrdersPage() {
         status: 'Mới',
         notes: '',
       });
-      setIsModalOpen(false); // Close modal on success
+      setIsModalOpen(false); 
     }
     setIsSubmittingOrder(false);
   };
@@ -104,14 +123,92 @@ export default function SalesOrdersPage() {
     const product = products.find(p => p.id === productId);
     if (product) {
       update(itemIndex, {
-        ...fields[itemIndex], // spread existing field data first
+        ...fields[itemIndex], 
         productId: product.id,
         productName: product.name,
         unitPrice: product.sellingPrice || 0,
-        costPrice: product.costPrice || 0, // capture cost price at time of selection
-        quantity: fields[itemIndex].quantity || 1, // keep existing quantity or default to 1
+        costPrice: product.costPrice || 0, 
+        quantity: fields[itemIndex].quantity || 1, 
       });
     }
+  };
+
+  const handleItemQuantityChange = (itemIndex: number, newQuantityValue: number | string) => {
+    const currentItem = watchedItems[itemIndex];
+    const product = products.find(p => p.id === currentItem?.productId);
+    let finalQuantity: number | string = newQuantityValue;
+
+    if (typeof newQuantityValue === 'string' && newQuantityValue === "") {
+        // Allow empty string for typing
+        update(itemIndex, { ...currentItem, quantity: "" as any }); // temp allow empty string
+        return;
+    }
+
+    let numQuantity = Number(newQuantityValue);
+    if (isNaN(numQuantity)) { // Non-numeric typed
+        numQuantity = Number(currentItem.quantity) || 1; // Revert to previous or 1
+    }
+
+    if (product) {
+        const availableStock = getProductStock(product.id);
+        if (numQuantity > availableStock) {
+            toast({
+                title: "Số lượng vượt tồn kho",
+                description: `Sản phẩm ${product.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
+            });
+            numQuantity = availableStock;
+        }
+    }
+    
+    // For direct input, don't force min 1 here, let blur or schema validation handle 0 or empty.
+    // But if it becomes less than 0 due to stock adjustment to 0, then 0 is fine.
+    if (numQuantity < 0) numQuantity = 0;
+
+
+    update(itemIndex, { ...currentItem, quantity: numQuantity });
+  };
+  
+  const handleItemQuantityBlur = (itemIndex: number) => {
+    const currentItem = watchedItems[itemIndex];
+    let currentQuantity = Number(currentItem.quantity);
+
+    if (isNaN(currentQuantity) || currentQuantity < 1) {
+        const product = products.find(p => p.id === currentItem?.productId);
+        if (product && getProductStock(product.id) > 0) {
+            currentQuantity = 1;
+        } else {
+             // If no product or stock is 0, and quantity is invalid, set to 0.
+             // Zod will validate min(1) on submit if needed.
+            currentQuantity = 0;
+        }
+        update(itemIndex, { ...currentItem, quantity: currentQuantity });
+    }
+  };
+
+  const adjustItemQuantityWithButtons = (itemIndex: number, adjustment: number) => {
+    const currentItem = watchedItems[itemIndex];
+    let currentQuantity = Number(currentItem.quantity) || 0;
+    let newQuantity = currentQuantity + adjustment;
+
+    const product = products.find(p => p.id === currentItem?.productId);
+    if (product) {
+        const availableStock = getProductStock(product.id);
+        if (newQuantity > availableStock) {
+            newQuantity = availableStock;
+            toast({
+                title: "Số lượng tối đa",
+                description: `Sản phẩm ${product.name} chỉ còn ${availableStock}.`,
+            });
+        }
+    } else { // No product selected, default to 1
+        update(itemIndex, { ...currentItem, quantity: 1 });
+        return;
+    }
+
+    if (newQuantity < 1) {
+        newQuantity = 1;
+    }
+    update(itemIndex, { ...currentItem, quantity: newQuantity });
   };
   
   const columns: ColumnDef<SalesOrder>[] = [
@@ -132,13 +229,13 @@ export default function SalesOrdersPage() {
     {
       accessorKey: "totalAmount",
       header: "Tổng Tiền",
-      cell: ({ row }) => `${row.getValue<number>("totalAmount").toLocaleString('vi-VN')} đ`,
+      cell: ({ row }) => `${Number(row.getValue("totalAmount")).toLocaleString('vi-VN')} đ`,
     },
     {
       accessorKey: "totalProfit",
       header: "Lợi Nhuận",
       cell: ({ row }) => {
-        const profit = row.getValue<number>("totalProfit");
+        const profit = Number(row.getValue("totalProfit"));
         const profitColor = profit > 0 ? "text-green-600" : profit < 0 ? "text-red-600" : "text-muted-foreground";
         return <span className={profitColor}>{profit.toLocaleString('vi-VN')} đ</span>;
       }
@@ -182,7 +279,7 @@ export default function SalesOrdersPage() {
                 Đánh Dấu Hoàn Thành
               </DropdownMenuItem>
             )}
-             {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( // Can only cancel if not completed or already cancelled
+             {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( 
               <DropdownMenuItem 
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
                 onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}
@@ -270,11 +367,14 @@ export default function SalesOrdersPage() {
                   <CardTitle className="text-lg">Chi Tiết Sản Phẩm</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {fields.map((field, index) => {
-                    const currentProductInForm = watchedItems[index];
-                    const currentStock = currentProductInForm?.productId ? getProductStock(currentProductInForm.productId) : 0;
+                  {fields.map((itemField, index) => {
+                    const currentItem = watchedItems[index];
+                    const selectedProduct = products.find(p => p.id === currentItem?.productId);
+                    const stock = selectedProduct ? getProductStock(selectedProduct.id) : 0;
+                    const currentQuantityNum = Number(currentItem?.quantity) || 0;
+
                     return (
-                      <div key={field.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30">
+                      <div key={itemField.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                            <FormField
                             control={form.control}
@@ -292,17 +392,19 @@ export default function SalesOrdersPage() {
                                   <FormControl><SelectTrigger><SelectValue placeholder="Chọn sản phẩm" /></SelectTrigger></FormControl>
                                   <SelectContent>
                                     {products.map(p => {
-                                      const stock = getProductStock(p.id);
-                                      const isCurrentItem = field.productId === p.id;
-                                      const isAlreadyInCart = watchedItems.some(item => item.productId === p.id && item.tempId !== field.tempId);
+                                      const productStock = getProductStock(p.id);
+                                      const isCurrentlySelectedInThisRow = itemField.productId === p.id;
+                                      const isSelectedInAnotherRow = watchedItems.some(
+                                        (otherItem, otherIndex) => otherIndex !== index && otherItem.productId === p.id
+                                      );
                                       
                                       return (
                                         <SelectItem 
                                           key={p.id} 
                                           value={p.id} 
-                                          disabled={stock <= 0 && !isCurrentItem && !isAlreadyInCart}
+                                          disabled={(productStock <= 0 && !isCurrentlySelectedInThisRow) || (isSelectedInAnotherRow && !isCurrentlySelectedInThisRow)}
                                         >
-                                          {p.name} (Tồn: {stock})
+                                          {p.name} (Tồn: {productStock})
                                         </SelectItem>
                                       );
                                     })}
@@ -312,41 +414,62 @@ export default function SalesOrdersPage() {
                               </FormItem>
                             )}
                           />
+                          
                           <FormField
                             control={form.control}
                             name={`items.${index}.quantity`}
                             render={({ field: quantityField }) => (
                               <FormItem>
                                 <FormLabel>Số Lượng</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    placeholder="1" 
-                                    min="1"
-                                    {...quantityField} 
-                                    onChange={e => {
-                                        let newQuantity = parseInt(e.target.value, 10);
-                                        if (isNaN(newQuantity) || newQuantity < 1) {
-                                            newQuantity = 1;
-                                        }
-                                        
-                                        const productForStockCheck = products.find(p => p.id === watchedItems[index]?.productId);
-                                        if (productForStockCheck) {
-                                            const availableStock = getProductStock(productForStockCheck.id);
-                                            if (newQuantity > availableStock) {
-                                                toast({
-                                                    title: "Số lượng vượt tồn kho",
-                                                    description: `Sản phẩm ${productForStockCheck.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
-                                                    variant: "default", 
-                                                });
-                                                newQuantity = availableStock;
-                                            }
-                                        }
-                                        quantityField.onChange(newQuantity < 1 ? 1 : newQuantity); 
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    onClick={() => adjustItemQuantityWithButtons(index, -1)}
+                                    disabled={!selectedProduct || currentQuantityNum <= 1}
+                                  >
+                                    <MinusCircle className="h-4 w-4" />
+                                  </Button>
+                                  <FormControl>
+                                  <Input
+                                    type="text" // Use text to allow empty more easily
+                                    inputMode="numeric" // Hint for mobile keyboards
+                                    pattern="[0-9]*"
+                                    placeholder="1"
+                                    {...quantityField} // Spread RHF props
+                                    value={quantityField.value} // Controlled component
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                       // Allow only numbers or empty string through regex
+                                      if (val === "" || /^[0-9]+$/.test(val)) {
+                                        handleItemQuantityChange(index, val);
+                                      } else if (quantityField.value && typeof quantityField.value === 'string' && /^[0-9]+$/.test(quantityField.value)) {
+                                        // If invalid char typed, revert to previous numeric value if it exists
+                                        e.target.value = quantityField.value;
+                                      } else {
+                                        // Fallback if previous value was also invalid (e.g. empty then typed 'a')
+                                        handleItemQuantityChange(index, "1"); 
+                                      }
                                     }}
+                                    onBlur={() => handleItemQuantityBlur(index)}
+                                    className="w-16 text-center h-9"
+                                    disabled={!selectedProduct}
                                   />
-                                </FormControl>
-                                <FormMessage />
+                                  </FormControl>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    onClick={() => adjustItemQuantityWithButtons(index, 1)}
+                                    disabled={!selectedProduct || (selectedProduct && currentQuantityNum >= stock)}
+                                  >
+                                    <PlusCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <FormMessage /> 
                               </FormItem>
                             )}
                           />
@@ -364,7 +487,9 @@ export default function SalesOrdersPage() {
                                     placeholder="0" 
                                     min="0"
                                     {...priceField}
+                                    value={priceField.value || ''}
                                     onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)} 
+                                    disabled={!selectedProduct}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -374,7 +499,7 @@ export default function SalesOrdersPage() {
                           <div className="md:col-span-1">
                             <FormLabel>Thành Tiền</FormLabel>
                             <p className="font-semibold text-sm h-10 flex items-center">
-                              {( (watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0) ).toLocaleString('vi-VN')} đ
+                              {( (Number(currentItem?.quantity) || 0) * (Number(currentItem?.unitPrice) || 0) ).toLocaleString('vi-VN')} đ
                             </p>
                           </div>
                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-end md:ml-auto">
@@ -384,7 +509,12 @@ export default function SalesOrdersPage() {
                       </div>
                     )
                   })}
-                  <Button type="button" variant="outline" onClick={() => append({ tempId: Date.now().toString(), productId: '', productName: '', quantity: 1, unitPrice: 0, costPrice: 0 })}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => append({ tempId: Date.now().toString(), productId: '', productName: '', quantity: 1, unitPrice: 0, costPrice: 0 })}
+                    disabled={products.filter(p => getProductStock(p.id) > 0 && !watchedItems.some(item => item.productId === p.id)).length === 0}
+                  >
                     <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
                   </Button>
                 </CardContent>
@@ -425,7 +555,7 @@ export default function SalesOrdersPage() {
               />
               <div className="flex justify-end gap-2 pt-6">
                 <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], status: 'Mới', notes: '' }); closeModal();}}>Hủy</Button>
-                <Button type="submit" disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0}>
+                <Button type="submit" disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0))}>
                   {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Lưu Đơn Hàng
                 </Button>
@@ -446,4 +576,3 @@ export default function SalesOrdersPage() {
     </>
   );
 }
-
