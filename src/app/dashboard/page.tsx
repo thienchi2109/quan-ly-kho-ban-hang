@@ -19,8 +19,6 @@ const chartDataFormatter = (value: number) => value.toLocaleString('vi-VN') + ' 
 
 const tooltipContentFormatter = (value: number, name: string, props: Payload<number, string>) => {
     const formattedValue = chartDataFormatter(value);
-    // props.color should contain the stroke color from the <Line /> component e.g. "var(--color-income)"
-    // props.payload.color might also work in some recharts versions or for other chart types
     const indicatorColor = props.color || (props.payload && (props.payload as any).fill) || (props.payload && (props.payload as any).stroke);
 
     return (
@@ -72,11 +70,9 @@ export default function DashboardPage() {
         dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0, balance: 0 };
       }
       
-      // Check if entry is an IncomeEntry by checking if it's present in incomeEntries array
-      // This is a simplified check; more robust type guards or a 'type' field would be better in a complex scenario
       if (incomeEntries.some(ie => ie.id === entry.id && 'category' in ie)) { 
         dataMap[monthKey].income += entry.amount;
-      } else { // Assumed to be an ExpenseEntry
+      } else { 
         dataMap[monthKey].expenses += entry.amount;
       }
       dataMap[monthKey].balance = dataMap[monthKey].income - dataMap[monthKey].expenses;
@@ -199,7 +195,7 @@ export default function DashboardPage() {
             <ArrowUpCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalIncome.toLocaleString('vi-VN')} đ</div>
+            <div className="text-xl font-bold md:text-2xl">{totalIncome.toLocaleString('vi-VN')} đ</div>
             <p className="text-xs text-muted-foreground">Tổng thu nhập ghi nhận</p>
           </CardContent>
         </Card>
@@ -209,7 +205,7 @@ export default function DashboardPage() {
             <ArrowDownCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalExpenses.toLocaleString('vi-VN')} đ</div>
+            <div className="text-xl font-bold md:text-2xl">{totalExpenses.toLocaleString('vi-VN')} đ</div>
             <p className="text-xs text-muted-foreground">Tổng chi tiêu ghi nhận</p>
           </CardContent>
         </Card>
@@ -219,7 +215,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-xl font-bold md:text-2xl ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {netBalance.toLocaleString('vi-VN')} đ
             </div>
             <p className="text-xs text-muted-foreground">Thu nhập - Chi tiêu</p>
@@ -231,7 +227,7 @@ export default function DashboardPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalProducts}</div>
+            <div className="text-xl font-bold md:text-2xl">{totalProducts}</div>
             <p className="text-xs text-muted-foreground">{lowStockProducts > 0 ? `${lowStockProducts} sản phẩm sắp hết hàng` : "Tất cả sản phẩm đủ hàng"}</p>
           </CardContent>
         </Card>
@@ -245,7 +241,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {monthlyChartData.length > 0 ? (
-              <ChartContainer config={incomeExpenseChartConfig} className="h-[300px] w-full">
+              <ChartContainer config={incomeExpenseChartConfig} className="h-[270px] sm:h-[300px] w-full">
                 <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 20, bottom: 5, left: 40 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis
@@ -275,12 +271,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-center">
               {incomeCategories.length > 0 ? (
-                <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
+                <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
                    <ResponsiveContainer width="100%" height="100%">
                     <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <PieChart>
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}}/>
-                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
+                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} label>
                         {incomeCategories.map((entry, index) => (
                           <Cell key={`cell-income-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
@@ -299,12 +295,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-center">
                {expenseCategories.length > 0 ? (
-                <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
+                <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <PieChart>
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}} />
-                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
+                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} label>
                        {expenseCategories.map((entry, index) => (
                         <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
