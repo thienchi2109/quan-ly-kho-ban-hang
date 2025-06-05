@@ -7,7 +7,7 @@ import PageHeader from '@/components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
-import { BarChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, Bar, Line, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, LineChart, Line } from 'recharts'; // Updated imports
 import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -37,14 +37,14 @@ export default function DashboardPage() {
   const lowStockProducts = products.filter(p => p.minStockLevel !== undefined && p.currentStock < p.minStockLevel).length;
 
   const monthlyChartData = useMemo(() => {
-    const dataMap: Record<string, { month: string, income: number, expenses: number }> = {};
+    const dataMap: Record<string, { month: string, income: number, expenses: number, balance: number }> = {}; // Added balance
     
     [...incomeEntries, ...expenseEntries].forEach(entry => {
       const monthKey = format(new Date(entry.date), "yyyy-MM");
       const monthLabel = format(new Date(entry.date), "MMM yyyy", { locale: vi });
       
       if (!dataMap[monthKey]) {
-        dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0 };
+        dataMap[monthKey] = { month: monthLabel, income: 0, expenses: 0, balance: 0 }; // Added balance
       }
       
       if ('category' in entry && incomeEntries.some(ie => ie.id === entry.id)) { 
@@ -52,9 +52,9 @@ export default function DashboardPage() {
       } else {
         dataMap[monthKey].expenses += entry.amount;
       }
+      dataMap[monthKey].balance = dataMap[monthKey].income - dataMap[monthKey].expenses; // Calculate balance
     });
 
-    // Sort data by month key before returning, to ensure chronological order for charts
     return Object.keys(dataMap)
       .sort()
       .map(key => dataMap[key]);
@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const incomeExpenseChartConfig = {
     income: { label: "Thu Nhập", color: "hsl(var(--chart-1))" },
     expenses: { label: "Chi Phí", color: "hsl(var(--chart-2))" },
+    balance: { label: "Lợi Nhuận", color: "hsl(var(--chart-3))" }, // Added balance config
   } satisfies ChartConfig;
 
   const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -212,26 +213,27 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Thu Nhập vs. Chi Phí (Hàng Tháng)</CardTitle>
-            <CardDescription>So sánh tổng thu nhập và chi phí qua các tháng.</CardDescription>
+            <CardTitle>Xu Hướng Thu Nhập, Chi Phí & Lợi Nhuận (Hàng Tháng)</CardTitle> 
+            <CardDescription>Theo dõi diễn biến của thu nhập, chi phí và lợi nhuận qua các tháng.</CardDescription> 
           </CardHeader>
           <CardContent>
             {monthlyChartData.length > 0 ? (
               <ChartContainer config={incomeExpenseChartConfig} className="h-[300px] w-full">
-                <BarChart accessibilityLayer data={monthlyChartData}>
-                  <CartesianGrid vertical={false} />
+                <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis
                     dataKey="month"
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
                   />
-                  <YAxis tickFormatter={chartDataFormatter} />
+                  <YAxis tickFormatter={chartDataFormatter} axisLine={false} tickLine={false} />
                   <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
                   <Legend />
-                  <Bar dataKey="income" fill="var(--color-income)" radius={4} name="Thu Nhập" />
-                  <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} name="Chi Phí" />
-                </BarChart>
+                  <Line type="monotone" dataKey="income" strokeWidth={2} stroke="var(--color-income)" name="Thu Nhập" dot={{ r: 4, fill: "var(--color-income)" }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="expenses" strokeWidth={2} stroke="var(--color-expenses)" name="Chi Phí" dot={{ r: 4, fill: "var(--color-expenses)" }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="balance" strokeWidth={2} stroke="var(--color-balance)" name="Lợi Nhuận" dot={{ r: 4, fill: "var(--color-balance)" }} activeDot={{ r: 6 }} />
+                </LineChart>
               </ChartContainer>
             ) : (
               <p className="text-muted-foreground text-center py-10">Chưa có dữ liệu thu nhập/chi phí để vẽ biểu đồ tháng.</p>
@@ -247,15 +249,17 @@ export default function DashboardPage() {
             <CardContent className="flex items-center justify-center">
               {incomeCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
-                   <PieChart>
+                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
-                    <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                      {incomeCategories.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend/>
-                  </PieChart>
+                    <PieChart>
+                      <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}}/>
+                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
+                        {incomeCategories.map((entry, index) => (
+                          <Cell key={`cell-income-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                   </ResponsiveContainer>
                 </ChartContainer>
               ) : (
                 <p className="text-muted-foreground">Chưa có dữ liệu thu nhập.</p>
@@ -269,15 +273,17 @@ export default function DashboardPage() {
             <CardContent className="flex items-center justify-center">
                {expenseCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
-                  <PieChart>
+                  <ResponsiveContainer width="100%" height="100%">
                     <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
-                    <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                    <PieChart>
+                      <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}} />
+                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
                        {expenseCategories.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
-                    </Pie>
-                    <Legend/>
-                  </PieChart>
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
                 </ChartContainer>
               ) : (
                  <p className="text-muted-foreground">Chưa có dữ liệu chi tiêu.</p>
@@ -290,3 +296,4 @@ export default function DashboardPage() {
   );
 }
 
+    
