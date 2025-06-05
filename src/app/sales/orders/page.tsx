@@ -13,7 +13,6 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Popover and Calendar removed
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
@@ -48,7 +47,6 @@ export default function SalesOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  // isOrderDatePickerOpen state removed
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -365,7 +363,7 @@ export default function SalesOrdersPage() {
                     <FormItem> 
                       <FormLabel>Ngày Tạo Đơn</FormLabel>
                         <FormControl>
-                           <Input type="date" {...field} className="h-10"/>
+                           <Input type="date" {...field} className="h-10 pr-2"/>
                         </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -377,7 +375,7 @@ export default function SalesOrdersPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tên Khách Hàng (tùy chọn)</FormLabel>
-                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" /></FormControl>
+                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" autoFocus /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -605,3 +603,4 @@ export default function SalesOrdersPage() {
     </>
   );
 }
+
