@@ -7,9 +7,10 @@ import PageHeader from '@/components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
-import { BarChart, LineChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Bar, Line, Pie, Cell } from 'recharts';
+import { BarChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, Bar, Line, Pie, Cell } from 'recharts';
 import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -77,33 +78,89 @@ export default function DashboardPage() {
           <CardDescription>Truy cập nhanh các chức năng thường dùng.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/inventory/products" passHref legacyBehavior>
-              <Button asChild>
-                <a><PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm</a>
-              </Button>
-            </Link>
-            <Link href="/inventory/imports" passHref legacyBehavior>
-              <Button asChild>
-                <a><PackagePlus className="mr-2 h-4 w-4" /> Tạo Phiếu Nhập</a>
-              </Button>
-            </Link>
-            <Link href="/inventory/exports" passHref legacyBehavior>
-              <Button asChild>
-                <a><PackageMinus className="mr-2 h-4 w-4" /> Tạo Phiếu Xuất</a>
-              </Button>
-            </Link>
-            <Link href="/income" passHref legacyBehavior>
-              <Button asChild>
-                <a><PlusCircle className="mr-2 h-4 w-4" /> Thêm Thu Nhập</a>
-              </Button>
-            </Link>
-            <Link href="/expenses" passHref legacyBehavior>
-              <Button asChild>
-                <a><PlusCircle className="mr-2 h-4 w-4" /> Thêm Chi Tiêu</a>
-              </Button>
-            </Link>
-          </div>
+          <TooltipProvider>
+            <div className="flex flex-wrap gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/inventory/products" passHref legacyBehavior>
+                    <Button asChild size="icon" className="sm:w-auto sm:px-4">
+                      <a>
+                        <PlusCircle className="h-5 w-5" />
+                        <span className="hidden sm:ml-2 sm:inline">Thêm Sản Phẩm</span>
+                      </a>
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="sm:hidden">
+                  <p>Thêm Sản Phẩm</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/inventory/imports" passHref legacyBehavior>
+                    <Button asChild size="icon" className="sm:w-auto sm:px-4">
+                      <a>
+                        <PackagePlus className="h-5 w-5" />
+                        <span className="hidden sm:ml-2 sm:inline">Tạo Phiếu Nhập</span>
+                      </a>
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="sm:hidden">
+                  <p>Tạo Phiếu Nhập</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/inventory/exports" passHref legacyBehavior>
+                    <Button asChild size="icon" className="sm:w-auto sm:px-4">
+                      <a>
+                        <PackageMinus className="h-5 w-5" />
+                        <span className="hidden sm:ml-2 sm:inline">Tạo Phiếu Xuất</span>
+                      </a>
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="sm:hidden">
+                  <p>Tạo Phiếu Xuất</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/income" passHref legacyBehavior>
+                    <Button asChild size="icon" className="sm:w-auto sm:px-4">
+                      <a>
+                        <PlusCircle className="h-5 w-5" />
+                        <span className="hidden sm:ml-2 sm:inline">Thêm Thu Nhập</span>
+                      </a>
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="sm:hidden">
+                  <p>Thêm Thu Nhập</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/expenses" passHref legacyBehavior>
+                    <Button asChild size="icon" className="sm:w-auto sm:px-4">
+                      <a>
+                        <PlusCircle className="h-5 w-5" />
+                        <span className="hidden sm:ml-2 sm:inline">Thêm Chi Tiêu</span>
+                      </a>
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="sm:hidden">
+                  <p>Thêm Chi Tiêu</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </CardContent>
       </Card>
       
@@ -170,7 +227,7 @@ export default function DashboardPage() {
                     axisLine={false}
                   />
                   <YAxis tickFormatter={chartDataFormatter} />
-                  <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
+                  <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
                   <Legend />
                   <Bar dataKey="income" fill="var(--color-income)" radius={4} name="Thu Nhập" />
                   <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} name="Chi Phí" />
@@ -191,7 +248,7 @@ export default function DashboardPage() {
               {incomeCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
                    <PieChart>
-                    <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
+                    <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                       {incomeCategories.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -213,7 +270,7 @@ export default function DashboardPage() {
                {expenseCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[200px] w-full max-w-xs">
                   <PieChart>
-                    <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
+                    <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                        {expenseCategories.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
