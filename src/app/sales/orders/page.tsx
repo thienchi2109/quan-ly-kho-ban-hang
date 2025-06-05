@@ -65,7 +65,7 @@ export default function SalesOrdersPage() {
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
-    keyName: "fieldId",
+    keyName: "fieldId", // Ensure this matches the key used in your fields map if you're using `id` somewhere else for item.id
   });
 
   const watchedItems = form.watch("items");
@@ -104,12 +104,12 @@ export default function SalesOrdersPage() {
     const product = products.find(p => p.id === productId);
     if (product) {
       update(itemIndex, {
-        ...fields[itemIndex],
+        ...fields[itemIndex], // spread existing field data first
         productId: product.id,
         productName: product.name,
         unitPrice: product.sellingPrice || 0,
-        costPrice: product.costPrice || 0,
-        quantity: fields[itemIndex].quantity || 1,
+        costPrice: product.costPrice || 0, // capture cost price at time of selection
+        quantity: fields[itemIndex].quantity || 1, // keep existing quantity or default to 1
       });
     }
   };
@@ -182,7 +182,7 @@ export default function SalesOrdersPage() {
                 Đánh Dấu Hoàn Thành
               </DropdownMenuItem>
             )}
-             {row.original.status !== 'Đã hủy' && (
+             {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( // Can only cancel if not completed or already cancelled
               <DropdownMenuItem 
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
                 onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}
@@ -243,7 +243,7 @@ export default function SalesOrdersPage() {
                           <Calendar
                             mode="single"
                             selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined)}
+                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
                             initialFocus
                           />
                         </PopoverContent>
@@ -293,12 +293,14 @@ export default function SalesOrdersPage() {
                                   <SelectContent>
                                     {products.map(p => {
                                       const stock = getProductStock(p.id);
+                                      const isCurrentItem = field.productId === p.id;
                                       const isAlreadyInCart = watchedItems.some(item => item.productId === p.id && item.tempId !== field.tempId);
+                                      
                                       return (
                                         <SelectItem 
                                           key={p.id} 
                                           value={p.id} 
-                                          disabled={stock <= 0 && !isAlreadyInCart}
+                                          disabled={stock <= 0 && !isCurrentItem && !isAlreadyInCart}
                                         >
                                           {p.name} (Tồn: {stock})
                                         </SelectItem>
@@ -335,13 +337,12 @@ export default function SalesOrdersPage() {
                                                 toast({
                                                     title: "Số lượng vượt tồn kho",
                                                     description: `Sản phẩm ${productForStockCheck.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
-                                                    variant: "default", // More like a warning
-                                                    className: "bg-yellow-500 text-black",
+                                                    variant: "default", 
                                                 });
                                                 newQuantity = availableStock;
                                             }
                                         }
-                                        quantityField.onChange(newQuantity < 1 ? 1 : newQuantity); // Ensure it's at least 1 after potential stock adjustment
+                                        quantityField.onChange(newQuantity < 1 ? 1 : newQuantity); 
                                     }}
                                   />
                                 </FormControl>
@@ -423,7 +424,7 @@ export default function SalesOrdersPage() {
                 )}
               />
               <div className="flex justify-end gap-2 pt-6">
-                <Button type="button" variant="outline" onClick={() => {form.reset(); closeModal();}}>Hủy</Button>
+                <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], status: 'Mới', notes: '' }); closeModal();}}>Hủy</Button>
                 <Button type="submit" disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0}>
                   {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Lưu Đơn Hàng
