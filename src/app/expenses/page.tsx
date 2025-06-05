@@ -33,6 +33,7 @@ export default function ExpensesPage() {
   const { expenseEntries, addExpenseEntry, deleteExpenseEntry } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(ExpenseEntrySchema),
@@ -144,7 +145,7 @@ export default function ExpensesPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Ngày</FormLabel>
-                      <Popover>
+                      <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button variant="outline" className="w-full pl-3 text-left font-normal">
@@ -156,7 +157,10 @@ export default function ExpensesPage() {
                           <Calendar
                             mode="single"
                             selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined)}
+                            onSelect={(date) => {
+                              field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined);
+                              setIsDatePickerOpen(false);
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
@@ -227,7 +231,7 @@ export default function ExpensesPage() {
                   )}
                 />
                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => {form.reset(); closeModal();}}>Hủy</Button>
+                    <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, category: EXPENSE_CATEGORIES[0], description: '', receiptImageUrl: '' }); closeModal();}}>Hủy</Button>
                     <Button type="submit">Lưu</Button>
                 </div>
               </form>

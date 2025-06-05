@@ -31,6 +31,7 @@ export default function ExportsPage() {
   const { toast } = useToast();
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
 
   const exportTransactions = inventoryTransactions.filter(t => t.type === 'export');
@@ -124,7 +125,7 @@ export default function ExportsPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Ngày Xuất</FormLabel>
-                      <Popover>
+                      <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button variant="outline" className="w-full pl-3 text-left font-normal">
@@ -136,7 +137,10 @@ export default function ExportsPage() {
                           <Calendar
                             mode="single"
                             selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined)}
+                            onSelect={(date) => {
+                              field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined);
+                              setIsDatePickerOpen(false);
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
@@ -218,7 +222,7 @@ export default function ExportsPage() {
                   )}
                 />
                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => {form.reset(); closeModal();}}>Hủy</Button>
+                    <Button type="button" variant="outline" onClick={() => {form.reset({ productId: '', quantity: 1, date: format(new Date(), 'yyyy-MM-dd'), relatedParty: '', notes: '' }); closeModal();}}>Hủy</Button>
                     <Button type="submit">Lưu Phiếu Xuất</Button>
                 </div>
               </form>
