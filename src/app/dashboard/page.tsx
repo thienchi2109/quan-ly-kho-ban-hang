@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
 import { BarChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, Bar, Line, Pie, Cell } from 'recharts';
-import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
@@ -133,7 +133,7 @@ export default function DashboardPage() {
                   <Link href="/income" passHref legacyBehavior>
                     <Button asChild size="icon" className="sm:w-auto sm:px-4">
                       <a>
-                        <PlusCircle className="h-5 w-5" />
+                        <TrendingUp className="h-5 w-5" />
                         <span className="hidden sm:ml-2 sm:inline">Thêm Thu Nhập</span>
                       </a>
                     </Button>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
                   <Link href="/expenses" passHref legacyBehavior>
                     <Button asChild size="icon" className="sm:w-auto sm:px-4">
                       <a>
-                        <PlusCircle className="h-5 w-5" />
+                        <TrendingDown className="h-5 w-5" />
                         <span className="hidden sm:ml-2 sm:inline">Thêm Chi Tiêu</span>
                       </a>
                     </Button>
