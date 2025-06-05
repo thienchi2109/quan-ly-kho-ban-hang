@@ -136,30 +136,28 @@ export default function SalesOrdersPage() {
     const currentItem = watchedItems[itemIndex];
     const product = products.find(p => p.id === currentItem?.productId);
     
-    if (typeof newQuantityValue === 'string' && newQuantityValue === "") {
-        update(itemIndex, { ...currentItem, quantity: "" as any });
+    if (typeof newQuantityValue === 'string' && newQuantityValue.trim() === "") {
+        update(itemIndex, { ...currentItem, quantity: "" as any }); // Allow temporary empty string
         return;
     }
 
     let numQuantity = Number(newQuantityValue);
-    if (isNaN(numQuantity)) {
-        numQuantity = Number(currentItem.quantity) || 1;
+    if (isNaN(numQuantity) || numQuantity < 0) { // Allow 0 temporarily during input
+        update(itemIndex, { ...currentItem, quantity: currentItem.quantity || "" as any }); // Revert or keep empty
+        return;
     }
-
+    
     if (product) {
         const availableStock = getProductStock(product.id);
         if (numQuantity > availableStock) {
             toast({
                 title: "Số lượng vượt tồn kho",
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
-                variant: "default", // Use default toast variant
+                variant: "default",
             });
             numQuantity = availableStock;
         }
     }
-    
-    if (numQuantity < 0) numQuantity = 0;
-
     update(itemIndex, { ...currentItem, quantity: numQuantity });
   };
   
@@ -170,9 +168,9 @@ export default function SalesOrdersPage() {
     if (isNaN(currentQuantity) || currentQuantity < 1) {
         const product = products.find(p => p.id === currentItem?.productId);
         if (product && getProductStock(product.id) > 0) {
-            currentQuantity = 1;
+            currentQuantity = 1; // Default to 1 if stock available and input is invalid
         } else {
-            currentQuantity = 0;
+            currentQuantity = 0; // Or 0 if no stock
         }
         update(itemIndex, { ...currentItem, quantity: currentQuantity });
     }
@@ -194,12 +192,15 @@ export default function SalesOrdersPage() {
             });
         }
     } else { 
+        // Should not happen if product is selected, but as a fallback
         update(itemIndex, { ...currentItem, quantity: 1 });
         return;
     }
 
-    if (newQuantity < 1) {
+    if (newQuantity < 1 && product) { // Ensure quantity is at least 1 if product is selected
         newQuantity = 1;
+    } else if (newQuantity < 0) { // General fallback if no product context
+        newQuantity = 0;
     }
     update(itemIndex, { ...currentItem, quantity: newQuantity });
   };
@@ -362,7 +363,7 @@ export default function SalesOrdersPage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem> {/* Removed className="flex flex-col" */}
                       <FormLabel>Ngày Tạo Đơn</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -475,15 +476,11 @@ export default function SalesOrdersPage() {
                                     pattern="[0-9]*"
                                     placeholder="1"
                                     {...quantityField} 
-                                    value={quantityField.value} 
+                                    value={quantityField.value === 0 && !product ? "" : quantityField.value} // Show empty if 0 and no product, else value
                                     onChange={(e) => {
                                       const val = e.target.value;
-                                      if (val === "" || /^[0-9]+$/.test(val)) {
+                                      if (val === "" || /^[0-9]*$/.test(val)) { // Allow empty or numbers only
                                         handleItemQuantityChange(index, val);
-                                      } else if (quantityField.value && typeof quantityField.value === 'string' && /^[0-9]+$/.test(quantityField.value)) {
-                                        e.target.value = quantityField.value;
-                                      } else {
-                                        handleItemQuantityChange(index, "1"); 
                                       }
                                     }}
                                     onBlur={() => handleItemQuantityBlur(index)}
@@ -588,7 +585,15 @@ export default function SalesOrdersPage() {
               />
               <div className="flex justify-end gap-2 pt-6">
                 <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], status: 'Mới', notes: '' }); closeModal();}}>Hủy</Button>
-                <Button type="submit" disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0))}>
+                <Button 
+                  type="submit" 
+                  disabled={
+                    isSubmittingOrder || 
+                    isDataContextLoading || 
+                    fields.length === 0 || 
+                    fields.some(f => !f.productId || !(Number(f.quantity) > 0))
+                  }
+                >
                   {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Lưu Đơn Hàng
                 </Button>
