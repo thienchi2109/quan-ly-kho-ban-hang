@@ -17,12 +17,12 @@ const FinancialForecastInputSchema = z.object({
   incomeData: z
     .string()
     .describe(
-      'Historical income data as a JSON string, with date and amount fields. Example: [{\"date\": \"2024-01-01\", \"amount\": 5000}, {\"date\": \"2024-01-08\", \"amount\": 6000}]'
+      'Historical income data as a JSON string, with date and amount fields. Example: [{"date": "2024-01-01", "amount": 5000}, {"date": "2024-01-08", "amount": 6000}]'
     ),
   expenseData: z
     .string()
     .describe(
-      'Historical expense data as a JSON string, with date and amount fields. Example: [{\"date\": \"2024-01-03\", \"amount\": 1000}, {\"date\": \"2024-01-10\", \"amount\": 1200}]'
+      'Historical expense data as a JSON string, with date and amount fields. Example: [{"date": "2024-01-03", "amount": 1000}, {"date": "2024-01-10", "amount": 1200}]'
     ),
 });
 export type FinancialForecastInput = z.infer<typeof FinancialForecastInputSchema>;
@@ -46,8 +46,9 @@ const prompt = ai.definePrompt({
   input: {schema: FinancialForecastInputSchema},
   output: {schema: FinancialForecastOutputSchema},
   prompt: `You are a financial advisor providing forecasts and recommendations based on income and expense data.
+  Your user is Vietnamese. Please provide all answers, summaries, and recommendations in Vietnamese.
 
-  Analyze the provided income and expense data to predict future financial trends.  Provide a summary of your forecast, and include actionable recommendations for the user to improve their financial health.
+  Analyze the provided income and expense data to predict future financial trends. Provide a summary of your forecast, and include actionable recommendations for the user to improve their financial health.
 
   Income Data: {{{incomeData}}}
   Expense Data: {{{expenseData}}}`,
