@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle } from 'lucide-react';
@@ -81,7 +81,6 @@ export default function SalesOrdersPage() {
 
   const onSubmit = async (values: SalesOrderFormValues) => {
     setIsSubmittingOrder(true);
-    // Filter out items with quantity 0 or invalid before submitting
     const validItems = values.items.filter(item => Number(item.quantity) > 0 && item.productId);
     
     if (validItems.length === 0) {
@@ -98,8 +97,8 @@ export default function SalesOrdersPage() {
       const productDetails = products.find(p => p.id === item.productId);
       return {
         ...item,
-        quantity: Number(item.quantity), // Ensure quantity is a number
-        unitPrice: Number(item.unitPrice), // Ensure unitPrice is a number
+        quantity: Number(item.quantity), 
+        unitPrice: Number(item.unitPrice), 
         costPrice: productDetails?.costPrice || 0,
       };
     });
@@ -133,20 +132,18 @@ export default function SalesOrdersPage() {
     }
   };
 
-  const handleItemQuantityChange = (itemIndex: number, newQuantityValue: number | string) => {
+ const handleItemQuantityChange = (itemIndex: number, newQuantityValue: number | string) => {
     const currentItem = watchedItems[itemIndex];
     const product = products.find(p => p.id === currentItem?.productId);
-    let finalQuantity: number | string = newQuantityValue;
-
+    
     if (typeof newQuantityValue === 'string' && newQuantityValue === "") {
-        // Allow empty string for typing
-        update(itemIndex, { ...currentItem, quantity: "" as any }); // temp allow empty string
+        update(itemIndex, { ...currentItem, quantity: "" as any });
         return;
     }
 
     let numQuantity = Number(newQuantityValue);
-    if (isNaN(numQuantity)) { // Non-numeric typed
-        numQuantity = Number(currentItem.quantity) || 1; // Revert to previous or 1
+    if (isNaN(numQuantity)) {
+        numQuantity = Number(currentItem.quantity) || 1;
     }
 
     if (product) {
@@ -155,15 +152,13 @@ export default function SalesOrdersPage() {
             toast({
                 title: "Số lượng vượt tồn kho",
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
+                variant: "default", // Use default toast variant
             });
             numQuantity = availableStock;
         }
     }
     
-    // For direct input, don't force min 1 here, let blur or schema validation handle 0 or empty.
-    // But if it becomes less than 0 due to stock adjustment to 0, then 0 is fine.
     if (numQuantity < 0) numQuantity = 0;
-
 
     update(itemIndex, { ...currentItem, quantity: numQuantity });
   };
@@ -177,8 +172,6 @@ export default function SalesOrdersPage() {
         if (product && getProductStock(product.id) > 0) {
             currentQuantity = 1;
         } else {
-             // If no product or stock is 0, and quantity is invalid, set to 0.
-             // Zod will validate min(1) on submit if needed.
             currentQuantity = 0;
         }
         update(itemIndex, { ...currentItem, quantity: currentQuantity });
@@ -200,7 +193,7 @@ export default function SalesOrdersPage() {
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}.`,
             });
         }
-    } else { // No product selected, default to 1
+    } else { 
         update(itemIndex, { ...currentItem, quantity: 1 });
         return;
     }
@@ -294,6 +287,49 @@ export default function SalesOrdersPage() {
     },
   ];
 
+  const renderSalesOrderCard = (row: Row<SalesOrder>): React.ReactNode => {
+    const order = row.original;
+    const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+    const statusCell = row.getVisibleCells().find(cell => cell.column.id === 'status');
+
+    return (
+      <Card key={order.id} className="w-full">
+        <CardHeader className="pb-3 flex flex-row items-start justify-between">
+          <div>
+            <CardTitle className="text-lg mb-1">{order.orderNumber}</CardTitle>
+            <CardDescription>
+              {order.customerName || 'Khách lẻ'} - {format(parse(order.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}
+            </CardDescription>
+          </div>
+           {actionsCell && (
+            <div className="flex-shrink-0">
+                 {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+            </div>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-1.5 text-sm pt-0">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground font-medium">Tổng tiền:</span>
+            <span>{Number(order.totalAmount).toLocaleString('vi-VN')} đ</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground font-medium">Lợi nhuận:</span>
+            <span className={cn(order.totalProfit > 0 ? "text-green-600" : order.totalProfit < 0 ? "text-red-600" : "text-muted-foreground")}>
+                {Number(order.totalProfit).toLocaleString('vi-VN')} đ
+            </span>
+          </div>
+          {statusCell && (
+             <div className="flex justify-between items-center">
+              <span className="text-muted-foreground font-medium">Trạng thái:</span>
+              <div className="text-right">{flexRender(statusCell.column.columnDef.cell, statusCell.getContext())}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+
   return (
     <>
       <PageHeader title="Quản Lý Đơn Hàng Bán" description="Tạo và theo dõi các đơn hàng bán ra.">
@@ -331,7 +367,7 @@ export default function SalesOrdersPage() {
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
-                            <Button variant="outline" className="w-full pl-3 text-left font-normal">
+                            <Button variant="outline" className="w-full pl-3 text-left font-normal h-10">
                               {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
                             </Button>
                           </FormControl>
@@ -355,7 +391,7 @@ export default function SalesOrdersPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tên Khách Hàng (tùy chọn)</FormLabel>
-                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -434,22 +470,19 @@ export default function SalesOrdersPage() {
                                   </Button>
                                   <FormControl>
                                   <Input
-                                    type="text" // Use text to allow empty more easily
-                                    inputMode="numeric" // Hint for mobile keyboards
+                                    type="text" 
+                                    inputMode="numeric" 
                                     pattern="[0-9]*"
                                     placeholder="1"
-                                    {...quantityField} // Spread RHF props
-                                    value={quantityField.value} // Controlled component
+                                    {...quantityField} 
+                                    value={quantityField.value} 
                                     onChange={(e) => {
                                       const val = e.target.value;
-                                       // Allow only numbers or empty string through regex
                                       if (val === "" || /^[0-9]+$/.test(val)) {
                                         handleItemQuantityChange(index, val);
                                       } else if (quantityField.value && typeof quantityField.value === 'string' && /^[0-9]+$/.test(quantityField.value)) {
-                                        // If invalid char typed, revert to previous numeric value if it exists
                                         e.target.value = quantityField.value;
                                       } else {
-                                        // Fallback if previous value was also invalid (e.g. empty then typed 'a')
                                         handleItemQuantityChange(index, "1"); 
                                       }
                                     }}
@@ -568,7 +601,13 @@ export default function SalesOrdersPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <DataTable columns={columns} data={salesOrders} filterColumn="orderNumber" filterPlaceholder="Lọc theo mã ĐH..." />
+          <DataTable 
+            columns={columns} 
+            data={salesOrders} 
+            filterColumn="orderNumber" 
+            filterPlaceholder="Lọc theo mã ĐH..."
+            renderCardRow={renderSalesOrderCard}
+          />
         </CardContent>
       </Card>
       
@@ -576,3 +615,6 @@ export default function SalesOrdersPage() {
     </>
   );
 }
+
+
+    
