@@ -13,8 +13,7 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+// Popover and Calendar removed
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
@@ -31,7 +30,7 @@ export default function ExportsPage() {
   const { toast } = useToast();
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  // isDatePickerOpen state removed
 
 
   const exportTransactions = inventoryTransactions.filter(t => t.type === 'export');
@@ -123,28 +122,11 @@ export default function ExportsPage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem>
                       <FormLabel>Ngày Xuất</FormLabel>
-                      <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant="outline" className="w-full pl-3 text-left font-normal">
-                              {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => {
-                              field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined);
-                              setIsDatePickerOpen(false);
-                            }}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                        <FormControl>
+                           <Input type="date" {...field} className="h-10"/>
+                        </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -239,4 +221,3 @@ export default function ExportsPage() {
     </>
   );
 }
-

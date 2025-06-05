@@ -13,8 +13,7 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+// Popover and Calendar removed
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
@@ -49,7 +48,7 @@ export default function SalesOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [isOrderDatePickerOpen, setIsOrderDatePickerOpen] = useState(false); 
+  // isOrderDatePickerOpen state removed
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -365,31 +364,9 @@ export default function SalesOrdersPage() {
                   render={({ field }) => (
                     <FormItem> 
                       <FormLabel>Ngày Tạo Đơn</FormLabel>
-                      <Popover open={isOrderDatePickerOpen} onOpenChange={setIsOrderDatePickerOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button 
-                              variant="outline" 
-                              className="w-full pl-3 text-left font-normal h-10"
-                              onClick={() => setIsOrderDatePickerOpen(true)}
-                            >
-                              {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => {
-                                field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
-                                setIsOrderDatePickerOpen(false); 
-                              }
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                        <FormControl>
+                           <Input type="date" {...field} className="h-10"/>
+                        </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -628,4 +605,3 @@ export default function SalesOrdersPage() {
     </>
   );
 }
-

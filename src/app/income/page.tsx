@@ -13,15 +13,14 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+// Popover and Calendar removed
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { ColumnDef } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Edit2, Trash2 } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_CATEGORIES } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,7 +31,7 @@ export default function IncomePage() {
   const { incomeEntries, addIncomeEntry, deleteIncomeEntry } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  // isDatePickerOpen state removed
 
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(IncomeEntrySchema),
@@ -84,8 +83,6 @@ export default function IncomePage() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex gap-2">
-          {/* Edit functionality can be added here */}
-          {/* <Button variant="ghost" size="icon"><Edit2 className="h-4 w-4" /></Button> */}
           <DeleteConfirmDialog 
             onConfirm={() => handleDelete(row.original.id)}
             itemName={`khoản thu nhập "${row.original.description || row.original.category}"`}
@@ -124,28 +121,11 @@ export default function IncomePage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem>
                       <FormLabel>Ngày</FormLabel>
-                      <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant="outline" className="w-full pl-3 text-left font-normal">
-                               {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => {
-                              field.onChange(date ? format(date, 'yyyy-MM-dd') : undefined);
-                              setIsDatePickerOpen(false);
-                            }}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                        <FormControl>
+                          <Input type="date" {...field} className="h-10"/>
+                        </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -216,4 +196,3 @@ export default function IncomePage() {
     </>
   );
 }
-
