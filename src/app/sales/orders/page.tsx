@@ -49,6 +49,7 @@ export default function SalesOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [isOrderDatePickerOpen, setIsOrderDatePickerOpen] = useState(false); // State for order date picker
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -153,7 +154,7 @@ export default function SalesOrdersPage() {
             toast({
                 title: "Số lượng vượt tồn kho",
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
-                variant: "default",
+                variant: "default", // Use default toast variant
             });
             numQuantity = availableStock;
         }
@@ -192,14 +193,13 @@ export default function SalesOrdersPage() {
             });
         }
     } else { 
-        // Should not happen if product is selected, but as a fallback
         update(itemIndex, { ...currentItem, quantity: 1 });
         return;
     }
 
-    if (newQuantity < 1 && product) { // Ensure quantity is at least 1 if product is selected
+    if (newQuantity < 1 && product) { 
         newQuantity = 1;
-    } else if (newQuantity < 0) { // General fallback if no product context
+    } else if (newQuantity < 0) { 
         newQuantity = 0;
     }
     update(itemIndex, { ...currentItem, quantity: newQuantity });
@@ -363,9 +363,9 @@ export default function SalesOrdersPage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem> {/* Removed className="flex flex-col" */}
+                    <FormItem>
                       <FormLabel>Ngày Tạo Đơn</FormLabel>
-                      <Popover>
+                      <Popover open={isOrderDatePickerOpen} onOpenChange={setIsOrderDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button variant="outline" className="w-full pl-3 text-left font-normal h-10">
@@ -377,7 +377,11 @@ export default function SalesOrdersPage() {
                           <Calendar
                             mode="single"
                             selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
+                            onSelect={(date) => {
+                                field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
+                                setIsOrderDatePickerOpen(false); // Close popover after selection
+                              }
+                            }
                             initialFocus
                           />
                         </PopoverContent>
@@ -476,10 +480,10 @@ export default function SalesOrdersPage() {
                                     pattern="[0-9]*"
                                     placeholder="1"
                                     {...quantityField} 
-                                    value={quantityField.value === 0 && !product ? "" : quantityField.value} // Show empty if 0 and no product, else value
+                                    value={quantityField.value === 0 && !product ? "" : quantityField.value} 
                                     onChange={(e) => {
                                       const val = e.target.value;
-                                      if (val === "" || /^[0-9]*$/.test(val)) { // Allow empty or numbers only
+                                      if (val === "" || /^[0-9]*$/.test(val)) { 
                                         handleItemQuantityChange(index, val);
                                       }
                                     }}
@@ -620,6 +624,3 @@ export default function SalesOrdersPage() {
     </>
   );
 }
-
-
-    
