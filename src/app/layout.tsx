@@ -38,9 +38,9 @@ export default function RootLayout({
           Placeholder icons for apple-touch-icon. 
           You should replace these with actual icon files in /public/icons/
         */}
-        <link rel="apple-touch-icon" href="https://placehold.co/180x180.png?text=TouchIcon&font=inter" />
+        <link rel="apple-touch-icon" href="https://i.postimg.cc/NFkBjXh2/apple-touch-icon.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="https://placehold.co/152x152.png?text=TouchIcon&font=inter" />
-        <link rel="apple-touch-icon" sizes="180x180" href="https://placehold.co/180x180.png?text=TouchIcon&font=inter" />
+        <link rel="apple-touch-icon" sizes="180x180" href="https://i.postimg.cc/zGjbcLVB/web-app-manifest-192x192.png" />
         <link rel="apple-touch-icon" sizes="167x167" href="https://placehold.co/167x167.png?text=TouchIcon&font=inter" />
 
         {/* Placeholder for favicon - replace with actual favicons */}

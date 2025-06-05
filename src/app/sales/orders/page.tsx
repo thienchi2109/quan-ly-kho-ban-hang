@@ -49,7 +49,7 @@ export default function SalesOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [isOrderDatePickerOpen, setIsOrderDatePickerOpen] = useState(false); // State for order date picker
+  const [isOrderDatePickerOpen, setIsOrderDatePickerOpen] = useState(false); 
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -100,7 +100,7 @@ export default function SalesOrdersPage() {
         ...item,
         quantity: Number(item.quantity), 
         unitPrice: Number(item.unitPrice), 
-        costPrice: productDetails?.costPrice || 0,
+        costPrice: productDetails?.costPrice || 0, 
       };
     });
 
@@ -138,13 +138,13 @@ export default function SalesOrdersPage() {
     const product = products.find(p => p.id === currentItem?.productId);
     
     if (typeof newQuantityValue === 'string' && newQuantityValue.trim() === "") {
-        update(itemIndex, { ...currentItem, quantity: "" as any }); // Allow temporary empty string
+        update(itemIndex, { ...currentItem, quantity: "" as any }); 
         return;
     }
 
     let numQuantity = Number(newQuantityValue);
-    if (isNaN(numQuantity) || numQuantity < 0) { // Allow 0 temporarily during input
-        update(itemIndex, { ...currentItem, quantity: currentItem.quantity || "" as any }); // Revert or keep empty
+    if (isNaN(numQuantity) || numQuantity < 0) { 
+        update(itemIndex, { ...currentItem, quantity: currentItem.quantity || "" as any }); 
         return;
     }
     
@@ -154,7 +154,7 @@ export default function SalesOrdersPage() {
             toast({
                 title: "Số lượng vượt tồn kho",
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
-                variant: "default", // Use default toast variant
+                variant: "default", 
             });
             numQuantity = availableStock;
         }
@@ -169,9 +169,9 @@ export default function SalesOrdersPage() {
     if (isNaN(currentQuantity) || currentQuantity < 1) {
         const product = products.find(p => p.id === currentItem?.productId);
         if (product && getProductStock(product.id) > 0) {
-            currentQuantity = 1; // Default to 1 if stock available and input is invalid
+            currentQuantity = 1; 
         } else {
-            currentQuantity = 0; // Or 0 if no stock
+            currentQuantity = 0; 
         }
         update(itemIndex, { ...currentItem, quantity: currentQuantity });
     }
@@ -363,12 +363,16 @@ export default function SalesOrdersPage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem> 
                       <FormLabel>Ngày Tạo Đơn</FormLabel>
                       <Popover open={isOrderDatePickerOpen} onOpenChange={setIsOrderDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
-                            <Button variant="outline" className="w-full pl-3 text-left font-normal h-10">
+                            <Button 
+                              variant="outline" 
+                              className="w-full pl-3 text-left font-normal h-10"
+                              onClick={() => setIsOrderDatePickerOpen(true)}
+                            >
                               {field.value ? format(parse(field.value, 'yyyy-MM-dd', new Date()), "PPP", { locale: vi }) : <span>Chọn ngày</span>}
                             </Button>
                           </FormControl>
@@ -379,7 +383,7 @@ export default function SalesOrdersPage() {
                             selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
                             onSelect={(date) => {
                                 field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
-                                setIsOrderDatePickerOpen(false); // Close popover after selection
+                                setIsOrderDatePickerOpen(false); 
                               }
                             }
                             initialFocus
@@ -624,3 +628,4 @@ export default function SalesOrdersPage() {
     </>
   );
 }
+

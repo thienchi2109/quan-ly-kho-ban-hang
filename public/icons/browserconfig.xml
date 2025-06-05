@@ -3,8 +3,8 @@
 <browserconfig>
     <msapplication>
         <tile>
-            <square70x70logo src="https://placehold.co/70x70.png?text=MSTile&font=inter"/>
-            <square150x150logo src="https://placehold.co/150x150.png?text=MSTile&font=inter"/>
+            <square70x70logo src="https://i.postimg.cc/ZRyq40K6/favicon-96x96.png"/>
+            <square150x150logo src="https://i.postimg.cc/zGjbcLVB/web-app-manifest-192x192.png"/>
             <wide310x150logo src="https://placehold.co/310x150.png?text=MSTile&font=inter"/>
             <square310x310logo src="https://placehold.co/310x310.png?text=MSTile&font=inter"/>
             <TileColor>#4db6ac</TileColor>

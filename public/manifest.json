@@ -5,13 +5,13 @@
   "description": "Ứng dụng quản lý kho và thu chi cá nhân/doanh nghiệp nhỏ.",
   "icons": [
     {
-      "src": "https://placehold.co/192x192.png?text=Icon&font=inter",
+      "src": "https://i.postimg.cc/zGjbcLVB/web-app-manifest-192x192.pngr",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://placehold.co/512x512.png?text=Icon&font=inter",
+      "src": "https://i.postimg.cc/43x7kJ91/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
