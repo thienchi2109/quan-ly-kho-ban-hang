@@ -115,7 +115,7 @@ export default function ProductsPage() {
     }
   }, [isMobile]);
 
-  const handleProductFormSubmit = (values: ProductFormValues, productBeingEdited: Product | null, closeModalFn: () => void) => {
+  const handleProductFormSubmit = async (values: ProductFormValues, productBeingEdited: Product | null, closeModalFn: () => void) => {
     const costPrice = values.costPrice === '' ? undefined : Number(values.costPrice);
     const sellingPrice = values.sellingPrice === '' ? undefined : Number(values.sellingPrice);
     const minStockLevel = values.minStockLevel === '' ? undefined : Number(values.minStockLevel);
@@ -128,14 +128,13 @@ export default function ProductsPage() {
     };
     
     if (productBeingEdited) {
-      updateProduct({ ...productBeingEdited, ...processedValues, currentStock: getProductStock(productBeingEdited.id) });
+      await updateProduct({ ...productBeingEdited, ...processedValues, currentStock: getProductStock(productBeingEdited.id) });
       toast({ title: "Thành công!", description: "Đã cập nhật sản phẩm." });
     } else {
-      addProduct(processedValues);
+      await addProduct(processedValues);
       toast({ title: "Thành công!", description: "Đã thêm sản phẩm mới." });
     }
     setEditingProduct(null); // Clear editing state
-    // closeModalFn should already handle clearing openedEditModalId via onOpenChange
     closeModalFn();
   };
 
@@ -239,26 +238,20 @@ export default function ProductsPage() {
            <FormModal<ProductFormValues>
               title="Chỉnh Sửa Sản Phẩm"
               formId={`product-form-edit-${row.original.id}`}
-              // triggerButton is removed as modal is now controlled
               open={openedEditModalId === row.original.id}
               onOpenChange={(modalIsOpen) => {
                 if (!modalIsOpen) {
                   setOpenedEditModalId(null);
-                  // Only clear editingProduct if the modal being closed was for this specific product
                   if (editingProduct && editingProduct.id === row.original.id) {
                     setEditingProduct(null); 
                   }
                 }
-                // If modalIsOpen is true, it's handled by the button click
               }}
             >
             {(closeModal) => {
-              // productForForm relies on `editingProduct` state.
-              // `editingProduct` is set by the Edit button's onClick before this modal becomes visible.
               const productForForm = editingProduct && editingProduct.id === row.original.id ? editingProduct : null;
               return (
                 <ProductFormContent
-                  // Key ensures re-mount if productForForm identity changes (e.g. null -> object)
                   key={productForForm ? `edit-form-${productForForm.id}` : `edit-form-noop-${row.original.id}`}
                   editingProductFull={productForForm}
                   onSubmit={(formValues) => handleProductFormSubmit(formValues, productForForm, closeModal)}
@@ -354,22 +347,22 @@ export default function ProductsPage() {
           description="Điền thông tin chi tiết về sản phẩm."
           formId="product-form-main-new"
           key="add-new-product-modal-main" 
-          triggerButton={ // This modal remains uncontrolled, using triggerButton
+          triggerButton={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
             </Button>
           }
-          onOpenChange={(isOpen) => { // This onOpenChange is for the "Add New" modal
+          onOpenChange={(isOpen) => {
             if (isOpen) {
               setEditingProduct(null); 
-              setOpenedEditModalId(null); // Also ensure no edit modal ID is set
+              setOpenedEditModalId(null);
             }
           }}
         >
           {(closeModal) => (
             <ProductFormContent
               key={"new-product-form-content-main"} 
-              editingProductFull={null} // Always null for new product
+              editingProductFull={null}
               onSubmit={(formValues) => handleProductFormSubmit(formValues, null, closeModal)}
               closeModalSignal={closeModal}
               isEditing={false}
@@ -447,7 +440,7 @@ export default function ProductsPage() {
 
 interface ProductFormContentProps {
     editingProductFull: Product | null;
-    onSubmit: (values: ProductFormValues) => void;
+    onSubmit: (values: ProductFormValues) => Promise<void>; // Ensure onSubmit prop is async
     closeModalSignal: () => void;
     isEditing: boolean;
     formHtmlId: string;
@@ -541,11 +534,13 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             }
         }
         
+        const submissionData = { ...data, imageUrl: finalImageUrl };
+        await onSubmit(submissionData); // Await the onSubmit prop
+        
         setIsUploading(false);
         setUploadProgress(null);
-        const submissionData = { ...data, imageUrl: finalImageUrl };
-        onSubmit(submissionData);
         setImageFile(null); 
+        // closeModalSignal() is called by the `handleProductFormSubmit` after it's done.
     };
 
     return (
@@ -575,7 +570,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                                 type="file"
                                 accept="image/*"
                                 onChange={handleImageChange}
-                                className="hidden" // Hide the default input
+                                className="hidden"
                                 id={fileInputId} 
                             />
                         </FormControl>
@@ -650,4 +645,3 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
-

@@ -18,7 +18,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -28,6 +28,7 @@ export default function ImportsPage() {
   const { products, inventoryTransactions, addInventoryTransaction, getProductById } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const importTransactions = inventoryTransactions.filter(t => t.type === 'import');
 
@@ -42,8 +43,9 @@ export default function ImportsPage() {
     },
   });
 
-  const onSubmit = (values: ImportFormValues, closeModal: () => void) => {
-    const result = addInventoryTransaction({ ...values, type: 'import' });
+  const onSubmit = async (values: ImportFormValues, closeModal: () => void) => {
+    setIsSubmitting(true);
+    const result = await addInventoryTransaction({ ...values, type: 'import' });
     if (result === null) {
       toast({ title: "Thành công!", description: "Đã ghi nhận phiếu nhập kho." });
       form.reset({
@@ -57,6 +59,7 @@ export default function ImportsPage() {
     } else {
       toast({ title: "Lỗi!", description: result, variant: "destructive" });
     }
+    setIsSubmitting(false);
   };
   
   const columns: ColumnDef<InventoryTransaction>[] = [
@@ -226,7 +229,10 @@ export default function ImportsPage() {
                 />
                  <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => {form.reset({ productId: '', quantity: 1, date: format(new Date(), 'yyyy-MM-dd'), relatedParty: '', notes: '' }); closeModal();}}>Hủy</Button>
-                    <Button type="submit">Lưu Phiếu Nhập</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Lưu Phiếu Nhập
+                    </Button>
                 </div>
               </form>
             </Form>

@@ -19,7 +19,7 @@ import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_CATEGORIES } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +30,7 @@ export default function IncomePage() {
   const { incomeEntries, addIncomeEntry, deleteIncomeEntry } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(IncomeEntrySchema),
@@ -41,16 +42,21 @@ export default function IncomePage() {
     },
   });
 
-  const onSubmit = (values: IncomeFormValues, closeModal: () => void) => {
-    addIncomeEntry(values);
-    toast({ title: "Thành công!", description: "Đã thêm khoản thu nhập mới." });
-    form.reset({
-      date: format(new Date(), 'yyyy-MM-dd'),
-      amount: 0,
-      category: PRODUCT_CATEGORIES[0],
-      description: '',
-    });
-    closeModal();
+  const onSubmit = async (values: IncomeFormValues, closeModal: () => void) => {
+    setIsSubmitting(true);
+    const newEntryId = await addIncomeEntry(values);
+    if (newEntryId) {
+      toast({ title: "Thành công!", description: "Đã thêm khoản thu nhập mới." });
+      form.reset({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        amount: 0,
+        category: PRODUCT_CATEGORIES[0],
+        description: '',
+      });
+      closeModal();
+    }
+    // Error toast is handled within addIncomeEntry if it returns undefined/null
+    setIsSubmitting(false);
   };
 
   const handleDelete = (id: string) => {
@@ -220,7 +226,10 @@ export default function IncomePage() {
                 />
                 <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, category: PRODUCT_CATEGORIES[0], description: '' }); closeModal();}}>Hủy</Button>
-                    <Button type="submit">Lưu</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Lưu
+                    </Button>
                 </div>
               </form>
             </Form>
