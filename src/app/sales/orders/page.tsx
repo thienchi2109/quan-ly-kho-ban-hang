@@ -18,7 +18,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ import {
 import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Label } from '@/components/ui/label'; // Added import for Label
+import { Label } from '@/components/ui/label';
 
 type SalesOrderFormValues = {
   customerName?: string;
@@ -237,6 +237,13 @@ export default function SalesOrdersPage() {
     setFilterToDate(undefined);
     setFilterStatus('all');
   };
+
+  const filteredStats = useMemo(() => {
+    const revenue = filteredSalesOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const cogs = filteredSalesOrders.reduce((sum, order) => sum + order.totalCost, 0);
+    const profit = filteredSalesOrders.reduce((sum, order) => sum + order.totalProfit, 0);
+    return { revenue, cogs, profit };
+  }, [filteredSalesOrders]);
 
   const columns: ColumnDef<SalesOrder>[] = [
     {
@@ -470,6 +477,40 @@ export default function SalesOrdersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {(filterFromDate || filterToDate || filterStatus !== 'all') && filteredSalesOrders.length > 0 && (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tổng Doanh Thu (lọc)</CardTitle>
+                <ArrowUpCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{filteredStats.revenue.toLocaleString('vi-VN')} đ</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tổng Giá Vốn (lọc)</CardTitle>
+                <ArrowDownCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{filteredStats.cogs.toLocaleString('vi-VN')} đ</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tổng Lợi Nhuận (lọc)</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${filteredStats.profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                  {filteredStats.profit.toLocaleString('vi-VN')} đ
+                </div>
+              </CardContent>
+            </Card>
+        </div>
+      )}
 
 
       <FormModal<SalesOrderFormValues>
