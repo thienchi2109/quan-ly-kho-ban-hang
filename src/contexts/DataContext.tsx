@@ -16,7 +16,7 @@ import {
   writeBatch,
   getDocs,
   where,
-  serverTimestamp, 
+  serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -43,15 +43,18 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
   deleteProduct: (productId: string) => Promise<void>;
   addIncomeEntry: (entry: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | undefined>;
   deleteIncomeEntry: (entryId: string) => Promise<void>;
-  addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | undefined>; // Updated to support batch and return id
+  addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | undefined>;
   deleteExpenseEntry: (entryId: string) => Promise<void>;
-  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | null>;
+  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>, currentBatch?: ReturnType<typeof writeBatch>) => Promise<string | null>;
   getProductById: (productId: string) => Product | undefined;
   getProductStock: (productId: string) => number;
   getCategoryTotals: (type: 'income' | 'expense') => { name: string; value: number }[];
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
-  addSalesOrder: (orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> }) => Promise<string | undefined>;
+  addSalesOrder: (
+    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> },
+    isDraft: boolean // Thêm tham số isDraft
+  ) => Promise<string | undefined>;
   updateSalesOrderStatus: (orderId: string, status: SalesOrderStatus) => Promise<void>;
   isLoading: boolean;
 }
@@ -114,7 +117,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setError("Không thể tải dữ liệu chi tiêu.");
       setLoadingStates(prev => ({ ...prev, expenses: false }));
     });
-    
+
     const qTransactions = query(transactionsCol, orderBy("date", "desc"));
     const unsubscribeTransactions = onSnapshot(qTransactions, (snapshot) => {
       setInventoryTransactions(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InventoryTransaction)));
@@ -194,7 +197,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const qTransactions = query(transactionsCol, where("productId", "==", productId));
       const transactionDocs = await getDocs(qTransactions);
-      
+
       const batch = writeBatch(db);
       transactionDocs.forEach(docSnapshot => {
         batch.delete(doc(db, 'inventoryTransactions', docSnapshot.id));
@@ -207,7 +210,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setError("Không thể xóa sản phẩm.");
     }
   };
-  
+
   const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
     try {
       const newIncomeRef = doc(collection(db, 'incomeEntries'));
@@ -268,14 +271,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const currentStock = getProductStock(transactionData.productId);
         if (transactionData.quantity > currentStock) {
           const message = `Không đủ hàng tồn kho cho sản phẩm. Hiện có: ${currentStock}, cần xuất: ${transactionData.quantity}.`;
-          return message; 
+          return message;
         }
       }
       const newTransactionRef = doc(collection(db, 'inventoryTransactions'));
       if (currentBatch) {
-        currentBatch.set(newTransactionRef, transactionData); // No ID needed inside data when using batch with generated ref
+        currentBatch.set(newTransactionRef, transactionData);
       } else {
-        await setDoc(newTransactionRef, transactionData); // Use setDoc if no batch, ID is from ref
+        await setDoc(newTransactionRef, transactionData);
       }
       return null; // Success
     } catch (e: any) {
@@ -286,10 +289,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addSalesOrder = async (
-    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> }
+    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> },
+    isDraft: boolean // Thêm tham số isDraft
   ): Promise<string | undefined> => {
     const localBatch = writeBatch(db);
-    const newOrderRef = doc(collection(db, 'salesOrders')); 
+    const newOrderRef = doc(collection(db, 'salesOrders'));
 
     try {
       let totalAmount = 0;
@@ -297,36 +301,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const processedItems: OrderItem[] = orderData.items.map((item, index) => {
         const product = productsWithCurrentStock.find(p => p.id === item.productId);
         if (!product) throw new Error(`Sản phẩm với ID ${item.productId} không tìm thấy.`);
-        
+
         const currentCostPrice = product.costPrice || 0;
         const itemTotalPrice = item.quantity * item.unitPrice;
         totalAmount += itemTotalPrice;
         totalCost += item.quantity * currentCostPrice;
-        
+
         return {
           ...item,
-          id: doc(collection(db, 'dummy')).id, 
+          id: doc(collection(db, 'dummy')).id,
           costPrice: currentCostPrice,
           totalPrice: itemTotalPrice,
         };
       });
 
       const totalProfit = totalAmount - totalCost;
-      const orderNumber = `DH-${Date.now().toString().slice(-6)}`; 
+      const orderNumber = `DH-${Date.now().toString().slice(-6)}`;
 
       const finalOrderData: SalesOrder = {
         ...orderData,
-        id: newOrderRef.id, 
+        id: newOrderRef.id,
         orderNumber,
         items: processedItems,
         totalAmount,
         totalCost,
         totalProfit,
-        status: orderData.status || 'Mới',
+        status: orderData.status || 'Mới', // status từ payload, hoặc 'Mới' nếu không có
       };
 
       localBatch.set(newOrderRef, finalOrderData);
 
+      // Luôn tạo giao dịch xuất kho cho cả lưu tạm và thanh toán
       for (const item of processedItems) {
         const transactionResult = await addInventoryTransaction({
           productId: item.productId,
@@ -336,33 +341,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
           relatedParty: finalOrderData.customerName || 'Khách lẻ',
           notes: `Xuất kho cho đơn hàng ${orderNumber}`,
           relatedOrderId: newOrderRef.id,
-        }, localBatch); 
-        if (transactionResult !== null) { 
-          throw new Error(transactionResult); 
+        }, localBatch);
+        if (transactionResult !== null) {
+          throw new Error(transactionResult);
         }
       }
 
-      await addIncomeEntry({
-        date: finalOrderData.date,
-        amount: finalOrderData.totalAmount,
-        category: 'Bán hàng',
-        description: `Thu nhập từ đơn hàng ${orderNumber}`,
-        relatedOrderId: newOrderRef.id,
-      }, localBatch); 
-      
-      // Add Expense Entry for COGS
-      if (finalOrderData.totalCost > 0) {
-        await addExpenseEntry({
-            date: finalOrderData.date,
-            amount: finalOrderData.totalCost,
-            category: 'Giá vốn hàng bán' as ExpenseCategory,
-            description: `Giá vốn cho đơn hàng ${finalOrderData.orderNumber}`,
-            relatedOrderId: newOrderRef.id,
-            receiptImageUrl: '', // No receipt for COGS
+      // Chỉ tạo bút toán thu nhập và chi phí nếu không phải là lưu tạm (isDraft = false)
+      if (!isDraft) {
+        await addIncomeEntry({
+          date: finalOrderData.date,
+          amount: finalOrderData.totalAmount,
+          category: 'Bán hàng',
+          description: `Thu nhập từ đơn hàng ${orderNumber}`,
+          relatedOrderId: newOrderRef.id,
         }, localBatch);
+
+        if (finalOrderData.totalCost > 0) {
+          await addExpenseEntry({
+              date: finalOrderData.date,
+              amount: finalOrderData.totalCost,
+              category: 'Giá vốn hàng bán' as ExpenseCategory,
+              description: `Giá vốn cho đơn hàng ${finalOrderData.orderNumber}`,
+              relatedOrderId: newOrderRef.id,
+              receiptImageUrl: '',
+          }, localBatch);
+        }
       }
-      
-      await localBatch.commit(); 
+
+      await localBatch.commit();
       return newOrderRef.id;
 
     } catch (e: any) {
@@ -372,15 +379,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return undefined;
     }
   };
-  
+
   const updateSalesOrderStatus = async (orderId: string, status: SalesOrderStatus) => {
+    const localBatch = writeBatch(db);
+    const orderRef = doc(db, 'salesOrders', orderId);
+
     try {
-      const orderRef = doc(db, 'salesOrders', orderId);
-      await updateDoc(orderRef, { status });
-    } catch (e) {
-      console.error("Error updating sales order status: ", e);
-      toast({ title: "Lỗi", description: "Không thể cập nhật trạng thái đơn hàng.", variant: "destructive" });
-      setError("Không thể cập nhật trạng thái đơn hàng.");
+        const orderToUpdate = salesOrders.find(o => o.id === orderId);
+        if (!orderToUpdate) {
+            throw new Error("Không tìm thấy đơn hàng để cập nhật.");
+        }
+
+        localBatch.update(orderRef, { status });
+
+        // Nếu trạng thái mới là 'Hoàn thành' và trước đó không phải 'Hoàn thành' (để tránh ghi nhận lại)
+        // Hoặc logic cụ thể khi một đơn hàng 'Mới' (tạm) được chuyển sang 'Hoàn thành'
+        // Ở đây, giả định khi gọi updateSalesOrderStatus với 'Hoàn thành', chúng ta muốn ghi nhận tài chính nếu chưa.
+        // Tuy nhiên, logic này phức tạp nếu đơn hàng đã được "Thanh Toán" từ modal tạo đơn hàng.
+        // Tạm thời, updateSalesOrderStatus chỉ cập nhật trạng thái.
+        // Việc ghi nhận tài chính khi chuyển từ "Mới" (draft) sang "Hoàn thành" sẽ cần logic riêng sau.
+
+        // Ví dụ: Nếu bạn muốn khi một đơn hàng "Mới" (draft) được đánh dấu "Hoàn thành" từ danh sách,
+        // thì mới ghi nhận doanh thu, bạn cần thêm logic đó ở đây, kiểm tra xem đã ghi nhận chưa.
+        // Điều này có thể phức tạp. Hiện tại, 'Thanh Toán' từ modal tạo đơn đã ghi nhận rồi.
+
+        await localBatch.commit();
+        toast({ title: "Thành công", description: `Đã cập nhật trạng thái đơn hàng thành ${status}.` });
+    } catch (e: any) {
+        console.error("Error updating sales order status: ", e);
+        toast({ title: "Lỗi", description: "Không thể cập nhật trạng thái đơn hàng.", variant: "destructive" });
+        setError("Không thể cập nhật trạng thái đơn hàng.");
     }
   };
 
@@ -411,7 +439,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     incomeEntries,
     expenseEntries,
     inventoryTransactions,
-    salesOrders, 
+    salesOrders,
     addProduct,
     updateProduct,
     deleteProduct,
@@ -425,15 +453,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getCategoryTotals,
     getTotalIncome,
     getTotalExpenses,
-    addSalesOrder, 
-    updateSalesOrderStatus, 
+    addSalesOrder,
+    updateSalesOrderStatus,
     isLoading: overallLoading,
   };
 
   useEffect(() => {
     if (error) {
       toast({ title: "Lỗi dữ liệu", description: error, variant: "destructive" });
-      setError(null); 
+      setError(null);
     }
   }, [error, toast]);
 
@@ -447,3 +475,4 @@ export function useData(): AppContextType {
   }
   return context;
 }
+    

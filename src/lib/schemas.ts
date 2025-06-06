@@ -30,7 +30,7 @@ export const ProductSchema = z.object({
 });
 
 export const IncomeEntrySchema = z.object({
-  date: requiredString('Ngày'), 
+  date: requiredString('Ngày'),
   amount: z.preprocess(
     (val) => parseFloat(String(val)),
     positiveNumber('Số tiền')
@@ -41,7 +41,7 @@ export const IncomeEntrySchema = z.object({
 });
 
 export const ExpenseEntrySchema = z.object({
-  date: requiredString('Ngày'), 
+  date: requiredString('Ngày'),
   amount: z.preprocess(
     (val) => parseFloat(String(val)),
     positiveNumber('Số tiền')
@@ -58,7 +58,7 @@ export const InventoryTransactionSchema = z.object({
     (val) => parseInt(String(val), 10),
     z.number().int().min(1, "Số lượng phải lớn hơn 0")
   ),
-  date: requiredString('Ngày'), 
+  date: requiredString('Ngày'),
   relatedParty: z.string().optional(),
   notes: z.string().optional(),
   relatedOrderId: z.string().optional(),
@@ -97,4 +97,4 @@ export const SalesOrderSchema = z.object({
   notes: z.string().optional(),
   // totalAmount, totalCost, totalProfit will be calculated
 });
-
+    

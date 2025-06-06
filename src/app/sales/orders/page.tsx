@@ -18,7 +18,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,7 @@ type SalesOrderFormValues = {
   customerName?: string;
   date: string;
   items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId?: string }>; // tempId is optional
-  status: SalesOrderStatus;
+  // status: SalesOrderStatus; // Trạng thái sẽ được xử lý tự động
   notes?: string;
 };
 
@@ -66,12 +66,12 @@ export default function SalesOrdersPage() {
 
 
   const form = useForm<SalesOrderFormValues>({
-    resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true })),
+    resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true, status: true })), // Bỏ status khỏi schema validate ở đây
     defaultValues: {
       date: format(new Date(), 'yyyy-MM-dd'),
       customerName: '',
       items: [],
-      status: 'Mới',
+      // status: 'Mới', // Sẽ được set tự động
       notes: '',
     },
   });
@@ -95,15 +95,14 @@ export default function SalesOrdersPage() {
         if (productSelectRefs.current && productSelectRefs.current[indexToFocus]) {
           productSelectRefs.current[indexToFocus]?.focus();
         }
-        newlyAddedItemIndexRef.current = null; 
+        newlyAddedItemIndexRef.current = null;
       }, 0);
     }
-  }, [fields]); 
+  }, [fields]);
 
-  // Focus on customer name when modal opens for new order
   useEffect(() => {
     if (isModalOpen) {
-      setTimeout(() => { // Timeout to ensure input is rendered and visible
+      setTimeout(() => {
         customerNameInputRef.current?.focus();
       }, 100);
     }
@@ -119,7 +118,7 @@ export default function SalesOrdersPage() {
   }, [watchedItems]);
 
 
-  const onSubmit = async (values: SalesOrderFormValues) => {
+  const handleSaveOrder = async (values: SalesOrderFormValues, isDraft: boolean) => {
     setIsSubmittingOrder(true);
     const validItems = values.items.filter(item => Number(item.quantity) > 0 && item.productId);
 
@@ -143,20 +142,39 @@ export default function SalesOrdersPage() {
       };
     });
 
-    const orderId = await addSalesOrder({ ...values, items: itemsForOrder });
+    // Trạng thái sẽ là 'Mới' cho cả lưu tạm và khi chuẩn bị thanh toán (trước khi modal thanh toán mở)
+    const orderStatus: SalesOrderStatus = 'Mới';
+
+    const orderPayload = {
+      ...values,
+      items: itemsForOrder,
+      status: orderStatus, // Status sẽ là "Mới" cho cả hai trường hợp ở giai đoạn này
+    };
+
+    const orderId = await addSalesOrder(orderPayload, isDraft);
+
     if (orderId) {
-      toast({ title: "Thành công!", description: "Đã tạo đơn hàng mới." });
+      toast({ title: "Thành công!", description: isDraft ? "Đã lưu tạm đơn hàng." : "Đã tạo đơn hàng thành công, chuẩn bị thanh toán." });
       form.reset({
         date: format(new Date(), 'yyyy-MM-dd'),
         customerName: '',
         items: [],
-        status: 'Mới',
         notes: '',
       });
-      setIsModalOpen(false);
+      setIsModalOpen(false); // Đóng modal tạo đơn hàng
+
+      if (!isDraft) {
+        // TODO: Mở modal thanh toán ở đây với orderId
+        console.log("Sẵn sàng mở modal thanh toán cho đơn hàng:", orderId);
+        // setPaymentModalOpen(true); // Ví dụ
+        // setSelectedOrderForPayment(orderId); // Ví dụ
+      }
+    } else {
+      // Toast lỗi đã được xử lý trong addSalesOrder
     }
     setIsSubmittingOrder(false);
   };
+
 
   const handleProductChange = (itemIndex: number, productId: string | undefined) => {
     if (!productId) {
@@ -357,12 +375,19 @@ export default function SalesOrdersPage() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {row.original.status === 'Mới' && (
-              <DropdownMenuItem onClick={() => updateSalesOrderStatus(row.original.id, 'Hoàn thành')}>
-                <Edit3 className="mr-2 h-4 w-4" />
-                Đánh Dấu Hoàn Thành
+              <DropdownMenuItem onClick={() => {
+                // TODO: Mở modal thanh toán cho đơn hàng này
+                console.log("Mở modal thanh toán cho đơn hàng:", row.original.id);
+                // setPaymentModalOpen(true);
+                // setSelectedOrderForPayment(row.original.id);
+                // Sau khi thanh toán thành công trong modal đó, sẽ gọi updateSalesOrderStatus(row.original.id, 'Hoàn thành')
+                toast({title: "Chức năng Thanh Toán", description: "Sẽ được phát triển ở bước tiếp theo."})
+              }}>
+                <DollarSign className="mr-2 h-4 w-4" />
+                Thanh Toán Đơn Này
               </DropdownMenuItem>
             )}
-             {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && (
+            {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && (
               <DropdownMenuItem
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
                 onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}
@@ -428,10 +453,9 @@ export default function SalesOrdersPage() {
               date: format(new Date(), 'yyyy-MM-dd'),
               customerName: '',
               items: [],
-              status: 'Mới',
               notes: '',
           });
-          newlyAddedItemIndexRef.current = null; 
+          newlyAddedItemIndexRef.current = null;
           setIsModalOpen(true);
         }}>
           <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
@@ -571,13 +595,14 @@ export default function SalesOrdersPage() {
         onOpenChange={(isOpen) => {
           setIsModalOpen(isOpen);
           if (!isOpen) {
-            newlyAddedItemIndexRef.current = null; 
+            newlyAddedItemIndexRef.current = null;
           }
         }}
       >
         {(closeModal) => (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
+            {/* Sử dụng form.handleSubmit cho cả hai nút, truyền isDraft khác nhau */}
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -599,11 +624,11 @@ export default function SalesOrdersPage() {
                     <FormItem>
                       <ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel>
                       <FormControl>
-                        <Input 
+                        <Input
                           ref={customerNameInputRef}
-                          placeholder="Nhập tên khách hàng" 
-                          {...field} 
-                          className="h-10" 
+                          placeholder="Nhập tên khách hàng"
+                          {...field}
+                          className="h-10"
                         />
                       </FormControl>
                       <FormMessage />
@@ -710,7 +735,7 @@ export default function SalesOrdersPage() {
                             )}
                           />
                         </div>
-                        
+
                         <div className="space-y-3 md:grid md:grid-cols-7 md:gap-x-3 md:gap-y-0 md:items-end">
                            <FormField
                             control={form.control}
@@ -766,22 +791,7 @@ export default function SalesOrdersPage() {
                 </p>
               </div>
 
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <ShadcnFormLabel>Trạng Thái Đơn Hàng</ShadcnFormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {SALES_ORDER_STATUSES.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Bỏ trường chọn Status */}
               <FormField
                 control={form.control}
                 name="notes"
@@ -794,9 +804,19 @@ export default function SalesOrdersPage() {
                 )}
               />
               <div className="flex justify-end gap-2 pt-6">
-                <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], status: 'Mới', notes: '' }); newlyAddedItemIndexRef.current = null; closeModal();}}>Hủy</Button>
+                <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; closeModal();}}>Hủy</Button>
                 <Button
-                  type="submit"
+                    type="button"
+                    variant="secondary"
+                    onClick={form.handleSubmit(data => handleSaveOrder(data, true))}
+                    disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0))}
+                >
+                    {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" /> Lưu Tạm
+                </Button>
+                <Button
+                  type="button"
+                  onClick={form.handleSubmit(data => handleSaveOrder(data, false))}
                   disabled={
                     isSubmittingOrder ||
                     isDataContextLoading ||
@@ -805,7 +825,7 @@ export default function SalesOrdersPage() {
                   }
                 >
                   {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Lưu Đơn Hàng
+                  <DollarSign className="mr-2 h-4 w-4" /> Thanh Toán
                 </Button>
               </div>
             </form>
@@ -830,4 +850,4 @@ export default function SalesOrdersPage() {
     </>
   );
 }
-
+    
