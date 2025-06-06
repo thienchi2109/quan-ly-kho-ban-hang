@@ -1,6 +1,6 @@
 
 export type ProductCategory = 'Lương' | 'Bán hàng' | 'Đầu tư' | 'Khác';
-export type ExpenseCategory = 'Thực phẩm' | 'Di chuyển' | 'Nhà ở' | 'Giải trí' | 'Giáo dục' | 'Sức khỏe' | 'Nguyên vật liệu' | 'Khác';
+export type ExpenseCategory = 'Thực phẩm' | 'Di chuyển' | 'Nhà ở' | 'Giải trí' | 'Giáo dục' | 'Sức khỏe' | 'Nguyên vật liệu' | 'Giá vốn hàng bán' | 'Khác'; // Added 'Giá vốn hàng bán'
 export type ProductUnit = 'cái' | 'cuốn' | 'kg' | 'lít' | 'bộ' | 'm' | 'thùng' | 'chai' | 'hộp';
 export type SalesOrderStatus = 'Mới' | 'Hoàn thành' | 'Đã hủy';
 
@@ -45,6 +45,7 @@ export interface ExpenseEntry {
   category: ExpenseCategory;
   description?: string;
   receiptImageUrl?: string;
+  relatedOrderId?: string; // Added to link COGS expense to sales order
 }
 
 export type InventoryTransactionType = 'import' | 'export';
@@ -86,7 +87,7 @@ export interface SalesOrder {
 
 
 export const PRODUCT_CATEGORIES: ProductCategory[] = ['Lương', 'Bán hàng', 'Đầu tư', 'Khác'];
-export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Thực phẩm', 'Di chuyển', 'Nhà ở', 'Giải trí', 'Giáo dục', 'Sức khỏe', 'Nguyên vật liệu', 'Khác'];
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Thực phẩm', 'Di chuyển', 'Nhà ở', 'Giải trí', 'Giáo dục', 'Sức khỏe', 'Nguyên vật liệu', 'Giá vốn hàng bán', 'Khác']; // Added 'Giá vốn hàng bán'
 export const PRODUCT_UNITS: ProductUnit[] = ['cái', 'cuốn', 'kg', 'lít', 'bộ', 'm', 'thùng', 'chai', 'hộp'];
 export const SALES_ORDER_STATUSES: SalesOrderStatus[] = ['Mới', 'Hoàn thành', 'Đã hủy'];
 

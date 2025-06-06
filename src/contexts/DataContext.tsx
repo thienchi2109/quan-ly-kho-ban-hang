@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus } from '@/lib/types';
+import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory } from '@/lib/types'; // Added ExpenseCategory
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import {
@@ -43,7 +43,7 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
   deleteProduct: (productId: string) => Promise<void>;
   addIncomeEntry: (entry: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | undefined>;
   deleteIncomeEntry: (entryId: string) => Promise<void>;
-  addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>) => Promise<void>;
+  addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | undefined>; // Updated to support batch and return id
   deleteExpenseEntry: (entryId: string) => Promise<void>;
   addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | null>;
   getProductById: (productId: string) => Product | undefined;
@@ -171,11 +171,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const dataToSave = { ...productData };
       await addDoc(productsCol, dataToSave);
-      // toast({ title: "Thành công", description: "Đã thêm sản phẩm mới vào Firestore." }); // Toast handled by caller
     } catch (e) {
       console.error("Error adding product: ", e);
       toast({ title: "Lỗi", description: "Không thể thêm sản phẩm.", variant: "destructive" });
-      setError("Không thể thêm sản phẩm."); // Keep setError for DataProvider internal error state
+      setError("Không thể thêm sản phẩm.");
     }
   };
 
@@ -184,7 +183,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const { id, currentStock, ...dataToUpdate } = productData;
       const productRef = doc(db, 'products', id);
       await updateDoc(productRef, dataToUpdate);
-      // toast({ title: "Thành công", description: "Đã cập nhật sản phẩm." }); // Toast handled by caller
     } catch (e) {
       console.error("Error updating product: ", e);
       toast({ title: "Lỗi", description: "Không thể cập nhật sản phẩm.", variant: "destructive" });
@@ -203,8 +201,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       batch.delete(doc(db, 'products', productId));
       await batch.commit();
-
-      // toast({ title: "Đã xóa", description: "Đã xóa sản phẩm và các giao dịch kho liên quan.", variant: "destructive" }); // Toast handled by caller
     } catch (e) {
       console.error("Error deleting product: ", e);
       toast({ title: "Lỗi", description: "Không thể xóa sản phẩm.", variant: "destructive" });
@@ -219,7 +215,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         batch.set(newIncomeRef, entryData);
       } else {
         await setDoc(newIncomeRef, entryData);
-        // toast({ title: "Thành công", description: "Đã thêm khoản thu nhập." }); // Toast handled by caller if not batched
       }
       return newIncomeRef.id;
     } catch (e) {
@@ -233,7 +228,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteIncomeEntry = async (entryId: string) => {
     try {
       await deleteDoc(doc(db, 'incomeEntries', entryId));
-      // toast({ title: "Đã xóa", description: "Đã xóa khoản thu nhập.", variant: "destructive" }); // Toast handled by caller
     } catch (e) {
       console.error("Error deleting income entry: ", e);
       toast({ title: "Lỗi", description: "Không thể xóa khoản thu nhập.", variant: "destructive" });
@@ -241,21 +235,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addExpenseEntry = async (entryData: Omit<ExpenseEntry, 'id'>) => {
+  const addExpenseEntry = async (entryData: Omit<ExpenseEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
     try {
-      await addDoc(expensesCol, entryData);
-      // toast({ title: "Thành công", description: "Đã thêm khoản chi tiêu." }); // Toast handled by caller
+      const newExpenseRef = doc(collection(db, 'expenseEntries'));
+      if (batch) {
+        batch.set(newExpenseRef, entryData);
+      } else {
+        await setDoc(newExpenseRef, entryData);
+      }
+      return newExpenseRef.id;
     } catch (e) {
       console.error("Error adding expense entry: ", e);
       toast({ title: "Lỗi", description: "Không thể thêm khoản chi tiêu.", variant: "destructive" });
       setError("Không thể thêm khoản chi tiêu.");
+      return undefined;
     }
   };
 
   const deleteExpenseEntry = async (entryId: string) => {
     try {
       await deleteDoc(doc(db, 'expenseEntries', entryId));
-      // toast({ title: "Đã xóa", description: "Đã xóa khoản chi tiêu.", variant: "destructive" }); // Toast handled by caller
     } catch (e) {
       console.error("Error deleting expense entry: ", e);
       toast({ title: "Lỗi", description: "Không thể xóa khoản chi tiêu.", variant: "destructive" });
@@ -269,21 +268,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const currentStock = getProductStock(transactionData.productId);
         if (transactionData.quantity > currentStock) {
           const message = `Không đủ hàng tồn kho cho sản phẩm. Hiện có: ${currentStock}, cần xuất: ${transactionData.quantity}.`;
-          // toast({ title: "Lỗi xuất kho", description: message, variant: "destructive" }); // Handled by caller via return message
           return message; 
         }
       }
       const newTransactionRef = doc(collection(db, 'inventoryTransactions'));
       if (currentBatch) {
-        currentBatch.set(newTransactionRef, transactionData);
+        currentBatch.set(newTransactionRef, transactionData); // No ID needed inside data when using batch with generated ref
       } else {
-        await setDoc(newTransactionRef, {...transactionData, id: newTransactionRef.id});
+        await setDoc(newTransactionRef, transactionData); // Use setDoc if no batch, ID is from ref
       }
       return null; // Success
     } catch (e: any) {
       console.error("Error adding inventory transaction: ", e);
       const message = "Không thể ghi nhận giao dịch kho.";
-      // toast({ title: "Lỗi Giao Dịch Kho", description: e.message || message, variant: "destructive" }); // Handled by caller
       return e.message || message;
     }
   };
@@ -353,9 +350,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         relatedOrderId: newOrderRef.id,
       }, localBatch); 
       
+      // Add Expense Entry for COGS
+      if (finalOrderData.totalCost > 0) {
+        await addExpenseEntry({
+            date: finalOrderData.date,
+            amount: finalOrderData.totalCost,
+            category: 'Giá vốn hàng bán' as ExpenseCategory,
+            description: `Giá vốn cho đơn hàng ${finalOrderData.orderNumber}`,
+            relatedOrderId: newOrderRef.id,
+            receiptImageUrl: '', // No receipt for COGS
+        }, localBatch);
+      }
+      
       await localBatch.commit(); 
-
-      // toast({ title: "Thành công!", description: `Đã tạo đơn hàng ${orderNumber}.` }); // Toast handled by caller
       return newOrderRef.id;
 
     } catch (e: any) {
@@ -370,7 +377,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const orderRef = doc(db, 'salesOrders', orderId);
       await updateDoc(orderRef, { status });
-      // toast({ title: "Thành công", description: "Đã cập nhật trạng thái đơn hàng." }); // Toast handled by caller
     } catch (e) {
       console.error("Error updating sales order status: ", e);
       toast({ title: "Lỗi", description: "Không thể cập nhật trạng thái đơn hàng.", variant: "destructive" });

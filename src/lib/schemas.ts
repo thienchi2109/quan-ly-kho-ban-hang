@@ -49,6 +49,7 @@ export const ExpenseEntrySchema = z.object({
   category: z.enum(EXPENSE_CATEGORIES, { errorMap: () => ({ message: "Danh mục chi tiêu không hợp lệ" }) }),
   description: z.string().optional(),
   receiptImageUrl: z.string().url("URL hình ảnh biên lai không hợp lệ").optional().or(z.literal('')),
+  relatedOrderId: z.string().optional(), // Added
 });
 
 export const InventoryTransactionSchema = z.object({
