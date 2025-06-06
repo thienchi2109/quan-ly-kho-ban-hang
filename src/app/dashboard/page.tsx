@@ -14,6 +14,7 @@ import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge'; // Thêm import Badge
 
 const chartDataFormatter = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 
@@ -78,7 +79,10 @@ export default function DashboardPage() {
   const expenseCategories = getCategoryTotals('expense');
   
   const totalProducts = products.length;
-  const lowStockProducts = products.filter(p => p.minStockLevel !== undefined && p.currentStock < p.minStockLevel).length;
+  // Tính toán số lượng sản phẩm hết hàng và sắp hết hàng
+  const numOutOfStock = products.filter(p => p.currentStock === 0).length;
+  const numLowStock = products.filter(p => p.currentStock > 0 && p.minStockLevel !== undefined && p.currentStock < p.minStockLevel).length;
+
 
   const monthlyChartData = useMemo(() => {
     const dataMap: Record<string, { month: string, income: number, expenses: number, balance: number }> = {};
@@ -249,7 +253,28 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold md:text-2xl">{totalProducts}</div>
-            <p className="text-xs text-muted-foreground">{lowStockProducts > 0 ? `${lowStockProducts} sản phẩm sắp hết hàng` : "Tất cả sản phẩm đủ hàng"}</p>
+            <div className="mt-1 space-y-0.5 min-h-[1.2em]">
+              {numOutOfStock > 0 && (
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <Badge variant="destructive" className="mr-1.5 px-1.5 py-0 text-[10px] h-4 leading-snug">HẾT</Badge>
+                  {numOutOfStock} sản phẩm hết hàng
+                </p>
+              )}
+              {numLowStock > 0 && (
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <Badge
+                    variant="default"
+                    className="bg-accent text-accent-foreground hover:bg-accent/90 mr-1.5 px-1.5 py-0 text-[10px] h-4 leading-snug"
+                  >
+                    SẮP HẾT
+                  </Badge>
+                  {numLowStock} sản phẩm sắp hết hàng
+                </p>
+              )}
+              {numOutOfStock === 0 && numLowStock === 0 && (
+                <p className="text-xs text-muted-foreground">Tất cả sản phẩm đủ hàng</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
