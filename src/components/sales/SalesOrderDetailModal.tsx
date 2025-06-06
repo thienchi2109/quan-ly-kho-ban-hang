@@ -133,27 +133,30 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         }
         .items-table th, .items-table td {
             padding: 3px 1px; /* Giảm padding cell */
-            text-align: left;
+            text-align: left; /* Default to left for content alignment */
             vertical-align: top; /* Căn trên cho nội dung cell */
         }
         .items-table th {
             font-weight: 600;
             border-bottom: 1px solid #000;
         }
-        .align-right {
+        .align-right { /* Class used for text alignment in specific cells */
             text-align: right;
         }
         /* Điều chỉnh cột cho nhỏ hơn */
         .items-table td:nth-child(1) { /* Tên SP */
              word-break: break-word; /* Cho phép ngắt từ nếu tên SP quá dài */
         }
-        .items-table th:nth-child(2), .items-table td:nth-child(2) { /* SL */
-             width: 30px; 
-             text-align: right;
+        /* SL column - header and data cells */
+        .items-table th:nth-child(2), .items-table td:nth-child(2) { 
+             width: 20px; /* Width for the content itself */
+             text-align: right; /* Quantity should be right-aligned */
+             padding-right: 8px; /* Increased padding for more separation before next column */
         }
-        .items-table th:nth-child(3), .items-table td:nth-child(3) { /* Thành Tiền */
-             width: 70px; 
-             text-align: right;
+        /* Thành Tiền column - header and data cells */
+        .items-table th:nth-child(3), .items-table td:nth-child(3) { 
+             width: 70px; /* Keep width for price */
+             text-align: right; /* Price should be right-aligned */
         }
 
 
@@ -206,7 +209,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
             </div>
             <div class="detail-item">
                 <span class="label">Ngày:</span>
-                <span class="value">${format(new Date(order.date), "dd/MM/yyyy")}</span>
+                <span class="value">${format(new Date(order.date), "dd/MM/yyyy", { locale: vi })}</span>
             </div>
             <div class="detail-item">
                 <span class="label">Khách hàng:</span>
