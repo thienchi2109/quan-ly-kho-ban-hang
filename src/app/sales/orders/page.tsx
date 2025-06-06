@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SalesOrderSchema, OrderItemSchema as SingleOrderItemSchema } from '@/lib/schemas';
-import type { SalesOrder, OrderItem as OrderItemType, Product, SalesOrderStatus } from '@/lib/types';
+import type { SalesOrder, OrderItem as OrderItemType, Product, SalesOrderStatus, OrderDataForPayment } from '@/lib/types';
 import { useData } from '@/hooks';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
+import PaymentModal from '@/components/sales/PaymentModal'; // Import PaymentModal
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
@@ -40,8 +41,7 @@ import { SearchableProductSelect } from '@/components/common/SearchableProductSe
 type SalesOrderFormValues = {
   customerName?: string;
   date: string;
-  items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId?: string }>; // tempId is optional
-  // status: SalesOrderStatus; // Trạng thái sẽ được xử lý tự động
+  items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId?: string }>;
   notes?: string;
 };
 
@@ -49,7 +49,9 @@ type SalesOrderFormValues = {
 export default function SalesOrdersPage() {
   const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataContextLoading, getProductStock } = useData();
   const { toast } = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [orderDataForPayment, setOrderDataForPayment] = useState<OrderDataForPayment | null>(null);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
@@ -65,24 +67,23 @@ export default function SalesOrdersPage() {
   const customerNameInputRef = useRef<HTMLInputElement>(null);
 
 
-  const form = useForm<SalesOrderFormValues>({
-    resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true, status: true })), // Bỏ status khỏi schema validate ở đây
+  const createOrderForm = useForm<SalesOrderFormValues>({
+    resolver: zodResolver(SalesOrderSchema.omit({ orderNumber: true, status: true, totalAmount: true, discountPercentage: true, otherIncomeAmount: true, finalAmount: true, paymentMethod: true, cashReceived: true, changeGiven: true })),
     defaultValues: {
       date: format(new Date(), 'yyyy-MM-dd'),
       customerName: '',
       items: [],
-      // status: 'Mới', // Sẽ được set tự động
       notes: '',
     },
   });
 
   const { fields, append, remove, update } = useFieldArray({
-    control: form.control,
+    control: createOrderForm.control,
     name: "items",
     keyName: "fieldId",
   });
 
-  const watchedItems = form.watch("items");
+  const watchedItems = createOrderForm.watch("items");
 
   useEffect(() => {
     productSelectRefs.current = productSelectRefs.current.slice(0, fields.length);
@@ -101,12 +102,12 @@ export default function SalesOrdersPage() {
   }, [fields]);
 
   useEffect(() => {
-    if (isModalOpen) {
+    if (isCreateOrderModalOpen && !isPaymentModalOpen) { // Only focus if create modal is open and payment modal is not
       setTimeout(() => {
         customerNameInputRef.current?.focus();
       }, 100);
     }
-  }, [isModalOpen]);
+  }, [isCreateOrderModalOpen, isPaymentModalOpen]);
 
 
   const calculateTotalAmount = useCallback(() => {
@@ -118,16 +119,34 @@ export default function SalesOrdersPage() {
   }, [watchedItems]);
 
 
-  const handleSaveOrder = async (values: SalesOrderFormValues, isDraft: boolean) => {
-    setIsSubmittingOrder(true);
-    const validItems = values.items.filter(item => Number(item.quantity) > 0 && item.productId);
-
-    if (validItems.length === 0) {
+  const handleOpenPaymentModal = (values: SalesOrderFormValues) => {
+    const currentOrderTotal = calculateTotalAmount();
+     if (values.items.filter(item => Number(item.quantity) > 0 && item.productId).length === 0) {
         toast({
             title: "Đơn hàng trống",
             description: "Vui lòng thêm ít nhất một sản phẩm hợp lệ vào đơn hàng.",
             variant: "destructive",
         });
+        return;
+    }
+    setOrderDataForPayment({
+      ...values,
+      items: values.items.map(item => ({ // Ensure costPrice is part of the items for payment modal if needed, or for final save
+          ...item,
+          costPrice: products.find(p => p.id === item.productId)?.costPrice || 0
+      })),
+      currentOrderTotal: currentOrderTotal,
+    });
+    setIsCreateOrderModalOpen(false); // Close create order modal
+    setIsPaymentModalOpen(true); // Open payment modal
+  };
+
+  const handleSaveDraftOrder = async (values: SalesOrderFormValues) => {
+    setIsSubmittingOrder(true);
+    const validItems = values.items.filter(item => Number(item.quantity) > 0 && item.productId);
+
+    if (validItems.length === 0) {
+        toast({ title: "Đơn hàng trống", description: "Vui lòng thêm sản phẩm.", variant: "destructive" });
         setIsSubmittingOrder(false);
         return;
     }
@@ -135,42 +154,87 @@ export default function SalesOrdersPage() {
     const itemsForOrder = validItems.map(item => {
       const productDetails = products.find(p => p.id === item.productId);
       return {
-        ...item,
+        productId: item.productId,
+        productName: item.productName,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         costPrice: productDetails?.costPrice || 0,
       };
     });
 
-    // Trạng thái sẽ là 'Mới' cho cả lưu tạm và khi chuẩn bị thanh toán (trước khi modal thanh toán mở)
-    const orderStatus: SalesOrderStatus = 'Mới';
-
     const orderPayload = {
-      ...values,
+      customerName: values.customerName,
+      date: values.date,
       items: itemsForOrder,
-      status: orderStatus, // Status sẽ là "Mới" cho cả hai trường hợp ở giai đoạn này
+      notes: values.notes,
+      status: 'Mới' as SalesOrderStatus,
+      totalAmount: calculateTotalAmount(), // Original total amount
+      // Payment related fields will be undefined/default for draft
     };
 
-    const orderId = await addSalesOrder(orderPayload, isDraft);
+    const orderId = await addSalesOrder(orderPayload, true); // true for isDraft
 
     if (orderId) {
-      toast({ title: "Thành công!", description: isDraft ? "Đã lưu tạm đơn hàng." : "Đã tạo đơn hàng thành công, chuẩn bị thanh toán." });
-      form.reset({
-        date: format(new Date(), 'yyyy-MM-dd'),
-        customerName: '',
-        items: [],
-        notes: '',
-      });
-      setIsModalOpen(false); // Đóng modal tạo đơn hàng
+      toast({ title: "Thành công!", description: "Đã lưu tạm đơn hàng." });
+      createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' });
+      setIsCreateOrderModalOpen(false);
+    }
+    setIsSubmittingOrder(false);
+  };
 
-      if (!isDraft) {
-        // TODO: Mở modal thanh toán ở đây với orderId
-        console.log("Sẵn sàng mở modal thanh toán cho đơn hàng:", orderId);
-        // setPaymentModalOpen(true); // Ví dụ
-        // setSelectedOrderForPayment(orderId); // Ví dụ
-      }
+  const handleConfirmPayment = async (paymentDetails: {
+    discountPercentage: number;
+    otherIncomeAmount: number;
+    paymentMethod: 'Tiền mặt' | 'Chuyển khoản';
+    cashReceived?: number;
+  }) => {
+    if (!orderDataForPayment) return;
+    setIsSubmittingOrder(true);
+
+    const { items, date, customerName, notes, currentOrderTotal } = orderDataForPayment;
+
+    const finalAmount = (currentOrderTotal * (1 - paymentDetails.discountPercentage / 100)) + paymentDetails.otherIncomeAmount;
+    const changeGiven = paymentDetails.paymentMethod === 'Tiền mặt' && paymentDetails.cashReceived !== undefined
+                        ? paymentDetails.cashReceived - finalAmount
+                        : undefined;
+
+    const itemsForOrder = items.map(item => {
+      const productDetails = products.find(p => p.id === item.productId);
+      return {
+        productId: item.productId,
+        productName: item.productName, // Make sure productName is correctly passed or retrieved
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        costPrice: productDetails?.costPrice || 0,
+      };
+    });
+
+    const orderPayloadToSave: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'> = {
+      customerName,
+      date,
+      items: itemsForOrder,
+      notes,
+      status: 'Mới', // Will be updated to 'Hoàn thành' after successful save & financial record
+      totalAmount: currentOrderTotal,
+      discountPercentage: paymentDetails.discountPercentage,
+      otherIncomeAmount: paymentDetails.otherIncomeAmount,
+      finalAmount: finalAmount,
+      paymentMethod: paymentDetails.paymentMethod,
+      cashReceived: paymentDetails.cashReceived,
+      changeGiven: changeGiven,
+    };
+
+    const newOrderId = await addSalesOrder(orderPayloadToSave, false); // false for !isDraft
+
+    if (newOrderId) {
+      await updateSalesOrderStatus(newOrderId, 'Hoàn thành'); // Update status to 'Hoàn thành'
+      toast({ title: "Thành công!", description: "Đã hoàn tất thanh toán và lưu đơn hàng." });
+      createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' });
+      setIsPaymentModalOpen(false);
+      setOrderDataForPayment(null);
     } else {
-      // Toast lỗi đã được xử lý trong addSalesOrder
+      // Error toast is handled in addSalesOrder
+      // Potentially reopen payment modal or create order modal if save fails
     }
     setIsSubmittingOrder(false);
   };
@@ -306,7 +370,7 @@ export default function SalesOrdersPage() {
   };
 
   const filteredStats = useMemo(() => {
-    const revenue = filteredSalesOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const revenue = filteredSalesOrders.reduce((sum, order) => sum + (order.finalAmount ?? order.totalAmount), 0); // Use finalAmount if available
     const cogs = filteredSalesOrders.reduce((sum, order) => sum + order.totalCost, 0);
     const profit = filteredSalesOrders.reduce((sum, order) => sum + order.totalProfit, 0);
     return { revenue, cogs, profit };
@@ -328,9 +392,12 @@ export default function SalesOrdersPage() {
       cell: ({ row }) => row.getValue("customerName") || "Khách lẻ",
     },
     {
-      accessorKey: "totalAmount",
-      header: "Tổng Tiền",
-      cell: ({ row }) => `${Number(row.getValue("totalAmount")).toLocaleString('vi-VN')} đ`,
+      accessorKey: "finalAmount",
+      header: "Tổng Thanh Toán",
+      cell: ({ row }) => {
+        const finalAmount = row.original.finalAmount ?? row.original.totalAmount;
+        return `${Number(finalAmount).toLocaleString('vi-VN')} đ`;
+      }
     },
     {
       accessorKey: "totalProfit",
@@ -374,14 +441,27 @@ export default function SalesOrdersPage() {
               Xem Chi Tiết
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {row.original.status === 'Mới' && (
-              <DropdownMenuItem onClick={() => {
-                // TODO: Mở modal thanh toán cho đơn hàng này
-                console.log("Mở modal thanh toán cho đơn hàng:", row.original.id);
-                // setPaymentModalOpen(true);
-                // setSelectedOrderForPayment(row.original.id);
-                // Sau khi thanh toán thành công trong modal đó, sẽ gọi updateSalesOrderStatus(row.original.id, 'Hoàn thành')
-                toast({title: "Chức năng Thanh Toán", description: "Sẽ được phát triển ở bước tiếp theo."})
+            {row.original.status === 'Mới' && ( // Only show "Thanh Toán" if status is "Mới"
+              <DropdownMenuItem onClick={async () => {
+                // This is for orders already saved as "Mới" (draft)
+                // We need to open the payment modal for this existing order
+                const orderToPay = row.original;
+                setOrderDataForPayment({
+                  customerName: orderToPay.customerName,
+                  date: orderToPay.date,
+                  items: orderToPay.items.map(i => ({ // Map to OrderDataForPayment items
+                      productId: i.productId,
+                      productName: i.productName,
+                      quantity: i.quantity,
+                      unitPrice: i.unitPrice,
+                      costPrice: i.costPrice,
+                  })),
+                  notes: orderToPay.notes,
+                  currentOrderTotal: orderToPay.totalAmount, // Use original totalAmount
+                  // We also need to pass the existing order ID to update it instead of creating a new one
+                  existingOrderId: orderToPay.id,
+                } as OrderDataForPayment & { existingOrderId?: string }); // Extend type for this case
+                setIsPaymentModalOpen(true);
               }}>
                 <DollarSign className="mr-2 h-4 w-4" />
                 Thanh Toán Đơn Này
@@ -406,6 +486,7 @@ export default function SalesOrdersPage() {
     const order = row.original;
     const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
     const statusCell = row.getVisibleCells().find(cell => cell.column.id === 'status');
+    const finalAmount = order.finalAmount ?? order.totalAmount;
 
     return (
       <Card key={order.id} className="w-full">
@@ -424,8 +505,8 @@ export default function SalesOrdersPage() {
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm pt-0">
           <div className="flex justify-between">
-            <span className="text-muted-foreground font-medium">Tổng tiền:</span>
-            <span>{Number(order.totalAmount).toLocaleString('vi-VN')} đ</span>
+            <span className="text-muted-foreground font-medium">Tổng thanh toán:</span>
+            <span>{Number(finalAmount).toLocaleString('vi-VN')} đ</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground font-medium">Lợi nhuận:</span>
@@ -449,14 +530,14 @@ export default function SalesOrdersPage() {
     <>
       <PageHeader title="Quản Lý Đơn Hàng Bán" description="Tạo và theo dõi các đơn hàng bán ra.">
         <Button onClick={() => {
-          form.reset({
+          createOrderForm.reset({
               date: format(new Date(), 'yyyy-MM-dd'),
               customerName: '',
               items: [],
               notes: '',
           });
           newlyAddedItemIndexRef.current = null;
-          setIsModalOpen(true);
+          setIsCreateOrderModalOpen(true);
         }}>
           <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
         </Button>
@@ -586,26 +667,26 @@ export default function SalesOrdersPage() {
         </div>
       )}
 
-
+      {/* Create Order Modal */}
       <FormModal<SalesOrderFormValues>
         title="Tạo Đơn Hàng Mới"
         description="Điền thông tin chi tiết cho đơn hàng."
         formId="add-sales-order-form"
-        open={isModalOpen}
+        open={isCreateOrderModalOpen}
         onOpenChange={(isOpen) => {
-          setIsModalOpen(isOpen);
+          setIsCreateOrderModalOpen(isOpen);
           if (!isOpen) {
             newlyAddedItemIndexRef.current = null;
+            // Do not reset form here if payment modal might open next
           }
         }}
       >
-        {(closeModal) => (
-          <Form {...form}>
-            {/* Sử dụng form.handleSubmit cho cả hai nút, truyền isDraft khác nhau */}
+        {() => ( // Changed from closeModal to not use it directly here
+          <Form {...createOrderForm}>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
-                  control={form.control}
+                  control={createOrderForm.control}
                   name="date"
                   render={({ field }) => (
                     <FormItem>
@@ -618,7 +699,7 @@ export default function SalesOrdersPage() {
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={createOrderForm.control}
                   name="customerName"
                   render={({ field }) => (
                     <FormItem>
@@ -652,7 +733,7 @@ export default function SalesOrdersPage() {
                       <div key={itemField.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                            <FormField
-                            control={form.control}
+                            control={createOrderForm.control}
                             name={`items.${index}.productId`}
                             render={({ field }) => (
                               <FormItem>
@@ -684,7 +765,7 @@ export default function SalesOrdersPage() {
                           />
 
                           <FormField
-                            control={form.control}
+                            control={createOrderForm.control}
                             name={`items.${index}.quantity`}
                             render={({ field: quantityField }) => (
                               <FormItem>
@@ -738,7 +819,7 @@ export default function SalesOrdersPage() {
 
                         <div className="space-y-3 md:grid md:grid-cols-7 md:gap-x-3 md:gap-y-0 md:items-end">
                            <FormField
-                            control={form.control}
+                            control={createOrderForm.control}
                             name={`items.${index}.unitPrice`}
                             render={({ field: priceField }) => (
                               <FormItem className="md:col-span-3">
@@ -790,10 +871,8 @@ export default function SalesOrdersPage() {
                   Tổng Cộng: {calculateTotalAmount().toLocaleString('vi-VN')} đ
                 </p>
               </div>
-
-              {/* Bỏ trường chọn Status */}
               <FormField
-                control={form.control}
+                control={createOrderForm.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
@@ -804,11 +883,11 @@ export default function SalesOrdersPage() {
                 )}
               />
               <div className="flex justify-end gap-2 pt-6">
-                <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; closeModal();}}>Hủy</Button>
+                <Button type="button" variant="outline" onClick={() => {createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; setIsCreateOrderModalOpen(false);}}>Hủy</Button>
                 <Button
                     type="button"
                     variant="secondary"
-                    onClick={form.handleSubmit(data => handleSaveOrder(data, true))}
+                    onClick={createOrderForm.handleSubmit(handleSaveDraftOrder)}
                     disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0))}
                 >
                     {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -816,15 +895,13 @@ export default function SalesOrdersPage() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={form.handleSubmit(data => handleSaveOrder(data, false))}
+                  onClick={createOrderForm.handleSubmit(handleOpenPaymentModal)}
                   disabled={
-                    isSubmittingOrder ||
                     isDataContextLoading ||
                     fields.length === 0 ||
                     fields.some(f => !f.productId || !(Number(f.quantity) > 0))
                   }
                 >
-                  {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <DollarSign className="mr-2 h-4 w-4" /> Thanh Toán
                 </Button>
               </div>
@@ -832,6 +909,24 @@ export default function SalesOrdersPage() {
           </Form>
         )}
       </FormModal>
+
+      {/* Payment Modal */}
+      {orderDataForPayment && (
+        <PaymentModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => {
+                setIsPaymentModalOpen(false);
+                setOrderDataForPayment(null);
+            }}
+            orderData={orderDataForPayment}
+            onConfirmPayment={handleConfirmPayment}
+            onBack={() => {
+                setIsPaymentModalOpen(false);
+                setIsCreateOrderModalOpen(true); // Reopen create order modal
+            }}
+            isSubmitting={isSubmittingOrder}
+        />
+      )}
 
 
       <Card>
@@ -850,4 +945,4 @@ export default function SalesOrdersPage() {
     </>
   );
 }
-    
+

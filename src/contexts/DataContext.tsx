@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory } from '@/lib/types'; // Added ExpenseCategory
+import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory, PaymentMethod, OrderDataForPayment } from '@/lib/types'; // Added ExpenseCategory
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import {
@@ -52,8 +52,8 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
   addSalesOrder: (
-    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> },
-    isDraft: boolean // Thêm tham số isDraft
+    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'>, // totalAmount is now original, finalAmount will be calculated
+    isDraft: boolean
   ) => Promise<string | undefined>;
   updateSalesOrderStatus: (orderId: string, status: SalesOrderStatus) => Promise<void>;
   isLoading: boolean;
@@ -289,56 +289,57 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addSalesOrder = async (
-    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> },
-    isDraft: boolean // Thêm tham số isDraft
+    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'>,
+    isDraft: boolean
   ): Promise<string | undefined> => {
     const localBatch = writeBatch(db);
     const newOrderRef = doc(collection(db, 'salesOrders'));
 
     try {
-      let totalAmount = 0;
-      let totalCost = 0;
-      const processedItems: OrderItem[] = orderData.items.map((item, index) => {
+      // totalAmount is the original sum of item.totalPrice
+      // finalAmount includes discount and otherIncome, to be calculated and passed in orderData if available
+      // totalCost is sum of item.costPrice * quantity
+      // totalProfit will be finalAmount - totalCost
+
+      let calculatedTotalCost = 0;
+      const processedItems: OrderItem[] = orderData.items.map((item) => {
         const product = productsWithCurrentStock.find(p => p.id === item.productId);
         if (!product) throw new Error(`Sản phẩm với ID ${item.productId} không tìm thấy.`);
-
         const currentCostPrice = product.costPrice || 0;
-        const itemTotalPrice = item.quantity * item.unitPrice;
-        totalAmount += itemTotalPrice;
-        totalCost += item.quantity * currentCostPrice;
-
+        calculatedTotalCost += item.quantity * currentCostPrice;
         return {
-          ...item,
-          id: doc(collection(db, 'dummy')).id,
-          costPrice: currentCostPrice,
-          totalPrice: itemTotalPrice,
+          ...item, // Should already include productName, quantity, unitPrice, costPrice
+          id: doc(collection(db, 'dummy')).id, // Generate temp id for sub-collection like items
+          totalPrice: item.quantity * item.unitPrice, // Ensure totalPrice is correctly calculated here
         };
       });
 
-      const totalProfit = totalAmount - totalCost;
+      const finalAmountForDB = orderData.finalAmount ?? orderData.totalAmount; // Use finalAmount if provided, else original totalAmount
+      const calculatedTotalProfit = finalAmountForDB - calculatedTotalCost;
       const orderNumber = `DH-${Date.now().toString().slice(-6)}`;
 
-      const finalOrderData: SalesOrder = {
-        ...orderData,
+      const finalOrderDataToSave: SalesOrder = {
+        ...orderData, // Includes customerName, date, items, notes, discountPercentage, otherIncomeAmount, paymentMethod etc from form
         id: newOrderRef.id,
         orderNumber,
-        items: processedItems,
-        totalAmount,
-        totalCost,
-        totalProfit,
-        status: orderData.status || 'Mới', // status từ payload, hoặc 'Mới' nếu không có
+        items: processedItems, // Use processed items with correct totalPrice and costPrice
+        totalAmount: orderData.totalAmount, // Original total amount from items
+        finalAmount: finalAmountForDB,
+        totalCost: calculatedTotalCost,
+        totalProfit: calculatedTotalProfit,
+        status: orderData.status || 'Mới', // Default to 'Mới' if not provided, this will be updated later if payment is confirmed
       };
 
-      localBatch.set(newOrderRef, finalOrderData);
+      localBatch.set(newOrderRef, finalOrderDataToSave);
 
-      // Luôn tạo giao dịch xuất kho cho cả lưu tạm và thanh toán
+      // Always create export transactions
       for (const item of processedItems) {
         const transactionResult = await addInventoryTransaction({
           productId: item.productId,
           type: 'export',
           quantity: item.quantity,
-          date: finalOrderData.date,
-          relatedParty: finalOrderData.customerName || 'Khách lẻ',
+          date: finalOrderDataToSave.date,
+          relatedParty: finalOrderDataToSave.customerName || 'Khách lẻ',
           notes: `Xuất kho cho đơn hàng ${orderNumber}`,
           relatedOrderId: newOrderRef.id,
         }, localBatch);
@@ -347,22 +348,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Chỉ tạo bút toán thu nhập và chi phí nếu không phải là lưu tạm (isDraft = false)
       if (!isDraft) {
+        // Record income and COGS only if not a draft (i.e., payment process initiated)
         await addIncomeEntry({
-          date: finalOrderData.date,
-          amount: finalOrderData.totalAmount,
+          date: finalOrderDataToSave.date,
+          amount: finalOrderDataToSave.finalAmount, // Income is based on the final amount paid
           category: 'Bán hàng',
           description: `Thu nhập từ đơn hàng ${orderNumber}`,
           relatedOrderId: newOrderRef.id,
         }, localBatch);
 
-        if (finalOrderData.totalCost > 0) {
+        if (finalOrderDataToSave.totalCost > 0) {
           await addExpenseEntry({
-              date: finalOrderData.date,
-              amount: finalOrderData.totalCost,
+              date: finalOrderDataToSave.date,
+              amount: finalOrderDataToSave.totalCost,
               category: 'Giá vốn hàng bán' as ExpenseCategory,
-              description: `Giá vốn cho đơn hàng ${finalOrderData.orderNumber}`,
+              description: `Giá vốn cho đơn hàng ${finalOrderDataToSave.orderNumber}`,
               relatedOrderId: newOrderRef.id,
               receiptImageUrl: '',
           }, localBatch);
@@ -391,18 +392,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         localBatch.update(orderRef, { status });
-
-        // Nếu trạng thái mới là 'Hoàn thành' và trước đó không phải 'Hoàn thành' (để tránh ghi nhận lại)
-        // Hoặc logic cụ thể khi một đơn hàng 'Mới' (tạm) được chuyển sang 'Hoàn thành'
-        // Ở đây, giả định khi gọi updateSalesOrderStatus với 'Hoàn thành', chúng ta muốn ghi nhận tài chính nếu chưa.
-        // Tuy nhiên, logic này phức tạp nếu đơn hàng đã được "Thanh Toán" từ modal tạo đơn hàng.
-        // Tạm thời, updateSalesOrderStatus chỉ cập nhật trạng thái.
-        // Việc ghi nhận tài chính khi chuyển từ "Mới" (draft) sang "Hoàn thành" sẽ cần logic riêng sau.
-
-        // Ví dụ: Nếu bạn muốn khi một đơn hàng "Mới" (draft) được đánh dấu "Hoàn thành" từ danh sách,
-        // thì mới ghi nhận doanh thu, bạn cần thêm logic đó ở đây, kiểm tra xem đã ghi nhận chưa.
-        // Điều này có thể phức tạp. Hiện tại, 'Thanh Toán' từ modal tạo đơn đã ghi nhận rồi.
-
         await localBatch.commit();
         toast({ title: "Thành công", description: `Đã cập nhật trạng thái đơn hàng thành ${status}.` });
     } catch (e: any) {
@@ -475,4 +464,4 @@ export function useData(): AppContextType {
   }
   return context;
 }
-    
+

@@ -3,6 +3,7 @@ export type ProductCategory = 'Lương' | 'Bán hàng' | 'Đầu tư' | 'Khác';
 export type ExpenseCategory = 'Thực phẩm' | 'Di chuyển' | 'Nhà ở' | 'Giải trí' | 'Giáo dục' | 'Sức khỏe' | 'Nguyên vật liệu' | 'Giá vốn hàng bán' | 'Khác'; // Added 'Giá vốn hàng bán'
 export type ProductUnit = 'cái' | 'cuốn' | 'kg' | 'lít' | 'bộ' | 'm' | 'thùng' | 'chai' | 'hộp';
 export type SalesOrderStatus = 'Mới' | 'Hoàn thành' | 'Đã hủy';
+export type PaymentMethod = 'Tiền mặt' | 'Chuyển khoản';
 
 export interface Product {
   id: string;
@@ -31,7 +32,7 @@ export interface ProductFormValues {
 
 export interface IncomeEntry {
   id: string;
-  date: string; 
+  date: string;
   amount: number;
   category: ProductCategory;
   description?: string;
@@ -40,7 +41,7 @@ export interface IncomeEntry {
 
 export interface ExpenseEntry {
   id: string;
-  date: string; 
+  date: string;
   amount: number;
   category: ExpenseCategory;
   description?: string;
@@ -55,8 +56,8 @@ export interface InventoryTransaction {
   productId: string;
   type: InventoryTransactionType;
   quantity: number;
-  date: string; 
-  relatedParty?: string; 
+  date: string;
+  relatedParty?: string;
   notes?: string;
   relatedOrderId?: string; // To link transaction to a sales order
 }
@@ -78,11 +79,28 @@ export interface SalesOrder {
   customerName?: string;
   date: string; // ISO string
   items: OrderItem[];
-  totalAmount: number;
+  totalAmount: number; // Original total before discount/other income
   totalCost: number; // Sum of (item.costPrice * item.quantity)
-  totalProfit: number; // totalAmount - totalCost
+  totalProfit: number; // finalAmount - totalCost (after discount/other income)
   status: SalesOrderStatus;
   notes?: string;
+
+  // New payment related fields
+  discountPercentage?: number;
+  otherIncomeAmount?: number;
+  finalAmount?: number; // Actual amount customer needs to pay (totalAmount - discount + otherIncome)
+  paymentMethod?: PaymentMethod;
+  cashReceived?: number; // For cash payments
+  changeGiven?: number; // For cash payments
+}
+
+// For passing data to PaymentModal, not necessarily the full SalesOrderFormValues
+export interface OrderDataForPayment {
+  customerName?: string;
+  date: string;
+  items: Array<Omit<OrderItem, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number }>;
+  notes?: string;
+  currentOrderTotal: number; // The total calculated from items in the create order form
 }
 
 
@@ -90,6 +108,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = ['Lương', 'Bán hàng', '
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Thực phẩm', 'Di chuyển', 'Nhà ở', 'Giải trí', 'Giáo dục', 'Sức khỏe', 'Nguyên vật liệu', 'Giá vốn hàng bán', 'Khác']; // Added 'Giá vốn hàng bán'
 export const PRODUCT_UNITS: ProductUnit[] = ['cái', 'cuốn', 'kg', 'lít', 'bộ', 'm', 'thùng', 'chai', 'hộp'];
 export const SALES_ORDER_STATUSES: SalesOrderStatus[] = ['Mới', 'Hoàn thành', 'Đã hủy'];
+export const PAYMENT_METHODS: PaymentMethod[] = ['Tiền mặt', 'Chuyển khoản'];
 
 export const navLinks = [
   { href: "/dashboard", label: "Tổng Quan", icon: "LayoutDashboard" },
@@ -116,17 +135,17 @@ export const navLinks = [
   { href: "/forecasting", label: "Dự Báo AI", icon: "BrainCircuit" },
 ];
 
-export type NavLinkIcon = 
-  | "LayoutDashboard" 
-  | "TrendingUp" 
-  | "TrendingDown" 
-  | "Warehouse" 
-  | "Package" 
-  | "PackagePlus" 
-  | "PackageMinus" 
-  | "BarChart3" 
-  | "Boxes" 
-  | "LineChart" 
+export type NavLinkIcon =
+  | "LayoutDashboard"
+  | "TrendingUp"
+  | "TrendingDown"
+  | "Warehouse"
+  | "Package"
+  | "PackagePlus"
+  | "PackageMinus"
+  | "BarChart3"
+  | "Boxes"
+  | "LineChart"
   | "BrainCircuit"
   | "ShoppingCart"; // Added ShoppingCart
-    
+
