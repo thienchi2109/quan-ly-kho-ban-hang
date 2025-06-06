@@ -14,7 +14,7 @@ import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Badge } from '@/components/ui/badge'; // Thêm import Badge
+import { Badge } from '@/components/ui/badge'; 
 
 const chartDataFormatter = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 
@@ -255,13 +255,13 @@ export default function DashboardPage() {
             <div className="text-xl font-bold md:text-2xl">{totalProducts}</div>
             <div className="mt-1 space-y-0.5 min-h-[1.2em]">
               {numOutOfStock > 0 && (
-                <p className="text-xs text-muted-foreground flex items-center">
+                <div className="text-xs text-muted-foreground flex items-center">
                   <Badge variant="destructive" className="mr-1.5 px-1.5 py-0 text-[10px] h-4 leading-snug">HẾT</Badge>
                   {numOutOfStock} sản phẩm hết hàng
-                </p>
+                </div>
               )}
               {numLowStock > 0 && (
-                <p className="text-xs text-muted-foreground flex items-center">
+                <div className="text-xs text-muted-foreground flex items-center">
                   <Badge
                     variant="default"
                     className="bg-accent text-accent-foreground hover:bg-accent/90 mr-1.5 px-1.5 py-0 text-[10px] h-4 leading-snug"
@@ -269,7 +269,7 @@ export default function DashboardPage() {
                     SẮP HẾT
                   </Badge>
                   {numLowStock} sản phẩm sắp hết hàng
-                </p>
+                </div>
               )}
               {numOutOfStock === 0 && numLowStock === 0 && (
                 <p className="text-xs text-muted-foreground">Tất cả sản phẩm đủ hàng</p>
