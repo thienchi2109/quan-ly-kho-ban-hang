@@ -276,7 +276,7 @@ export default function DashboardPage() {
                     <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <PieChart>
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}}/>
-                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} label>
+                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
                         {incomeCategories.map((entry, index) => (
                           <Cell key={`cell-income-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
@@ -300,7 +300,7 @@ export default function DashboardPage() {
                     <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <PieChart>
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}} />
-                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} label>
+                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
                        {expenseCategories.map((entry, index) => (
                         <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
