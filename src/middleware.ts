@@ -4,33 +4,24 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const authTokenCookie = request.cookies.get('firebaseAuthToken'); // Placeholder for potential future use
 
-  // Define public paths that don't require authentication
-  const publicPaths = ['/login']; 
-
-  // Allow direct access to public paths, API routes, and static assets
+  // Allow direct access to login, API routes, static assets, and Next.js internal paths.
+  // AppLayout.tsx will handle redirecting *away* from /login if already authenticated client-side,
+  // and redirecting *to* /login if not authenticated for protected routes.
   if (
-    publicPaths.includes(pathname) ||
+    pathname === '/login' ||
     pathname.startsWith('/api/') ||
-    pathname.startsWith('/_next/') || // Next.js internal paths
-    pathname.includes('.') // Typically files like .ico, .png, etc.
+    pathname.startsWith('/_next/') ||
+    pathname.includes('.') // Catches files like .ico, .png, but also explicit manifest.json etc.
+                           // The matcher config below is more robust for excluding specific files/folders.
   ) {
-    // If user is authenticated (cookie exists) AND trying to access a public path (like /login),
-    // redirect them to the dashboard.
-    if (authTokenCookie && publicPaths.includes(pathname) && pathname !== '/dashboard') {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    return NextResponse.next(); // Allow access
+    return NextResponse.next();
   }
 
-  // For all other paths (assumed protected):
-  // If user is not authenticated (no cookie), redirect to login.
-  if (!authTokenCookie) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // If user is authenticated, allow access to the protected path.
+  // For all other paths, by default, allow the request to proceed.
+  // AppLayout.tsx, running on the client-side, will use AuthContext
+  // to determine if the user is authenticated and then perform
+  // necessary redirects (e.g., to '/login' if not authenticated for a protected route).
   return NextResponse.next();
 }
 
@@ -41,9 +32,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api (API routes are handled by the logic above)
+     * - manifest.json (PWA manifest)
+     * - icons/ (folder for PWA icons)
      *
-     * This ensures middleware runs on page navigations.
+     * This ensures middleware runs on page navigations but avoids static assets
+     * that shouldn't typically be involved in auth redirection loops or cause
+     * environment-specific CORS issues when proxied.
      */
     '/((?!_next/static|_next/image|favicon.ico|manifest.json|icons/).*)',
   ],
