@@ -242,12 +242,12 @@ export default function SalesOrdersPage() {
     const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ"; 
     const shopPhone = "0834xxxxxx"; 
 
-    const totalAmount = order.totalAmount;
     const accountNameRaw = "Maimiel";
     const bankIdAndAccountNo = "vietcombank-0111000317652";
     const addInfoRaw = `Thanh toan don hang ${order.orderNumber}`;
+    const amountForQR = order.finalAmount ?? order.totalAmount;
 
-    const vietQRURL = `https://img.vietqr.io/image/${bankIdAndAccountNo}-print.png?amount=${Math.round(order.finalAmount || order.totalAmount)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
+    const vietQRURL = `https://img.vietqr.io/image/${bankIdAndAccountNo}-print.png?amount=${Math.round(amountForQR)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
 
     const itemsHtml = order.items.map((item) => `
       <tr>
@@ -256,6 +256,21 @@ export default function SalesOrdersPage() {
         <td style="text-align: right;">${item.totalPrice.toLocaleString('vi-VN')}</td>
       </tr>
     `).join('');
+
+    let paymentDetailsHtml = `
+      <div class="totals-summary">
+        <div class="summary-item"><span class="label">Tổng tiền hàng:</span><span class="value">${order.totalAmount.toLocaleString('vi-VN')} đ</span></div>`;
+
+    if (order.discountPercentage !== undefined && order.discountPercentage > 0) {
+      const discountAmount = order.totalAmount * (order.discountPercentage / 100);
+      paymentDetailsHtml += `<div class="summary-item destructive"><span class="label">Giảm giá (${order.discountPercentage}%):</span><span class="value">- ${discountAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    }
+
+    if (order.otherIncomeAmount !== undefined && order.otherIncomeAmount > 0) {
+      paymentDetailsHtml += `<div class="summary-item positive"><span class="label">Thu khác:</span><span class="value">+ ${order.otherIncomeAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    }
+    paymentDetailsHtml += `</div>`;
+
 
     const invoiceHtml = `
       <html>
@@ -282,8 +297,17 @@ export default function SalesOrdersPage() {
         .items-table td:nth-child(1) { font-size: 0.75em; word-break: break-word; }
         .items-table th:nth-child(2), .items-table td:nth-child(2) { font-size: 0.75em; width: 30px; text-align: center; padding-right: 20px; }
         .items-table th:nth-child(3), .items-table td:nth-child(3) { font-size: 0.75em; width: 70px; text-align: right; }
-        .totals { text-align: right; margin: 10px 0; }
-        .totals strong { font-size: 1.3em; font-weight: 700; }
+        
+        .totals-summary { margin-top: 5px; text-align: right; }
+        .totals-summary .summary-item { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 1px; }
+        .totals-summary .summary-item .label { font-weight: normal; }
+        .totals-summary .summary-item .value { font-weight: normal; }
+        .totals-summary .destructive .value { color: #ef4444; } /* red-500 */
+        .totals-summary .positive .value { color: #16a34a; } /* green-600 */
+
+        .grand-total { text-align: right; margin: 5px 0 10px 0; padding-top: 5px; border-top: 1px solid #000;}
+        .grand-total strong { font-size: 1.3em; font-weight: 700; }
+
         .qr-code { text-align: center; margin-bottom: 10px; }
         .qr-code img { max-width: 150px; }
         .qr-code p { margin-top: 5px; font-size: 0.9em; }
@@ -303,11 +327,12 @@ export default function SalesOrdersPage() {
             <thead><tr><th>Tên sản phẩm</th><th class="align-right">SL</th><th class="align-right">Thành tiền</th></tr></thead>
             <tbody>${itemsHtml}</tbody>
         </table>
-        <div class="totals"><strong>Tổng tiền: ${(order.finalAmount || order.totalAmount).toLocaleString('vi-VN')} đ</strong></div>
+        ${paymentDetailsHtml}
+        <div class="grand-total"><strong>Tổng thanh toán: ${(order.finalAmount || order.totalAmount).toLocaleString('vi-VN')} đ</strong></div>
         ${order.paymentMethod === 'Chuyển khoản' && order.status === 'Hoàn thành' ? `
             <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
             <div class="qr-code">
-                <p>Quét mã QR để thanh toán (nếu chưa)</p>
+                <p>Quét mã QR để thanh toán</p>
                 <img src="${vietQRURL}" alt="VietQR Payment" />
             </div>
         ` : ''}
