@@ -8,15 +8,18 @@ import {
   User,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  UserCredential
+  UserCredential,
+  GoogleAuthProvider, // Thêm GoogleAuthProvider
+  signInWithPopup,    // Thêm signInWithPopup
 } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import { useRouter } from 'next/navigation'; // Corrected import
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   currentUser: User | null;
   loadingAuth: boolean;
-  login: (email: string, pass: string) => Promise<UserCredential | string>;
+  login: (email: string, pass: string) => Promise<UserCredential | string>; // Giữ lại nếu cần fallback
+  signInWithGoogle: () => Promise<UserCredential | string>; // Thêm phương thức mới
   logout: () => Promise<void>;
 }
 
@@ -36,37 +39,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [auth]);
 
+  // Đăng nhập bằng email/password (giữ lại phòng trường hợp cần)
   const login = async (email: string, pass: string): Promise<UserCredential | string> => {
-    // setLoadingAuth(true); // loadingAuth is primarily for initial auth state check
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-      // onAuthStateChanged will update currentUser and loadingAuth
       return userCredential;
     } catch (error: any) {
       console.error("Login error in AuthContext:", error);
       return error.code || error.message || "Lỗi đăng nhập không xác định";
     }
-    // finally {
-    //   setLoadingAuth(false); // Let onAuthStateChanged handle this
-    // }
+  };
+
+  // Đăng nhập bằng Google
+  const signInWithGoogle = async (): Promise<UserCredential | string> => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      // UserCredential sẽ có trong result
+      // Firebase tự động xử lý việc lấy token, v.v.
+      // onAuthStateChanged sẽ được kích hoạt, cập nhật currentUser
+      return result;
+    } catch (error: any) {
+      console.error("Google Sign-In error:", error);
+      // Các mã lỗi thường gặp: 'auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/popup-blocked'
+      return error.code || error.message || "Lỗi đăng nhập Google không xác định";
+    }
   };
 
   const logout = async () => {
-    setLoadingAuth(true); // Indicate loading during logout process
+    setLoadingAuth(true);
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will set currentUser to null and loadingAuth to false
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
-      setLoadingAuth(false); // Ensure loading is false on error
+      // setLoadingAuth(false); // onAuthStateChanged sẽ xử lý
     }
+    // setLoadingAuth(false) được xử lý bởi onAuthStateChanged khi user là null
   };
 
   const value = {
     currentUser,
     loadingAuth,
-    login,
+    login, // Giữ lại
+    signInWithGoogle, // Thêm mới
     logout,
   };
 
