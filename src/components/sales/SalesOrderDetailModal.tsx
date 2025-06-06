@@ -55,7 +55,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
                     </div>
                     <div>
                         <span className="font-semibold">Trạng thái:</span>
-                        <p>
+                        <div> {/* Changed from p to div */}
                              <Badge variant={getStatusVariant(order.status)} className={cn(
                                 "text-xs font-medium",
                                 order.status === "Mới" && "bg-blue-500 text-white",
@@ -64,7 +64,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
                             )}>
                                 {order.status}
                             </Badge>
-                        </p>
+                        </div>
                     </div>
                 </div>
 
