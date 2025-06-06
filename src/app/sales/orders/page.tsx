@@ -18,7 +18,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -131,14 +131,14 @@ export default function SalesOrdersPage() {
     }
     setOrderDataForPayment({
       ...values,
-      items: values.items.map(item => ({ // Ensure costPrice is part of the items for payment modal if needed, or for final save
+      items: values.items.map(item => ({ 
           ...item,
           costPrice: products.find(p => p.id === item.productId)?.costPrice || 0
       })),
       currentOrderTotal: currentOrderTotal,
     });
-    setIsCreateOrderModalOpen(false); // Close create order modal
-    setIsPaymentModalOpen(true); // Open payment modal
+    setIsCreateOrderModalOpen(false); 
+    setIsPaymentModalOpen(true); 
   };
 
   const handleSaveDraftOrder = async (values: SalesOrderFormValues) => {
@@ -168,11 +168,10 @@ export default function SalesOrdersPage() {
       items: itemsForOrder,
       notes: values.notes,
       status: 'Mới' as SalesOrderStatus,
-      totalAmount: calculateTotalAmount(), // Original total amount
-      // Payment related fields will be undefined/default for draft
+      totalAmount: calculateTotalAmount(), 
     };
 
-    const orderId = await addSalesOrder(orderPayload, true); // true for isDraft
+    const orderId = await addSalesOrder(orderPayload, true); 
 
     if (orderId) {
       toast({ title: "Thành công!", description: "Đã lưu tạm đơn hàng." });
@@ -202,7 +201,7 @@ export default function SalesOrdersPage() {
       const productDetails = products.find(p => p.id === item.productId);
       return {
         productId: item.productId,
-        productName: item.productName, // Make sure productName is correctly passed or retrieved
+        productName: item.productName, 
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         costPrice: productDetails?.costPrice || 0,
@@ -214,29 +213,119 @@ export default function SalesOrdersPage() {
       date,
       items: itemsForOrder,
       notes,
-      status: 'Mới', // Will be updated to 'Hoàn thành' after successful save & financial record
+      status: 'Mới', 
       totalAmount: currentOrderTotal,
       discountPercentage: paymentDetails.discountPercentage,
       otherIncomeAmount: paymentDetails.otherIncomeAmount,
-      finalAmount: finalAmount,
+      finalAmount: Math.round(finalAmount), // Ensure final amount is rounded
       paymentMethod: paymentDetails.paymentMethod,
       cashReceived: paymentDetails.cashReceived,
-      changeGiven: changeGiven,
+      changeGiven: changeGiven !== undefined ? Math.round(changeGiven) : undefined, // Round change if it exists
     };
 
-    const newOrderId = await addSalesOrder(orderPayloadToSave, false); // false for !isDraft
+    const newOrderId = await addSalesOrder(orderPayloadToSave, false); 
 
     if (newOrderId) {
-      await updateSalesOrderStatus(newOrderId, 'Hoàn thành'); // Update status to 'Hoàn thành'
+      await updateSalesOrderStatus(newOrderId, 'Hoàn thành'); 
       toast({ title: "Thành công!", description: "Đã hoàn tất thanh toán và lưu đơn hàng." });
       createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' });
       setIsPaymentModalOpen(false);
       setOrderDataForPayment(null);
-    } else {
-      // Error toast is handled in addSalesOrder
-      // Potentially reopen payment modal or create order modal if save fails
     }
     setIsSubmittingOrder(false);
+  };
+
+  const handlePrintOrderFromTable = (order: SalesOrder) => {
+    if (!order) return;
+
+    const shopName = "Maimiel Shop"; 
+    const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ"; 
+    const shopPhone = "0834xxxxxx"; 
+
+    const totalAmount = order.totalAmount;
+    const accountNameRaw = "Maimiel";
+    const bankIdAndAccountNo = "vietcombank-0111000317652";
+    const addInfoRaw = `Thanh toan don hang ${order.orderNumber}`;
+
+    const vietQRURL = `https://img.vietqr.io/image/${bankIdAndAccountNo}-print.png?amount=${Math.round(order.finalAmount || order.totalAmount)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
+
+    const itemsHtml = order.items.map((item) => `
+      <tr>
+        <td>${item.productName}</td>
+        <td style="text-align: right;">${item.quantity}</td>
+        <td style="text-align: right;">${item.totalPrice.toLocaleString('vi-VN')}</td>
+      </tr>
+    `).join('');
+
+    const invoiceHtml = `
+      <html>
+<head>
+    <title>Hóa Đơn - ${order.orderNumber}</title>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Arial', sans-serif; margin: 0; padding: 0; font-size: 10px; line-height: 1.4; color: #000; background-color: #fff; }
+        .invoice-container { width: 280px; margin: auto; background: #fff; padding: 10px; }
+        .header, .shop-info, .footer { text-align: center; }
+        .header h1 { font-size: 1.4em; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; }
+        .shop-info h2 { font-size: 1.4em; font-weight: 600; margin: 0 0 5px 0; }
+        .shop-info p { margin: 0; font-size: 0.9em; }
+        .invoice-details { margin: 15px 0; padding-top: 10px; border-top: 1px dashed #000; }
+        .invoice-details .detail-item { display: flex; justify-content: space-between; margin-bottom: 2px; }
+        .invoice-details .label { font-weight: 600; }
+        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; padding: 10px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+        .items-table th, .items-table td { font-size: 0.7em; padding: 3px 1px; text-align: left; vertical-align: top; }
+        .items-table th { font-size: 0.75em; font-weight: 600; border-bottom: 1px solid #000; }
+        .align-right { text-align: right; }
+        .items-table td:nth-child(1) { font-size: 0.75em; word-break: break-word; }
+        .items-table th:nth-child(2), .items-table td:nth-child(2) { font-size: 0.75em; width: 30px; text-align: center; padding-right: 20px; }
+        .items-table th:nth-child(3), .items-table td:nth-child(3) { font-size: 0.75em; width: 70px; text-align: right; }
+        .totals { text-align: right; margin: 10px 0; }
+        .totals strong { font-size: 1.3em; font-weight: 700; }
+        .qr-code { text-align: center; margin-bottom: 10px; }
+        .qr-code img { max-width: 150px; }
+        .qr-code p { margin-top: 5px; font-size: 0.9em; }
+        .footer { margin-top: 10px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <section class="shop-info"><h2>${shopName}</h2><p>${shopAddress}</p><p>ĐT: ${shopPhone}</p></section>
+        <header class="header"><h1>Hóa Đơn</h1></header>
+        <section class="invoice-details">
+            <div class="detail-item"><span class="label">Số HĐ:</span><span class="value">${order.orderNumber}</span></div>
+            <div class="detail-item"><span class="label">Ngày:</span><span class="value">${format(parse(order.date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy HH:mm", { locale: vi })}</span></div>
+            <div class="detail-item"><span class="label">Khách hàng:</span><span class="value">${order.customerName || 'Khách lẻ'}</span></div>
+        </section>
+        <table class="items-table">
+            <thead><tr><th>Tên sản phẩm</th><th class="align-right">SL</th><th class="align-right">Thành tiền</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
+        </table>
+        <div class="totals"><strong>Tổng tiền: ${(order.finalAmount || order.totalAmount).toLocaleString('vi-VN')} đ</strong></div>
+        ${order.paymentMethod === 'Chuyển khoản' && order.status === 'Hoàn thành' ? `
+            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            <div class="qr-code">
+                <p>Quét mã QR để thanh toán (nếu chưa)</p>
+                <img src="${vietQRURL}" alt="VietQR Payment" />
+            </div>
+        ` : ''}
+        <footer class="footer"><p>Cảm ơn quý khách!</p></footer>
+    </div>
+</body>
+</html>
+  `;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(invoiceHtml);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    } else {
+      toast({ title: 'Lỗi In Hóa Đơn', description: 'Vui lòng cho phép pop-up để in hóa đơn.', variant: 'destructive' });
+    }
   };
 
 
@@ -370,7 +459,7 @@ export default function SalesOrdersPage() {
   };
 
   const filteredStats = useMemo(() => {
-    const revenue = filteredSalesOrders.reduce((sum, order) => sum + (order.finalAmount ?? order.totalAmount), 0); // Use finalAmount if available
+    const revenue = filteredSalesOrders.reduce((sum, order) => sum + (order.finalAmount ?? order.totalAmount), 0);
     const cogs = filteredSalesOrders.reduce((sum, order) => sum + order.totalCost, 0);
     const profit = filteredSalesOrders.reduce((sum, order) => sum + order.totalProfit, 0);
     return { revenue, cogs, profit };
@@ -440,16 +529,22 @@ export default function SalesOrdersPage() {
               <Eye className="mr-2 h-4 w-4" />
               Xem Chi Tiết
             </DropdownMenuItem>
+            
+            {row.original.status === 'Hoàn thành' && (
+              <DropdownMenuItem onClick={() => handlePrintOrderFromTable(row.original)}>
+                <Printer className="mr-2 h-4 w-4" />
+                In Hóa Đơn
+              </DropdownMenuItem>
+            )}
+            
             <DropdownMenuSeparator />
-            {row.original.status === 'Mới' && ( // Only show "Thanh Toán" if status is "Mới"
-              <DropdownMenuItem onClick={async () => {
-                // This is for orders already saved as "Mới" (draft)
-                // We need to open the payment modal for this existing order
+            {row.original.status === 'Mới' && ( 
+              <DropdownMenuItem onClick={() => {
                 const orderToPay = row.original;
                 setOrderDataForPayment({
                   customerName: orderToPay.customerName,
                   date: orderToPay.date,
-                  items: orderToPay.items.map(i => ({ // Map to OrderDataForPayment items
+                  items: orderToPay.items.map(i => ({ 
                       productId: i.productId,
                       productName: i.productName,
                       quantity: i.quantity,
@@ -457,10 +552,9 @@ export default function SalesOrdersPage() {
                       costPrice: i.costPrice,
                   })),
                   notes: orderToPay.notes,
-                  currentOrderTotal: orderToPay.totalAmount, // Use original totalAmount
-                  // We also need to pass the existing order ID to update it instead of creating a new one
+                  currentOrderTotal: orderToPay.totalAmount, 
                   existingOrderId: orderToPay.id,
-                } as OrderDataForPayment & { existingOrderId?: string }); // Extend type for this case
+                } as OrderDataForPayment & { existingOrderId?: string }); 
                 setIsPaymentModalOpen(true);
               }}>
                 <DollarSign className="mr-2 h-4 w-4" />
@@ -667,7 +761,6 @@ export default function SalesOrdersPage() {
         </div>
       )}
 
-      {/* Create Order Modal */}
       <FormModal<SalesOrderFormValues>
         title="Tạo Đơn Hàng Mới"
         description="Điền thông tin chi tiết cho đơn hàng."
@@ -677,11 +770,10 @@ export default function SalesOrdersPage() {
           setIsCreateOrderModalOpen(isOpen);
           if (!isOpen) {
             newlyAddedItemIndexRef.current = null;
-            // Do not reset form here if payment modal might open next
           }
         }}
       >
-        {() => ( // Changed from closeModal to not use it directly here
+        {() => ( 
           <Form {...createOrderForm}>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -910,7 +1002,6 @@ export default function SalesOrdersPage() {
         )}
       </FormModal>
 
-      {/* Payment Modal */}
       {orderDataForPayment && (
         <PaymentModal
             isOpen={isPaymentModalOpen}
@@ -922,12 +1013,11 @@ export default function SalesOrdersPage() {
             onConfirmPayment={handleConfirmPayment}
             onBack={() => {
                 setIsPaymentModalOpen(false);
-                setIsCreateOrderModalOpen(true); // Reopen create order modal
+                setIsCreateOrderModalOpen(true); 
             }}
             isSubmitting={isSubmittingOrder}
         />
       )}
-
 
       <Card>
         <CardContent className="pt-6">
