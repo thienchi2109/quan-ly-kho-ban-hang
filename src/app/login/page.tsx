@@ -9,15 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { FcGoogle } from 'react-icons/fc'; // Import Google icon from react-icons
+import { FcGoogle } from 'react-icons/fc';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const { signInWithGoogle, currentUser, loadingAuth } = useAuth(); // Thêm currentUser và loadingAuth
+  const { signInWithGoogle, currentUser, loadingAuth } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  // Chuyển hướng nếu người dùng đã đăng nhập
   useEffect(() => {
     if (!loadingAuth && currentUser) {
       router.replace('/dashboard');
@@ -28,22 +27,23 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const result = await signInWithGoogle();
-      if (typeof result === 'string') { // Xử lý lỗi trả về từ signInWithGoogle
+      if (typeof result === 'string') {
+        console.error("Google Sign-In failed in LoginPage with code/message:", result);
         const friendlyError = mapFirebaseErrorToMessage(result);
         toast({
           title: 'Đăng nhập Google thất bại',
           description: friendlyError,
           variant: 'destructive',
         });
-      } else { // Đăng nhập thành công, UserCredential được trả về
+      } else {
         toast({
           title: 'Đăng nhập Google thành công!',
           description: 'Đang chuyển hướng đến bảng điều khiển...',
         });
-        // AppLayout sẽ tự động chuyển hướng khi currentUser thay đổi
-        // router.push('/dashboard'); // Không cần thiết ở đây nữa
+        // AppLayout will automatically redirect
       }
-    } catch (err: any) { // Bắt các lỗi không mong muốn khác
+    } catch (err: any) {
+      console.error("Unexpected error during Google Sign-In process in LoginPage:", err);
       const errorMessage = err.code ? mapFirebaseErrorToMessage(err.code) : "Đã xảy ra lỗi không xác định khi đăng nhập Google.";
       toast({
         title: 'Lỗi Đăng nhập Google',
@@ -56,6 +56,7 @@ export default function LoginPage() {
   };
 
   const mapFirebaseErrorToMessage = (errorCode: string): string => {
+    console.log("Mapping Firebase error code:", errorCode);
     switch (errorCode) {
       case 'auth/popup-closed-by-user':
         return 'Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại.';
@@ -66,15 +67,18 @@ export default function LoginPage() {
       case 'auth/network-request-failed':
         return 'Lỗi mạng. Vui lòng kiểm tra kết nối và thử lại.';
       case 'auth/operation-not-allowed':
-        return 'Đăng nhập bằng Google chưa được kích hoạt cho dự án này.';
+        return 'Đăng nhập bằng Google chưa được kích hoạt cho dự án này. Vui lòng kiểm tra cài đặt Firebase.';
+      case 'auth/unauthorized-domain':
+        return 'Domain của ứng dụng chưa được cấp phép để đăng nhập. Vui lòng kiểm tra "Authorized domains" trong cài đặt Firebase Authentication.';
       case 'auth/too-many-requests':
         return 'Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau.';
+      case 'auth/account-exists-with-different-credential':
+        return 'Tài khoản đã tồn tại với một phương thức đăng nhập khác (ví dụ: email/mật khẩu). Hãy thử đăng nhập bằng phương thức đó.';
       default:
         return 'Đăng nhập Google thất bại. Mã lỗi: ' + errorCode;
     }
   };
 
-  // Nếu đang tải trạng thái auth hoặc người dùng đã đăng nhập, hiển thị loading
   if (loadingAuth || (!loadingAuth && currentUser)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -84,14 +88,13 @@ export default function LoginPage() {
     );
   }
 
-  // Nếu chưa đăng nhập, hiển thị trang login
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-secondary/30 p-4 font-body">
       <Card className="w-full max-w-md shadow-2xl rounded-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-6">
             <Image
-              src="/icons/logo.png" // Đảm bảo bạn có file logo này trong public/icons
+              src="/icons/logo.png"
               alt="App Logo"
               width={80}
               height={80}
@@ -107,9 +110,9 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 px-8 py-8">
-          <Button 
-            onClick={handleGoogleSignIn} 
-            className="w-full h-12 text-base" 
+          <Button
+            onClick={handleGoogleSignIn}
+            className="w-full h-12 text-base"
             disabled={loading}
             variant="outline"
           >

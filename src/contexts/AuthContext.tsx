@@ -9,8 +9,8 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   UserCredential,
-  GoogleAuthProvider, // Thêm GoogleAuthProvider
-  signInWithPopup,    // Thêm signInWithPopup
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
@@ -18,8 +18,8 @@ import { useRouter } from 'next/navigation';
 interface AuthContextType {
   currentUser: User | null;
   loadingAuth: boolean;
-  login: (email: string, pass: string) => Promise<UserCredential | string>; // Giữ lại nếu cần fallback
-  signInWithGoogle: () => Promise<UserCredential | string>; // Thêm phương thức mới
+  login: (email: string, pass: string) => Promise<UserCredential | string>;
+  signInWithGoogle: () => Promise<UserCredential | string>;
   logout: () => Promise<void>;
 }
 
@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [auth]);
 
-  // Đăng nhập bằng email/password (giữ lại phòng trường hợp cần)
   const login = async (email: string, pass: string): Promise<UserCredential | string> => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
@@ -50,18 +49,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Đăng nhập bằng Google
   const signInWithGoogle = async (): Promise<UserCredential | string> => {
+    console.log("Attempting Google Sign-In...");
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      // UserCredential sẽ có trong result
-      // Firebase tự động xử lý việc lấy token, v.v.
-      // onAuthStateChanged sẽ được kích hoạt, cập nhật currentUser
+      console.log("Google Sign-In successful:", result.user?.displayName);
       return result;
     } catch (error: any) {
-      console.error("Google Sign-In error:", error);
-      // Các mã lỗi thường gặp: 'auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/popup-blocked'
+      console.error("Detailed Google Sign-In error object in AuthContext:", error);
+      console.error("Google Sign-In error code:", error.code);
+      console.error("Google Sign-In error message:", error.message);
+      // 'auth/account-exists-with-different-credential' là một lỗi thường gặp
+      // 'auth/auth-domain-config-required'
+      // 'auth/cancelled-popup-request'
+      // 'auth/operation-not-allowed' - Google Sign-in not enabled in Firebase console.
+      // 'auth/operation-not-supported-in-this-environment'
+      // 'auth/popup-blocked'
+      // 'auth/popup-closed-by-user'
+      // 'auth/unauthorized-domain' - Domain not authorized in Firebase console.
       return error.code || error.message || "Lỗi đăng nhập Google không xác định";
     }
   };
@@ -73,16 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
-      // setLoadingAuth(false); // onAuthStateChanged sẽ xử lý
     }
-    // setLoadingAuth(false) được xử lý bởi onAuthStateChanged khi user là null
   };
 
   const value = {
     currentUser,
     loadingAuth,
-    login, // Giữ lại
-    signInWithGoogle, // Thêm mới
+    login,
+    signInWithGoogle,
     logout,
   };
 
