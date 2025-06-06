@@ -42,29 +42,45 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
     triggerClassName,
   }, ref) => {
     const [open, setOpen] = React.useState(false)
-    const [internalSearchValue, setInternalSearchValue] = React.useState("")
-
     const selectedProduct = products.find(p => p.id === selectedProductId);
 
-    const displayedProducts = React.useMemo(() => {
-      if (!internalSearchValue) {
-        return products;
+    const normalizeString = (str: string | undefined | null): string => {
+      if (!str) return "";
+      return str
+        .normalize("NFD") // Tách chữ cái gốc và dấu
+        .replace(/[\u0300-\u036f]/g, "") // Loại bỏ các ký tự dấu
+        .toLowerCase() // Chuyển sang chữ thường
+        .trim(); // Loại bỏ khoảng trắng thừa
+    };
+
+    // Hàm filter cho Command, cmdk sẽ sử dụng hàm này
+    const commandFilter = React.useCallback((itemValue: string, search: string): number => {
+      const product = products.find(p => p.id === itemValue);
+      if (!product) {
+        return 0; // Không tìm thấy sản phẩm, không khớp
       }
-      const searchTerm = internalSearchValue.toLowerCase();
-      return products.filter(product => {
-        const nameMatch = product.name.toLowerCase().includes(searchTerm);
-        const skuMatch = product.sku ? product.sku.toLowerCase().includes(searchTerm) : false;
-        return nameMatch || skuMatch;
-      });
-    }, [products, internalSearchValue]);
+
+      const searchTermNormalized = normalizeString(search);
+
+      // Nếu không có chuỗi tìm kiếm (sau khi chuẩn hóa), hiển thị tất cả
+      if (!searchTermNormalized) {
+        return 1;
+      }
+
+      const productNameNormalized = normalizeString(product.name);
+      const productSkuNormalized = normalizeString(product.sku); // product.sku có thể là undefined
+
+      if (productNameNormalized.includes(searchTermNormalized) || 
+          (productSkuNormalized && productSkuNormalized.includes(searchTermNormalized))) {
+        return 1; // Khớp
+      }
+
+      return 0; // Không khớp
+    }, [products]);
+
 
     return (
-      <Popover open={open} onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (!isOpen) {
-          setInternalSearchValue(""); // Reset search on close
-        }
-      }}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             ref={ref}
@@ -85,22 +101,21 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
+          <Command filter={commandFilter}> {/* Sử dụng filter của Command */}
             <CommandInput
               placeholder="Gõ tên hoặc SKU..."
-              value={internalSearchValue}
-              onValueChange={setInternalSearchValue}
+              // Không cần value và onValueChange ở đây, cmdk sẽ tự xử lý
               icon={<Search className="h-4 w-4" />}
             />
             <CommandList>
               <CommandEmpty>
-                {internalSearchValue
-                  ? "Không tìm thấy sản phẩm."
-                  : (products.length === 0 ? "Không có sản phẩm nào." : "Gõ để tìm sản phẩm...")}
+                {products.length === 0 ? "Không có sản phẩm nào." : "Không tìm thấy sản phẩm."}
               </CommandEmpty>
               <CommandGroup>
-                {displayedProducts.map((product) => {
+                {/* Duyệt qua toàn bộ products, Command sẽ lọc dựa trên commandFilter */}
+                {products.map((product) => {
                   const isSelected = product.id === selectedProductId;
+                  // Sản phẩm bị disable nếu hết hàng (và chưa được chọn) HOẶC đã được chọn ở dòng khác
                   const isDisabledByStock = product.currentStock <= 0 && !isSelected;
                   const isDisabledBySelection = disabledProductIds.includes(product.id) && !isSelected;
                   const itemIsDisabled = isDisabledByStock || isDisabledBySelection;
@@ -112,12 +127,11 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
                   return (
                     <CommandItem
                       key={product.id}
-                      value={product.id} // Important: cmdk uses this for its internal value handling
-                      onSelect={() => { // Use onSelect on CommandItem for selection logic
-                        if (itemIsDisabled && !isSelected) return;
+                      value={product.id} // value là ID, commandFilter sẽ dùng ID này để lấy product đầy đủ
+                      onSelect={() => {
+                        if (itemIsDisabled && !isSelected) return; // Không cho chọn nếu disabled (và không phải là item đang selected)
                         onProductSelect(product.id === selectedProductId ? undefined : product.id)
                         setOpen(false)
-                        setInternalSearchValue("") // Reset search on select
                       }}
                       disabled={itemIsDisabled && !isSelected}
                       className={cn((itemIsDisabled && !isSelected) && "opacity-50 cursor-not-allowed")}
@@ -146,4 +160,3 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
   }
 );
 SearchableProductSelect.displayName = "SearchableProductSelect";
-
