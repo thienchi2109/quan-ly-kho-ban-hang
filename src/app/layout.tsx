@@ -35,19 +35,20 @@ export default function RootLayout({
         <meta name="theme-color" content="#4db6ac" />
 
         {/* 
-          Placeholder icons for apple-touch-icon. 
-          You should replace these with actual icon files in /public/icons/
+          IMPORTANT: Replace these placeholder icons with your actual icon files.
+          Place your icon files in the /public/icons/ directory.
+          Example: /public/icons/apple-touch-icon-180x180.png
         */}
-        <link rel="apple-touch-icon" href="https://i.postimg.cc/NFkBjXh2/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="https://placehold.co/152x152.png?text=TouchIcon&font=inter" />
-        <link rel="apple-touch-icon" sizes="180x180" href="https://i.postimg.cc/zGjbcLVB/web-app-manifest-192x192.png" />
-        <link rel="apple-touch-icon" sizes="167x167" href="https://placehold.co/167x167.png?text=TouchIcon&font=inter" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" /> 
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180x180.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167x167.png" />
 
-        {/* Placeholder for favicon - replace with actual favicons */}
-        <link rel="icon" type="image/png" sizes="32x32" href="https://placehold.co/32x32.png?text=Fav&font=inter" />
-        <link rel="icon" type="image/png" sizes="16x16" href="https://placehold.co/16x16.png?text=Fav&font=inter" />
+        {/* Favicon links - replace with your actual favicons in /public/icons/ */}
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
         
-        {/* Safari Pinned Tab Icon */}
+        {/* Safari Pinned Tab Icon - Uncomment and provide your SVG icon if you have one */}
         {/* <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#4db6ac" /> */}
 
       </head>
@@ -62,3 +63,4 @@ export default function RootLayout({
     </html>
   );
 }
+
