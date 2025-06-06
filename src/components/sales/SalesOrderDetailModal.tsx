@@ -40,8 +40,8 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
     if (!order) return;
 
     const shopName = "Maimiel Shop"; // Replace with your actual shop name
-    const shopAddress = "123 Đường ABC, Quận XYZ, Thành phố HCM"; // Replace
-    const shopPhone = "0901234567"; // Replace
+    const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ"; // Replace
+    const shopPhone = "0834xxxxxx"; // Replace
 
     const totalAmount = order.totalAmount;
     const addInfoRaw = `Thanh toan don hang ${order.orderNumber}`;
@@ -49,99 +49,205 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
 
     const vietQRURL = `https://img.vietqr.io/image/vietcombank-0111000317652-print.jpg?amount=${totalAmount}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
 
-    const itemsHtml = order.items.map((item, index) => `
+    const itemsHtml = order.items.map((item) => `
       <tr>
-        <td>${index + 1}</td>
         <td>${item.productName}</td>
         <td style="text-align: right;">${item.quantity}</td>
-        <td style="text-align: right;">${item.unitPrice.toLocaleString('vi-VN')} đ</td>
-        <td style="text-align: right;">${item.totalPrice.toLocaleString('vi-VN')} đ</td>
+        <td style="text-align: right;">${item.totalPrice.toLocaleString('vi-VN')}</td>
       </tr>
     `).join('');
 
     const invoiceHtml = `
       <html>
-        <head>
-          <title>Hóa Đơn - ${order.orderNumber}</title>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: 'Arial', sans-serif; margin: 0; padding: 20px; font-size: 14px; line-height: 1.6; color: #333; }
-            .invoice-container { max-width: 800px; margin: auto; background: #fff; padding: 25px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .header { text-align: center; margin-bottom: 20px; }
-            .shop-info { margin-bottom: 20px; }
-            .shop-info h2 { margin: 0 0 5px 0; font-size: 1.5em; color: #555; }
-            .shop-info p { margin: 0; font-size: 0.9em; }
-            .invoice-details { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed #ccc; }
-            .invoice-details table { width: 100%; }
-            .invoice-details td { padding: 2px 0; }
-            .invoice-details .label { font-weight: bold; width: 120px; }
-            .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            .items-table th { background-color: #f9f9f9; }
-            .totals { text-align: right; margin-bottom: 30px; }
-            .totals strong { font-size: 1.2em; }
-            .qr-code { text-align: center; margin-bottom: 20px; }
-            .qr-code img { max-width: 200px; border: 1px solid #ddd; padding: 5px; }
-            .footer { text-align: center; font-size: 0.9em; color: #777; margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; }
-            @media print {
-              body { padding: 0; font-size: 12px; }
-              .invoice-container { border: none; box-shadow: none; margin: 0; max-width: 100%; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="invoice-container">
-            <div class="header">
-              <h1>HÓA ĐƠN BÁN HÀNG</h1>
+<head>
+    <title>Hóa Đơn - ${order.orderNumber}</title>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- Cài đặt chung cho máy in POS --- */
+        body {
+            font-family: 'Inter', 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 10px; /* Giảm kích thước font chữ cơ bản */
+            line-height: 1.4;
+            color: #000;
+            background-color: #fff;
+        }
+
+        /* --- Khung chứa hóa đơn (khổ 80mm hoặc 58mm) --- */
+        .invoice-container {
+            width: 280px; /* Chiều rộng cho khổ giấy ~75mm, có thể chỉnh thành ~210px cho khổ 58mm */
+            margin: auto;
+            background: #fff;
+            padding: 10px;
+        }
+
+        /* --- Phần đầu trang & thông tin cửa hàng --- */
+        .header, .shop-info, .footer {
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.2em; /* ~12px */
+            font-weight: 700;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+        }
+        
+        .shop-info h2 {
+            font-size: 1.1em; /* ~11px */
+            font-weight: 600;
+            margin: 0 0 5px 0;
+        }
+        .shop-info p {
+            margin: 0;
+            font-size: 0.9em; /* ~9px */
+        }
+
+        /* --- Chi tiết hóa đơn --- */
+        .invoice-details {
+            margin: 15px 0;
+            padding-top: 10px;
+            border-top: 1px dashed #000;
+        }
+        .invoice-details .detail-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+        .invoice-details .label {
+            font-weight: 600;
+        }
+
+        /* --- Bảng sản phẩm --- */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0; /* Giảm margin */
+            padding: 10px 0; /* Giảm padding */
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+        }
+        .items-table th, .items-table td {
+            padding: 3px 1px; /* Giảm padding cell */
+            text-align: left;
+            vertical-align: top; /* Căn trên cho nội dung cell */
+        }
+        .items-table th {
+            font-weight: 600;
+            border-bottom: 1px solid #000;
+        }
+        .align-right {
+            text-align: right;
+        }
+        /* Điều chỉnh cột cho nhỏ hơn */
+        .items-table td:nth-child(1) { /* Tên SP */
+             word-break: break-word; /* Cho phép ngắt từ nếu tên SP quá dài */
+        }
+        .items-table th:nth-child(2), .items-table td:nth-child(2) { /* SL */
+             width: 30px; 
+             text-align: right;
+        }
+        .items-table th:nth-child(3), .items-table td:nth-child(3) { /* Thành Tiền */
+             width: 70px; 
+             text-align: right;
+        }
+
+
+        /* --- Phần tổng cộng --- */
+        .totals {
+            text-align: right;
+            margin: 10px 0; /* Giảm margin */
+        }
+        .totals strong {
+            font-size: 1.3em; /* ~13px */
+            font-weight: 700;
+        }
+
+        /* --- Mã QR --- */
+        .qr-code {
+            text-align: center;
+            margin-bottom: 10px; /* Giảm margin */
+        }
+        .qr-code img {
+            max-width: 120px; /* Giảm kích thước QR */
+        }
+        .qr-code p {
+            margin-top: 5px;
+            font-size: 0.9em; /* ~9px */
+        }
+
+        /* --- Chân trang --- */
+        .footer {
+            margin-top: 10px; /* Giảm margin */
+            font-size: 0.9em; /* ~9px */
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <section class="shop-info">
+            <h2>${shopName}</h2>
+            <p>${shopAddress}</p>
+            <p>ĐT: ${shopPhone}</p>
+        </section>
+
+        <header class="header">
+            <h1>Hóa Đơn</h1>
+        </header>
+        
+        <section class="invoice-details">
+            <div class="detail-item">
+                <span class="label">Số HĐ:</span>
+                <span class="value">${order.orderNumber}</span>
             </div>
-            <div class="shop-info">
-              <h2>${shopName}</h2>
-              <p>${shopAddress}</p>
-              <p>Điện thoại: ${shopPhone}</p>
+            <div class="detail-item">
+                <span class="label">Ngày:</span>
+                <span class="value">${format(new Date(order.date), "dd/MM/yyyy")}</span>
             </div>
-            <div class="invoice-details">
-              <table>
-                <tr><td class="label">Số HĐ:</td><td>${order.orderNumber}</td></tr>
-                <tr><td class="label">Ngày tạo:</td><td>${format(new Date(order.date), "dd/MM/yyyy HH:mm", { locale: vi })}</td></tr>
-                <tr><td class="label">Khách hàng:</td><td>${order.customerName || 'Khách lẻ'}</td></tr>
-                <tr><td class="label">Trạng thái:</td><td>${order.status}</td></tr>
-              </table>
+            <div class="detail-item">
+                <span class="label">Khách hàng:</span>
+                <span class="value">${order.customerName || 'Khách lẻ'}</span>
             </div>
-            <table class="items-table">
-              <thead>
+        </section>
+
+        <table class="items-table">
+            <thead>
                 <tr>
-                  <th>STT</th>
-                  <th>Tên Sản Phẩm</th>
-                  <th style="text-align: right;">Số Lượng</th>
-                  <th style="text-align: right;">Đơn Giá</th>
-                  <th style="text-align: right;">Thành Tiền</th>
+                    <th>Tên SP</th>
+                    <th class="align-right">SL</th>
+                    <th class="align-right">Thành Tiền</th>
                 </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-              </tbody>
-            </table>
-            <div class="totals">
-              <strong>Tổng Cộng: ${order.totalAmount.toLocaleString('vi-VN')} đ</strong>
-            </div>
-            <div class="qr-code">
-              <p>Quét mã QR để thanh toán:</p>
-              <img src="${vietQRURL}" alt="VietQR Payment" data-ai-hint="payment qr code" />
-            </div>
-            <div class="footer">
-              <p>Cảm ơn quý khách đã mua hàng!</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+            </thead>
+            <tbody>
+                ${itemsHtml} <!-- Đã bỏ cột STT và Đơn giá -->
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <strong>Tổng Cộng: ${order.totalAmount.toLocaleString('vi-VN')} đ</strong>
+        </div>
+
+        <div class="qr-code">
+            <p>Quét mã QR để thanh toán</p>
+            <img src="${vietQRURL}" alt="VietQR Payment" />
+        </div>
+
+        <footer class="footer">
+            <p>Cảm ơn quý khách!</p>
+        </footer>
+    </div>
+</body>
+</html>
+  `;
 
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(invoiceHtml);
-      printWindow.document.close(); // Important for some browsers
-      // Delay print slightly to ensure images (like QR) have a chance to load
+      printWindow.document.close(); 
       setTimeout(() => {
         printWindow.print();
       }, 500); 
