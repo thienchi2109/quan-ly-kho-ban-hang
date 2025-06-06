@@ -62,6 +62,7 @@ export default function SalesOrdersPage() {
 
   const productSelectRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const newlyAddedItemIndexRef = useRef<number | null>(null);
+  const customerNameInputRef = useRef<HTMLInputElement>(null);
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -83,24 +84,30 @@ export default function SalesOrdersPage() {
 
   const watchedItems = form.watch("items");
 
-  // Effect to manage the size of the refs array
   useEffect(() => {
     productSelectRefs.current = productSelectRefs.current.slice(0, fields.length);
   }, [fields.length]);
 
-  // Effect to focus the newly added item's select component
   useEffect(() => {
     if (newlyAddedItemIndexRef.current !== null) {
       const indexToFocus = newlyAddedItemIndexRef.current;
-      // Timeout to allow DOM to update after append
       setTimeout(() => {
         if (productSelectRefs.current && productSelectRefs.current[indexToFocus]) {
           productSelectRefs.current[indexToFocus]?.focus();
         }
-        newlyAddedItemIndexRef.current = null; // Reset after attempting focus
+        newlyAddedItemIndexRef.current = null; 
       }, 0);
     }
-  }, [fields]); // Rerun when fields array changes
+  }, [fields]); 
+
+  // Focus on customer name when modal opens for new order
+  useEffect(() => {
+    if (isModalOpen) {
+      setTimeout(() => { // Timeout to ensure input is rendered and visible
+        customerNameInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isModalOpen]);
 
 
   const calculateTotalAmount = useCallback(() => {
@@ -424,7 +431,7 @@ export default function SalesOrdersPage() {
               status: 'Mới',
               notes: '',
           });
-          newlyAddedItemIndexRef.current = null; // Reset focus helper
+          newlyAddedItemIndexRef.current = null; 
           setIsModalOpen(true);
         }}>
           <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
@@ -564,13 +571,13 @@ export default function SalesOrdersPage() {
         onOpenChange={(isOpen) => {
           setIsModalOpen(isOpen);
           if (!isOpen) {
-            newlyAddedItemIndexRef.current = null; // Reset if modal closed
+            newlyAddedItemIndexRef.current = null; 
           }
         }}
       >
         {(closeModal) => (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-1" id="add-sales-order-form">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -591,7 +598,14 @@ export default function SalesOrdersPage() {
                   render={({ field }) => (
                     <FormItem>
                       <ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel>
-                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" /></FormControl>
+                      <FormControl>
+                        <Input 
+                          ref={customerNameInputRef}
+                          placeholder="Nhập tên khách hàng" 
+                          {...field} 
+                          className="h-10" 
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -696,12 +710,13 @@ export default function SalesOrdersPage() {
                             )}
                           />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                        
+                        <div className="space-y-3 md:grid md:grid-cols-7 md:gap-x-3 md:gap-y-0 md:items-end">
                            <FormField
                             control={form.control}
                             name={`items.${index}.unitPrice`}
                             render={({ field: priceField }) => (
-                              <FormItem>
+                              <FormItem className="md:col-span-3">
                                 <ShadcnFormLabel>Đơn Giá</ShadcnFormLabel>
                                 <FormControl>
                                   <Input
@@ -712,21 +727,24 @@ export default function SalesOrdersPage() {
                                     value={priceField.value || ''}
                                     onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)}
                                     disabled={!selectedProduct}
+                                    className="h-10"
                                   />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                          <div className="md:col-span-1">
+                          <div className="md:col-span-3">
                             <ShadcnFormLabel>Thành Tiền</ShadcnFormLabel>
                             <p className="font-semibold text-sm h-10 flex items-center">
                               {( (Number(currentItem?.quantity) || 0) * (Number(currentItem?.unitPrice) || 0) ).toLocaleString('vi-VN')} đ
                             </p>
                           </div>
-                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-end md:ml-auto">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex justify-end md:col-span-1">
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-center md:self-end">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     )
@@ -755,7 +773,7 @@ export default function SalesOrdersPage() {
                   <FormItem>
                     <ShadcnFormLabel>Trạng Thái Đơn Hàng</ShadcnFormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {SALES_ORDER_STATUSES.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
                       </SelectContent>

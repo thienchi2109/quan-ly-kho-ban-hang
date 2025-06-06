@@ -58,7 +58,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
     `).join('');
 
     const invoiceHtml = `
-      <html>
+      <<html>
 <head>
     <title>Hóa Đơn - ${order.orderNumber}</title>
     <meta charset="UTF-8">
@@ -91,14 +91,14 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         }
         
         .header h1 {
-            font-size: 1.2em; /* ~12px */
+            font-size: 1.4em; /* ~12px */
             font-weight: 700;
             margin: 0 0 10px 0;
             text-transform: uppercase;
         }
         
         .shop-info h2 {
-            font-size: 1.2em; /* ~11px */
+            font-size: 1.4em; /* ~11px */
             font-weight: 600;
             margin: 0 0 5px 0;
         }
@@ -133,12 +133,13 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         }
         .items-table th, .items-table td {
             
-            font-size: 0.8em;
+            font-size: 0.7em;
             padding: 3px 1px; /* Giảm padding cell */
             text-align: left; /* Default to left for content alignment */
             vertical-align: top; /* Căn trên cho nội dung cell */
         }
         .items-table th {
+        	font-size: 0.75em;
             font-weight: 600;
             border-bottom: 1px solid #000;
         }
@@ -147,16 +148,19 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         }
         /* Điều chỉnh cột cho nhỏ hơn */
         .items-table td:nth-child(1) { /* Tên SP */
+        	font-size: 0.75em;
              word-break: break-word; /* Cho phép ngắt từ nếu tên SP quá dài */
         }
         /* SL column - header and data cells */
-        .items-table th:nth-child(2), .items-table td:nth-child(2) { 
-             width: 20px; /* Width for the content itself */
+        .items-table th:nth-child(2), .items-table td:nth-child(2) {
+        	font-size: 0.75em;
+             width: 30px; /* Width for the content itself */
              text-align: center; /* Quantity should be right-aligned */
-             padding-right: 10px; /* Increased padding for more separation before next column */
+             padding-right: 20px; /* Increased padding for more separation before next column */
         }
         /* Thành Tiền column - header and data cells */
-        .items-table th:nth-child(3), .items-table td:nth-child(3) { 
+        .items-table th:nth-child(3), .items-table td:nth-child(3) {
+        	font-size: 0.75em;
              width: 70px; /* Keep width for price */
              text-align: right; /* Price should be right-aligned */
         }
@@ -222,9 +226,9 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         <table class="items-table">
             <thead>
                 <tr>
-                    <th>Tên SP</th>
+                    <th>Tên sản phẩm</th>
                     <th class="align-right">SL</th>
-                    <th class="align-right">Thành Tiền</th>
+                    <th class="align-right">Thành tiền</th>
                 </tr>
             </thead>
             <tbody>
@@ -235,7 +239,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         <div class="totals">
             <strong>Tổng tiền: ${order.totalAmount.toLocaleString('vi-VN')} đ</strong>
         </div>
-
+		<div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
         <div class="qr-code">
             <p>Quét mã QR để thanh toán</p>
             <img src="${vietQRURL}" alt="VietQR Payment" />
