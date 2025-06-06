@@ -42,25 +42,32 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
     triggerClassName,
   }, ref) => {
     const [open, setOpen] = React.useState(false)
-    const [searchValue, setSearchValue] = React.useState("")
+    const [internalSearchValue, setInternalSearchValue] = React.useState("")
 
     const selectedProduct = products.find(p => p.id === selectedProductId);
 
-    const filteredProducts = React.useMemo(() => {
-      if (!searchValue) {
+    const displayedProducts = React.useMemo(() => {
+      if (!internalSearchValue) {
         return products;
       }
-      return products.filter(product =>
-        product.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-        (product.sku && product.sku.toLowerCase().includes(searchValue.toLowerCase()))
-      );
-    }, [products, searchValue]);
+      const searchTerm = internalSearchValue.toLowerCase();
+      return products.filter(product => {
+        const nameMatch = product.name.toLowerCase().includes(searchTerm);
+        const skuMatch = product.sku ? product.sku.toLowerCase().includes(searchTerm) : false;
+        return nameMatch || skuMatch;
+      });
+    }, [products, internalSearchValue]);
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+          setInternalSearchValue(""); // Reset search on close
+        }
+      }}>
         <PopoverTrigger asChild>
           <Button
-            ref={ref} // Use the forwarded ref here
+            ref={ref}
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -81,14 +88,18 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
           <Command>
             <CommandInput
               placeholder="Gõ tên hoặc SKU..."
-              value={searchValue}
-              onValueChange={setSearchValue}
+              value={internalSearchValue}
+              onValueChange={setInternalSearchValue}
               icon={<Search className="h-4 w-4" />}
             />
             <CommandList>
-              <CommandEmpty>{searchValue ? "Không tìm thấy sản phẩm." : "Gõ để tìm kiếm..."}</CommandEmpty>
+              <CommandEmpty>
+                {internalSearchValue
+                  ? "Không tìm thấy sản phẩm."
+                  : (products.length === 0 ? "Không có sản phẩm nào." : "Gõ để tìm sản phẩm...")}
+              </CommandEmpty>
               <CommandGroup>
-                {filteredProducts.map((product) => {
+                {displayedProducts.map((product) => {
                   const isSelected = product.id === selectedProductId;
                   const isDisabledByStock = product.currentStock <= 0 && !isSelected;
                   const isDisabledBySelection = disabledProductIds.includes(product.id) && !isSelected;
@@ -101,12 +112,12 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
                   return (
                     <CommandItem
                       key={product.id}
-                      value={product.id}
-                      onSelect={(currentValue) => {
+                      value={product.id} // Important: cmdk uses this for its internal value handling
+                      onSelect={() => { // Use onSelect on CommandItem for selection logic
                         if (itemIsDisabled && !isSelected) return;
                         onProductSelect(product.id === selectedProductId ? undefined : product.id)
                         setOpen(false)
-                        setSearchValue("")
+                        setInternalSearchValue("") // Reset search on select
                       }}
                       disabled={itemIsDisabled && !isSelected}
                       className={cn((itemIsDisabled && !isSelected) && "opacity-50 cursor-not-allowed")}
@@ -135,3 +146,4 @@ export const SearchableProductSelect = React.forwardRef<HTMLButtonElement, Searc
   }
 );
 SearchableProductSelect.displayName = "SearchableProductSelect";
+
