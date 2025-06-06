@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SalesOrderSchema, OrderItemSchema as SingleOrderItemSchema } from '@/lib/schemas';
@@ -13,7 +13,7 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form"; // Renamed FormLabel to avoid conflict if needed
+import { Form, FormControl, FormField, FormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
@@ -40,7 +40,7 @@ import { SearchableProductSelect } from '@/components/common/SearchableProductSe
 type SalesOrderFormValues = {
   customerName?: string;
   date: string;
-  items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId: string }>;
+  items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId?: string }>; // tempId is optional
   status: SalesOrderStatus;
   notes?: string;
 };
@@ -53,13 +53,15 @@ export default function SalesOrdersPage() {
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
-  // Filter states
   const [filterFromDate, setFilterFromDate] = useState<Date | undefined>(undefined);
   const [filterToDate, setFilterToDate] = useState<Date | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<SalesOrderStatus | 'all'>('all');
 
   const [isFromDatePickerOpen, setIsFromDatePickerOpen] = useState(false);
   const [isToDatePickerOpen, setIsToDatePickerOpen] = useState(false);
+
+  const productSelectRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const newlyAddedItemIndexRef = useRef<number | null>(null);
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -76,10 +78,30 @@ export default function SalesOrdersPage() {
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
-    keyName: "fieldId", 
+    keyName: "fieldId",
   });
 
   const watchedItems = form.watch("items");
+
+  // Effect to manage the size of the refs array
+  useEffect(() => {
+    productSelectRefs.current = productSelectRefs.current.slice(0, fields.length);
+  }, [fields.length]);
+
+  // Effect to focus the newly added item's select component
+  useEffect(() => {
+    if (newlyAddedItemIndexRef.current !== null) {
+      const indexToFocus = newlyAddedItemIndexRef.current;
+      // Timeout to allow DOM to update after append
+      setTimeout(() => {
+        if (productSelectRefs.current && productSelectRefs.current[indexToFocus]) {
+          productSelectRefs.current[indexToFocus]?.focus();
+        }
+        newlyAddedItemIndexRef.current = null; // Reset after attempting focus
+      }, 0);
+    }
+  }, [fields]); // Rerun when fields array changes
+
 
   const calculateTotalAmount = useCallback(() => {
     return watchedItems.reduce((sum, item) => {
@@ -93,7 +115,7 @@ export default function SalesOrdersPage() {
   const onSubmit = async (values: SalesOrderFormValues) => {
     setIsSubmittingOrder(true);
     const validItems = values.items.filter(item => Number(item.quantity) > 0 && item.productId);
-    
+
     if (validItems.length === 0) {
         toast({
             title: "Đơn hàng trống",
@@ -108,9 +130,9 @@ export default function SalesOrdersPage() {
       const productDetails = products.find(p => p.id === item.productId);
       return {
         ...item,
-        quantity: Number(item.quantity), 
-        unitPrice: Number(item.unitPrice), 
-        costPrice: productDetails?.costPrice || 0, 
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        costPrice: productDetails?.costPrice || 0,
       };
     });
 
@@ -124,32 +146,32 @@ export default function SalesOrdersPage() {
         status: 'Mới',
         notes: '',
       });
-      setIsModalOpen(false); 
+      setIsModalOpen(false);
     }
     setIsSubmittingOrder(false);
   };
 
   const handleProductChange = (itemIndex: number, productId: string | undefined) => {
-    if (!productId) { // Product deselected from combobox
+    if (!productId) {
       update(itemIndex, {
         ...watchedItems[itemIndex],
         productId: '',
         productName: '',
         unitPrice: 0,
         costPrice: 0,
-        quantity: 1, 
+        quantity: 1,
       });
       return;
     }
     const product = products.find(p => p.id === productId);
     if (product) {
       update(itemIndex, {
-        ...watchedItems[itemIndex], // Use watchedItems for the most current state of the item
+        ...watchedItems[itemIndex],
         productId: product.id,
         productName: product.name,
         unitPrice: product.sellingPrice || 0,
-        costPrice: product.costPrice || 0, 
-        quantity: watchedItems[itemIndex]?.quantity || 1, 
+        costPrice: product.costPrice || 0,
+        quantity: watchedItems[itemIndex]?.quantity || 1,
       });
     }
   };
@@ -157,42 +179,42 @@ export default function SalesOrdersPage() {
  const handleItemQuantityChange = (itemIndex: number, newQuantityValue: number | string) => {
     const currentItem = watchedItems[itemIndex];
     const product = products.find(p => p.id === currentItem?.productId);
-    
+
     if (typeof newQuantityValue === 'string' && newQuantityValue.trim() === "") {
-        update(itemIndex, { ...currentItem, quantity: "" as any }); 
+        update(itemIndex, { ...currentItem, quantity: "" as any });
         return;
     }
 
     let numQuantity = Number(newQuantityValue);
-    if (isNaN(numQuantity) || numQuantity < 0) { 
-        update(itemIndex, { ...currentItem, quantity: currentItem.quantity || "" as any }); 
+    if (isNaN(numQuantity) || numQuantity < 0) {
+        update(itemIndex, { ...currentItem, quantity: currentItem.quantity || "" as any });
         return;
     }
-    
+
     if (product) {
-        const availableStock = product.currentStock; // products from useData has currentStock
+        const availableStock = product.currentStock;
         if (numQuantity > availableStock) {
             toast({
                 title: "Số lượng vượt tồn kho",
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}. Đã điều chỉnh số lượng.`,
-                variant: "default", 
+                variant: "default",
             });
             numQuantity = availableStock;
         }
     }
     update(itemIndex, { ...currentItem, quantity: numQuantity });
   };
-  
+
   const handleItemQuantityBlur = (itemIndex: number) => {
     const currentItem = watchedItems[itemIndex];
     let currentQuantity = Number(currentItem.quantity);
 
     if (isNaN(currentQuantity) || currentQuantity < 1) {
         const product = products.find(p => p.id === currentItem?.productId);
-        if (product && product.currentStock > 0) { // products from useData has currentStock
-            currentQuantity = 1; 
+        if (product && product.currentStock > 0) {
+            currentQuantity = 1;
         } else {
-            currentQuantity = 0; 
+            currentQuantity = 0;
         }
         update(itemIndex, { ...currentItem, quantity: currentQuantity });
     }
@@ -205,7 +227,7 @@ export default function SalesOrdersPage() {
 
     const product = products.find(p => p.id === currentItem?.productId);
     if (product) {
-        const availableStock = product.currentStock; // products from useData has currentStock
+        const availableStock = product.currentStock;
         if (newQuantity > availableStock) {
             newQuantity = availableStock;
             toast({
@@ -213,18 +235,25 @@ export default function SalesOrdersPage() {
                 description: `Sản phẩm ${product.name} chỉ còn ${availableStock}.`,
             });
         }
-    } else { 
+    } else {
         update(itemIndex, { ...currentItem, quantity: 1 });
         return;
     }
 
-    if (newQuantity < 1 && product) { 
+    if (newQuantity < 1 && product) {
         newQuantity = 1;
-    } else if (newQuantity < 0) { 
+    } else if (newQuantity < 0) {
         newQuantity = 0;
     }
     update(itemIndex, { ...currentItem, quantity: newQuantity });
   };
+
+  const handleAddNewItemAndFocus = () => {
+    const newIndex = fields.length;
+    append({ productId: '', productName: '', quantity: 1, unitPrice: 0, costPrice: 0 });
+    newlyAddedItemIndexRef.current = newIndex;
+  };
+
 
   const filteredSalesOrders = useMemo(() => {
     return salesOrders.filter(order => {
@@ -244,7 +273,7 @@ export default function SalesOrdersPage() {
       return isDateMatch && isStatusMatch;
     });
   }, [salesOrders, filterFromDate, filterToDate, filterStatus]);
-  
+
   const resetFilters = () => {
     setFilterFromDate(undefined);
     setFilterToDate(undefined);
@@ -326,8 +355,8 @@ export default function SalesOrdersPage() {
                 Đánh Dấu Hoàn Thành
               </DropdownMenuItem>
             )}
-             {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( 
-              <DropdownMenuItem 
+             {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && (
+              <DropdownMenuItem
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
                 onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}
               >
@@ -388,13 +417,14 @@ export default function SalesOrdersPage() {
     <>
       <PageHeader title="Quản Lý Đơn Hàng Bán" description="Tạo và theo dõi các đơn hàng bán ra.">
         <Button onClick={() => {
-          form.reset({ 
+          form.reset({
               date: format(new Date(), 'yyyy-MM-dd'),
               customerName: '',
               items: [],
               status: 'Mới',
               notes: '',
           });
+          newlyAddedItemIndexRef.current = null; // Reset focus helper
           setIsModalOpen(true);
         }}>
           <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
@@ -531,7 +561,12 @@ export default function SalesOrdersPage() {
         description="Điền thông tin chi tiết cho đơn hàng."
         formId="add-sales-order-form"
         open={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        onOpenChange={(isOpen) => {
+          setIsModalOpen(isOpen);
+          if (!isOpen) {
+            newlyAddedItemIndexRef.current = null; // Reset if modal closed
+          }
+        }}
       >
         {(closeModal) => (
           <Form {...form}>
@@ -541,7 +576,7 @@ export default function SalesOrdersPage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem> 
+                    <FormItem>
                       <ShadcnFormLabel>Ngày Tạo Đơn</ShadcnFormLabel>
                         <FormControl>
                            <Input type="date" {...field} className="h-10 pr-2"/>
@@ -556,7 +591,7 @@ export default function SalesOrdersPage() {
                   render={({ field }) => (
                     <FormItem>
                       <ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel>
-                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" autoFocus /></FormControl>
+                      <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -585,6 +620,9 @@ export default function SalesOrdersPage() {
                                 <ShadcnFormLabel>Sản Phẩm</ShadcnFormLabel>
                                 <FormControl>
                                   <SearchableProductSelect
+                                    ref={(el) => {
+                                      if (productSelectRefs.current) productSelectRefs.current[index] = el;
+                                    }}
                                     products={products}
                                     selectedProductId={field.value}
                                     onProductSelect={(productId) => {
@@ -605,7 +643,7 @@ export default function SalesOrdersPage() {
                               </FormItem>
                             )}
                           />
-                          
+
                           <FormField
                             control={form.control}
                             name={`items.${index}.quantity`}
@@ -625,15 +663,15 @@ export default function SalesOrdersPage() {
                                   </Button>
                                   <FormControl>
                                   <Input
-                                    type="text" 
-                                    inputMode="numeric" 
+                                    type="text"
+                                    inputMode="numeric"
                                     pattern="[0-9]*"
                                     placeholder="1"
-                                    {...quantityField} 
-                                    value={quantityField.value === 0 && !selectedProduct ? "" : quantityField.value} 
+                                    {...quantityField}
+                                    value={quantityField.value === 0 && !selectedProduct ? "" : quantityField.value}
                                     onChange={(e) => {
                                       const val = e.target.value;
-                                      if (val === "" || /^[0-9]*$/.test(val)) { 
+                                      if (val === "" || /^[0-9]*$/.test(val)) {
                                         handleItemQuantityChange(index, val);
                                       }
                                     }}
@@ -653,7 +691,7 @@ export default function SalesOrdersPage() {
                                     <PlusCircle className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                <FormMessage /> 
+                                <FormMessage />
                               </FormItem>
                             )}
                           />
@@ -666,13 +704,13 @@ export default function SalesOrdersPage() {
                               <FormItem>
                                 <ShadcnFormLabel>Đơn Giá</ShadcnFormLabel>
                                 <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    placeholder="0" 
+                                  <Input
+                                    type="number"
+                                    placeholder="0"
                                     min="0"
                                     {...priceField}
                                     value={priceField.value || ''}
-                                    onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)} 
+                                    onChange={e => priceField.onChange(parseFloat(e.target.value) || 0)}
                                     disabled={!selectedProduct}
                                   />
                                 </FormControl>
@@ -693,10 +731,10 @@ export default function SalesOrdersPage() {
                       </div>
                     )
                   })}
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => append({ tempId: Date.now().toString(), productId: '', productName: '', quantity: 1, unitPrice: 0, costPrice: 0 })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddNewItemAndFocus}
                     disabled={products.filter(p => p.currentStock > 0 && !watchedItems.some(item => item.productId === p.id)).length === 0}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
@@ -738,13 +776,13 @@ export default function SalesOrdersPage() {
                 )}
               />
               <div className="flex justify-end gap-2 pt-6">
-                <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], status: 'Mới', notes: '' }); closeModal();}}>Hủy</Button>
-                <Button 
-                  type="submit" 
+                <Button type="button" variant="outline" onClick={() => {form.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], status: 'Mới', notes: '' }); newlyAddedItemIndexRef.current = null; closeModal();}}>Hủy</Button>
+                <Button
+                  type="submit"
                   disabled={
-                    isSubmittingOrder || 
-                    isDataContextLoading || 
-                    fields.length === 0 || 
+                    isSubmittingOrder ||
+                    isDataContextLoading ||
+                    fields.length === 0 ||
                     fields.some(f => !f.productId || !(Number(f.quantity) > 0))
                   }
                 >
@@ -756,20 +794,20 @@ export default function SalesOrdersPage() {
           </Form>
         )}
       </FormModal>
-      
+
 
       <Card>
         <CardContent className="pt-6">
-          <DataTable 
-            columns={columns} 
-            data={filteredSalesOrders} 
-            filterColumn="orderNumber" 
+          <DataTable
+            columns={columns}
+            data={filteredSalesOrders}
+            filterColumn="orderNumber"
             filterPlaceholder="Lọc theo mã ĐH, khách hàng..."
             renderCardRow={renderSalesOrderCard}
           />
         </CardContent>
       </Card>
-      
+
       <SalesOrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} />
     </>
   );
