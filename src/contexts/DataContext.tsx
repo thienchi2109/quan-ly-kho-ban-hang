@@ -16,7 +16,8 @@ import {
   writeBatch,
   getDocs,
   where,
-  serverTimestamp, // For auto-generating order numbers or timestamps if needed
+  serverTimestamp, 
+  setDoc, // Import setDoc
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -44,7 +45,7 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
   deleteIncomeEntry: (entryId: string) => Promise<void>;
   addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>) => Promise<void>;
   deleteExpenseEntry: (entryId: string) => Promise<void>;
-  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>) => Promise<string | null>;
+  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | null>;
   getProductById: (productId: string) => Product | undefined;
   getProductStock: (productId: string) => number;
   getCategoryTotals: (type: 'income' | 'expense') => { name: string; value: number }[];
@@ -199,7 +200,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const qSalesOrderItems = query(salesOrdersCol, where("items", "array-contains", { productId: productId }));
       // This query is not ideal for Firestore for deeply nested array checks.
       // A better approach might be to iterate salesOrders in client or use a different data model if this becomes a performance issue.
-      // For now, we'll assume this check might be too complex or we skip deep deletion from sales orders.
       // Simpler: disallow deleting product if it's in any sales order.
 
       const batch = writeBatch(db);
@@ -217,11 +217,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>): Promise<string | undefined> => {
+  const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
     try {
-      const docRef = await addDoc(incomeCol, entryData);
-      toast({ title: "Thành công", description: "Đã thêm khoản thu nhập." });
-      return docRef.id;
+      const newIncomeRef = doc(collection(db, 'incomeEntries'));
+      if (batch) {
+        batch.set(newIncomeRef, entryData);
+      } else {
+        await setDoc(newIncomeRef, entryData);
+        toast({ title: "Thành công", description: "Đã thêm khoản thu nhập." });
+      }
+      return newIncomeRef.id;
     } catch (e) {
       console.error("Error adding income entry: ", e);
       toast({ title: "Lỗi", description: "Không thể thêm khoản thu nhập.", variant: "destructive" });
@@ -263,7 +268,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addInventoryTransaction = async (transactionData: Omit<InventoryTransaction, 'id'>): Promise<string | null> => {
+  const addInventoryTransaction = async (transactionData: Omit<InventoryTransaction, 'id'>, currentBatch?: ReturnType<typeof writeBatch>): Promise<string | null> => {
     try {
       if (transactionData.type === 'export') {
         const currentStock = getProductStock(transactionData.productId);
@@ -273,8 +278,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return message; // Return error message
         }
       }
-      await addDoc(transactionsCol, transactionData);
-      // Toast for inventory transaction is handled by calling function (e.g. addSalesOrder)
+      const newTransactionRef = doc(collection(db, 'inventoryTransactions'));
+      if (currentBatch) {
+        currentBatch.set(newTransactionRef, {...transactionData, id: newTransactionRef.id});
+      } else {
+        await setDoc(newTransactionRef, {...transactionData, id: newTransactionRef.id});
+      }
       return null; // Success
     } catch (e) {
       console.error("Error adding inventory transaction: ", e);
@@ -288,7 +297,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addSalesOrder = async (
     orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> }
   ): Promise<string | undefined> => {
-    const batch = writeBatch(db);
+    const localBatch = writeBatch(db); // Use a local batch for all operations related to this order
     const newOrderRef = doc(collection(db, 'salesOrders')); // Generate new ID for SalesOrder
 
     try {
@@ -299,36 +308,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const product = productsWithCurrentStock.find(p => p.id === item.productId);
         if (!product) throw new Error(`Sản phẩm với ID ${item.productId} không tìm thấy.`);
         
-        const currentCostPrice = product.costPrice || 0; // Use 0 if costPrice is undefined
+        const currentCostPrice = product.costPrice || 0;
         const itemTotalPrice = item.quantity * item.unitPrice;
         totalAmount += itemTotalPrice;
         totalCost += item.quantity * currentCostPrice;
         
         return {
           ...item,
-          id: doc(collection(db, 'dummy')).id, // Temporary unique ID for React key, not stored if subcollection not used
+          id: doc(collection(db, 'dummy')).id, 
           costPrice: currentCostPrice,
           totalPrice: itemTotalPrice,
         };
       });
 
       const totalProfit = totalAmount - totalCost;
-      const orderNumber = `DH-${Date.now().toString().slice(-6)}`; // Simple order number generation
+      const orderNumber = `DH-${Date.now().toString().slice(-6)}`; 
 
       const finalOrderData: SalesOrder = {
         ...orderData,
-        id: newOrderRef.id,
+        id: newOrderRef.id, // Use the pre-generated ID
         orderNumber,
         items: processedItems,
         totalAmount,
         totalCost,
         totalProfit,
-        status: orderData.status || 'Mới', // Default status
+        status: orderData.status || 'Mới',
       };
 
-      batch.set(newOrderRef, finalOrderData);
+      // Add SalesOrder to batch
+      localBatch.set(newOrderRef, finalOrderData);
 
-      // 2. Create inventory transactions for each item
+      // 2. Create inventory transactions for each item and add to batch
       for (const item of processedItems) {
         const transactionResult = await addInventoryTransaction({
           productId: item.productId,
@@ -338,27 +348,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
           relatedParty: finalOrderData.customerName || 'Khách lẻ',
           notes: `Xuất kho cho đơn hàng ${orderNumber}`,
           relatedOrderId: newOrderRef.id,
-        });
-        if (transactionResult !== null) { // Error in inventory transaction
-          throw new Error(transactionResult); // This will be caught by the outer catch
+        }, localBatch); // Pass the batch
+        if (transactionResult !== null) { 
+          throw new Error(transactionResult); 
         }
       }
 
-      // 3. Create an income entry
+      // 3. Create an income entry and add to batch
       await addIncomeEntry({
         date: finalOrderData.date,
         amount: finalOrderData.totalAmount,
         category: 'Bán hàng',
         description: `Thu nhập từ đơn hàng ${orderNumber}`,
         relatedOrderId: newOrderRef.id,
-      });
+      }, localBatch); // Pass the batch
       
-      // await batch.commit(); // Removed because addInventoryTransaction and addIncomeEntry already write.
-      // If they were changed to use batch, this would be needed.
-      // For now, addSalesOrder directly calls them which commit their own writes.
-      // The sales order itself still needs to be written:
-      await addDoc(salesOrdersCol, finalOrderData);
-
+      await localBatch.commit(); // Commit all batched writes
 
       toast({ title: "Thành công!", description: `Đã tạo đơn hàng ${orderNumber}.` });
       return newOrderRef.id;
@@ -410,7 +415,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     incomeEntries,
     expenseEntries,
     inventoryTransactions,
-    salesOrders, // Added salesOrders
+    salesOrders, 
     addProduct,
     updateProduct,
     deleteProduct,
@@ -424,8 +429,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getCategoryTotals,
     getTotalIncome,
     getTotalExpenses,
-    addSalesOrder, // Added addSalesOrder
-    updateSalesOrderStatus, // Added updateSalesOrderStatus
+    addSalesOrder, 
+    updateSalesOrderStatus, 
     isLoading: overallLoading,
   };
 
@@ -446,3 +451,6 @@ export function useData(): AppContextType {
   }
   return context;
 }
+
+
+    
