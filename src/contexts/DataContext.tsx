@@ -41,7 +41,7 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
   addProduct: (product: Omit<Product, 'id' | 'currentStock'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
-  addIncomeEntry: (entry: Omit<IncomeEntry, 'id'>) => Promise<string | undefined>;
+  addIncomeEntry: (entry: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>) => Promise<string | undefined>;
   deleteIncomeEntry: (entryId: string) => Promise<void>;
   addExpenseEntry: (entry: Omit<ExpenseEntry, 'id'>) => Promise<void>;
   deleteExpenseEntry: (entryId: string) => Promise<void>;
@@ -280,8 +280,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       const newTransactionRef = doc(collection(db, 'inventoryTransactions'));
       if (currentBatch) {
-        currentBatch.set(newTransactionRef, {...transactionData, id: newTransactionRef.id});
+        // When using a batch, the ID is inherent in newTransactionRef, 
+        // so we don't need to (and shouldn't) spread an 'id' field into the data object.
+        currentBatch.set(newTransactionRef, transactionData); 
       } else {
+        // When not using a batch, ensure the 'id' field is stored in the document data for consistency
         await setDoc(newTransactionRef, {...transactionData, id: newTransactionRef.id});
       }
       return null; // Success
@@ -297,11 +300,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addSalesOrder = async (
     orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalAmount' | 'totalCost' | 'totalProfit'> & { items: Array<Omit<OrderItem, 'id' | 'totalPrice'>> }
   ): Promise<string | undefined> => {
-    const localBatch = writeBatch(db); // Use a local batch for all operations related to this order
-    const newOrderRef = doc(collection(db, 'salesOrders')); // Generate new ID for SalesOrder
+    const localBatch = writeBatch(db);
+    const newOrderRef = doc(collection(db, 'salesOrders')); 
 
     try {
-      // 1. Calculate totals and prepare order items
       let totalAmount = 0;
       let totalCost = 0;
       const processedItems: OrderItem[] = orderData.items.map((item, index) => {
@@ -326,7 +328,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const finalOrderData: SalesOrder = {
         ...orderData,
-        id: newOrderRef.id, // Use the pre-generated ID
+        id: newOrderRef.id, 
         orderNumber,
         items: processedItems,
         totalAmount,
@@ -335,10 +337,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: orderData.status || 'Mới',
       };
 
-      // Add SalesOrder to batch
       localBatch.set(newOrderRef, finalOrderData);
 
-      // 2. Create inventory transactions for each item and add to batch
       for (const item of processedItems) {
         const transactionResult = await addInventoryTransaction({
           productId: item.productId,
@@ -348,22 +348,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
           relatedParty: finalOrderData.customerName || 'Khách lẻ',
           notes: `Xuất kho cho đơn hàng ${orderNumber}`,
           relatedOrderId: newOrderRef.id,
-        }, localBatch); // Pass the batch
+        }, localBatch); 
         if (transactionResult !== null) { 
           throw new Error(transactionResult); 
         }
       }
 
-      // 3. Create an income entry and add to batch
       await addIncomeEntry({
         date: finalOrderData.date,
         amount: finalOrderData.totalAmount,
         category: 'Bán hàng',
         description: `Thu nhập từ đơn hàng ${orderNumber}`,
         relatedOrderId: newOrderRef.id,
-      }, localBatch); // Pass the batch
+      }, localBatch); 
       
-      await localBatch.commit(); // Commit all batched writes
+      await localBatch.commit(); 
 
       toast({ title: "Thành công!", description: `Đã tạo đơn hàng ${orderNumber}.` });
       return newOrderRef.id;
