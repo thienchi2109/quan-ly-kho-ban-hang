@@ -273,8 +273,8 @@ export default function DashboardPage() {
               {incomeCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
                    <ResponsiveContainer width="100%" height="100%">
-                    <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <PieChart>
+                      <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}}/>
                       <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
                         {incomeCategories.map((entry, index) => (
@@ -297,8 +297,8 @@ export default function DashboardPage() {
                {expenseCategories.length > 0 ? (
                 <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                     <PieChart>
+                      <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}} />
                       <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
                        {expenseCategories.map((entry, index) => (
