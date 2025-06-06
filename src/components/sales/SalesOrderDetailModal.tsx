@@ -98,7 +98,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         }
         
         .shop-info h2 {
-            font-size: 1.1em; /* ~11px */
+            font-size: 1.2em; /* ~11px */
             font-weight: 600;
             margin: 0 0 5px 0;
         }
@@ -132,6 +132,8 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
             border-bottom: 1px dashed #000;
         }
         .items-table th, .items-table td {
+            
+            font-size: 0.8em;
             padding: 3px 1px; /* Giảm padding cell */
             text-align: left; /* Default to left for content alignment */
             vertical-align: top; /* Căn trên cho nội dung cell */
@@ -150,8 +152,8 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         /* SL column - header and data cells */
         .items-table th:nth-child(2), .items-table td:nth-child(2) { 
              width: 20px; /* Width for the content itself */
-             text-align: right; /* Quantity should be right-aligned */
-             padding-right: 8px; /* Increased padding for more separation before next column */
+             text-align: center; /* Quantity should be right-aligned */
+             padding-right: 10px; /* Increased padding for more separation before next column */
         }
         /* Thành Tiền column - header and data cells */
         .items-table th:nth-child(3), .items-table td:nth-child(3) { 
@@ -176,7 +178,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
             margin-bottom: 10px; /* Giảm margin */
         }
         .qr-code img {
-            max-width: 120px; /* Giảm kích thước QR */
+            max-width: 150px; /* Giảm kích thước QR */
         }
         .qr-code p {
             margin-top: 5px;
@@ -231,7 +233,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         </table>
 
         <div class="totals">
-            <strong>Tổng Cộng: ${order.totalAmount.toLocaleString('vi-VN')} đ</strong>
+            <strong>Tổng tiền: ${order.totalAmount.toLocaleString('vi-VN')} đ</strong>
         </div>
 
         <div class="qr-code">

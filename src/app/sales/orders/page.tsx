@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SalesOrderSchema, OrderItemSchema as SingleOrderItemSchema } from '@/lib/schemas';
@@ -12,13 +12,13 @@ import { Button } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
-import { format, parse } from 'date-fns';
+import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,8 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 type SalesOrderFormValues = {
   customerName?: string;
@@ -47,6 +49,14 @@ export default function SalesOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  // Filter states
+  const [filterFromDate, setFilterFromDate] = useState<Date | undefined>(undefined);
+  const [filterToDate, setFilterToDate] = useState<Date | undefined>(undefined);
+  const [filterStatus, setFilterStatus] = useState<SalesOrderStatus | 'all'>('all');
+
+  const [isFromDatePickerOpen, setIsFromDatePickerOpen] = useState(false);
+  const [isToDatePickerOpen, setIsToDatePickerOpen] = useState(false);
 
 
   const form = useForm<SalesOrderFormValues>({
@@ -201,7 +211,32 @@ export default function SalesOrdersPage() {
     }
     update(itemIndex, { ...currentItem, quantity: newQuantity });
   };
+
+  const filteredSalesOrders = useMemo(() => {
+    return salesOrders.filter(order => {
+      let isDateMatch = true;
+      const orderDate = parse(order.date, 'yyyy-MM-dd', new Date());
+
+      if (filterFromDate && filterToDate) {
+        isDateMatch = isWithinInterval(orderDate, { start: startOfDay(filterFromDate), end: endOfDay(filterToDate) });
+      } else if (filterFromDate) {
+        isDateMatch = orderDate >= startOfDay(filterFromDate);
+      } else if (filterToDate) {
+        isDateMatch = orderDate <= endOfDay(filterToDate);
+      }
+
+      const isStatusMatch = filterStatus === 'all' || order.status === filterStatus;
+
+      return isDateMatch && isStatusMatch;
+    });
+  }, [salesOrders, filterFromDate, filterToDate, filterStatus]);
   
+  const resetFilters = () => {
+    setFilterFromDate(undefined);
+    setFilterToDate(undefined);
+    setFilterStatus('all');
+  };
+
   const columns: ColumnDef<SalesOrder>[] = [
     {
       accessorKey: "orderNumber",
@@ -345,6 +380,97 @@ export default function SalesOrdersPage() {
         </Button>
       </PageHeader>
 
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Bộ Lọc Đơn Hàng</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <Label htmlFor="filter-from-date">Từ ngày</Label>
+              <Popover open={isFromDatePickerOpen} onOpenChange={setIsFromDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="filter-from-date"
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !filterFromDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterFromDate ? format(filterFromDate, "dd/MM/yyyy", { locale: vi }) : <span>Chọn ngày</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={filterFromDate}
+                    onSelect={(date) => {
+                        setFilterFromDate(date);
+                        setIsFromDatePickerOpen(false);
+                    }}
+                    initialFocus
+                    disabled={(date) => filterToDate ? date > filterToDate : false}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label htmlFor="filter-to-date">Đến ngày</Label>
+              <Popover open={isToDatePickerOpen} onOpenChange={setIsToDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="filter-to-date"
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !filterToDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterToDate ? format(filterToDate, "dd/MM/yyyy", { locale: vi }) : <span>Chọn ngày</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={filterToDate}
+                    onSelect={(date) => {
+                        setFilterToDate(date);
+                        setIsToDatePickerOpen(false);
+                    }}
+                    initialFocus
+                    disabled={(date) => filterFromDate ? date < filterFromDate : false}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label htmlFor="filter-status">Trạng thái</Label>
+              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as SalesOrderStatus | 'all')}>
+                <SelectTrigger id="filter-status" className="w-full h-10">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  {SALES_ORDER_STATUSES.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={resetFilters} disabled={!filterFromDate && !filterToDate && filterStatus === 'all'}>
+              <FilterX className="mr-2 h-4 w-4" />
+              Xóa bộ lọc
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+
       <FormModal<SalesOrderFormValues>
         title="Tạo Đơn Hàng Mới"
         description="Điền thông tin chi tiết cho đơn hàng."
@@ -459,7 +585,7 @@ export default function SalesOrdersPage() {
                                     pattern="[0-9]*"
                                     placeholder="1"
                                     {...quantityField} 
-                                    value={quantityField.value === 0 && !product ? "" : quantityField.value} 
+                                    value={quantityField.value === 0 && !selectedProduct ? "" : quantityField.value} 
                                     onChange={(e) => {
                                       const val = e.target.value;
                                       if (val === "" || /^[0-9]*$/.test(val)) { 
@@ -591,9 +717,9 @@ export default function SalesOrdersPage() {
         <CardContent className="pt-6">
           <DataTable 
             columns={columns} 
-            data={salesOrders} 
+            data={filteredSalesOrders} 
             filterColumn="orderNumber" 
-            filterPlaceholder="Lọc theo mã ĐH..."
+            filterPlaceholder="Lọc theo mã ĐH, khách hàng..."
             renderCardRow={renderSalesOrderCard}
           />
         </CardContent>
