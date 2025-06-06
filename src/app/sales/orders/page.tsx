@@ -13,7 +13,7 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form"; // Renamed FormLabel to avoid conflict if needed
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
@@ -33,6 +33,7 @@ import {
 import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Label } from '@/components/ui/label'; // Added import for Label
 
 type SalesOrderFormValues = {
   customerName?: string;
@@ -487,7 +488,7 @@ export default function SalesOrdersPage() {
                   name="date"
                   render={({ field }) => (
                     <FormItem> 
-                      <FormLabel>Ngày Tạo Đơn</FormLabel>
+                      <ShadcnFormLabel>Ngày Tạo Đơn</ShadcnFormLabel>
                         <FormControl>
                            <Input type="date" {...field} className="h-10 pr-2"/>
                         </FormControl>
@@ -500,7 +501,7 @@ export default function SalesOrdersPage() {
                   name="customerName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tên Khách Hàng (tùy chọn)</FormLabel>
+                      <ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel>
                       <FormControl><Input placeholder="Nhập tên khách hàng" {...field} className="h-10" autoFocus /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -527,7 +528,7 @@ export default function SalesOrdersPage() {
                             name={`items.${index}.productId`}
                             render={({ field: selectField }) => (
                               <FormItem>
-                                <FormLabel>Sản Phẩm</FormLabel>
+                                <ShadcnFormLabel>Sản Phẩm</ShadcnFormLabel>
                                 <Select
                                   onValueChange={(value) => {
                                     selectField.onChange(value);
@@ -566,7 +567,7 @@ export default function SalesOrdersPage() {
                             name={`items.${index}.quantity`}
                             render={({ field: quantityField }) => (
                               <FormItem>
-                                <FormLabel>Số Lượng</FormLabel>
+                                <ShadcnFormLabel>Số Lượng</ShadcnFormLabel>
                                 <div className="flex items-center gap-1.5">
                                   <Button
                                     type="button"
@@ -619,7 +620,7 @@ export default function SalesOrdersPage() {
                             name={`items.${index}.unitPrice`}
                             render={({ field: priceField }) => (
                               <FormItem>
-                                <FormLabel>Đơn Giá</FormLabel>
+                                <ShadcnFormLabel>Đơn Giá</ShadcnFormLabel>
                                 <FormControl>
                                   <Input 
                                     type="number" 
@@ -636,7 +637,7 @@ export default function SalesOrdersPage() {
                             )}
                           />
                           <div className="md:col-span-1">
-                            <FormLabel>Thành Tiền</FormLabel>
+                            <ShadcnFormLabel>Thành Tiền</ShadcnFormLabel>
                             <p className="font-semibold text-sm h-10 flex items-center">
                               {( (Number(currentItem?.quantity) || 0) * (Number(currentItem?.unitPrice) || 0) ).toLocaleString('vi-VN')} đ
                             </p>
@@ -670,7 +671,7 @@ export default function SalesOrdersPage() {
                 name="status"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Trạng Thái Đơn Hàng</FormLabel>
+                    <ShadcnFormLabel>Trạng Thái Đơn Hàng</ShadcnFormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -686,7 +687,7 @@ export default function SalesOrdersPage() {
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ghi Chú (tùy chọn)</FormLabel>
+                    <ShadcnFormLabel>Ghi Chú (tùy chọn)</ShadcnFormLabel>
                     <FormControl><Textarea placeholder="Thông tin thêm về đơn hàng..." {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
