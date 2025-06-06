@@ -34,6 +34,8 @@ import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
+import { SearchableProductSelect } from '@/components/common/SearchableProductSelect';
+
 
 type SalesOrderFormValues = {
   customerName?: string;
@@ -127,16 +129,27 @@ export default function SalesOrdersPage() {
     setIsSubmittingOrder(false);
   };
 
-  const handleProductChange = (itemIndex: number, productId: string) => {
+  const handleProductChange = (itemIndex: number, productId: string | undefined) => {
+    if (!productId) { // Product deselected from combobox
+      update(itemIndex, {
+        ...watchedItems[itemIndex],
+        productId: '',
+        productName: '',
+        unitPrice: 0,
+        costPrice: 0,
+        quantity: 1, 
+      });
+      return;
+    }
     const product = products.find(p => p.id === productId);
     if (product) {
       update(itemIndex, {
-        ...fields[itemIndex], 
+        ...watchedItems[itemIndex], // Use watchedItems for the most current state of the item
         productId: product.id,
         productName: product.name,
         unitPrice: product.sellingPrice || 0,
         costPrice: product.costPrice || 0, 
-        quantity: fields[itemIndex].quantity || 1, 
+        quantity: watchedItems[itemIndex]?.quantity || 1, 
       });
     }
   };
@@ -157,7 +170,7 @@ export default function SalesOrdersPage() {
     }
     
     if (product) {
-        const availableStock = getProductStock(product.id);
+        const availableStock = product.currentStock; // products from useData has currentStock
         if (numQuantity > availableStock) {
             toast({
                 title: "Số lượng vượt tồn kho",
@@ -176,7 +189,7 @@ export default function SalesOrdersPage() {
 
     if (isNaN(currentQuantity) || currentQuantity < 1) {
         const product = products.find(p => p.id === currentItem?.productId);
-        if (product && getProductStock(product.id) > 0) {
+        if (product && product.currentStock > 0) { // products from useData has currentStock
             currentQuantity = 1; 
         } else {
             currentQuantity = 0; 
@@ -192,7 +205,7 @@ export default function SalesOrdersPage() {
 
     const product = products.find(p => p.id === currentItem?.productId);
     if (product) {
-        const availableStock = getProductStock(product.id);
+        const availableStock = product.currentStock; // products from useData has currentStock
         if (newQuantity > availableStock) {
             newQuantity = availableStock;
             toast({
@@ -558,7 +571,7 @@ export default function SalesOrdersPage() {
                   {fields.map((itemField, index) => {
                     const currentItem = watchedItems[index];
                     const selectedProduct = products.find(p => p.id === currentItem?.productId);
-                    const stock = selectedProduct ? getProductStock(selectedProduct.id) : 0;
+                    const stock = selectedProduct ? selectedProduct.currentStock : 0;
                     const currentQuantityNum = Number(currentItem?.quantity) || 0;
 
                     return (
@@ -567,37 +580,27 @@ export default function SalesOrdersPage() {
                            <FormField
                             control={form.control}
                             name={`items.${index}.productId`}
-                            render={({ field: selectField }) => (
+                            render={({ field }) => (
                               <FormItem>
                                 <ShadcnFormLabel>Sản Phẩm</ShadcnFormLabel>
-                                <Select
-                                  onValueChange={(value) => {
-                                    selectField.onChange(value);
-                                    handleProductChange(index, value);
-                                  }}
-                                  value={selectField.value}
-                                >
-                                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn sản phẩm" /></SelectTrigger></FormControl>
-                                  <SelectContent>
-                                    {products.map(p => {
-                                      const productStock = getProductStock(p.id);
-                                      const isCurrentlySelectedInThisRow = itemField.productId === p.id;
-                                      const isSelectedInAnotherRow = watchedItems.some(
-                                        (otherItem, otherIndex) => otherIndex !== index && otherItem.productId === p.id
-                                      );
-                                      
-                                      return (
-                                        <SelectItem 
-                                          key={p.id} 
-                                          value={p.id} 
-                                          disabled={(productStock <= 0 && !isCurrentlySelectedInThisRow) || (isSelectedInAnotherRow && !isCurrentlySelectedInThisRow)}
-                                        >
-                                          {p.name} (Tồn: {productStock})
-                                        </SelectItem>
-                                      );
-                                    })}
-                                  </SelectContent>
-                                </Select>
+                                <FormControl>
+                                  <SearchableProductSelect
+                                    products={products}
+                                    selectedProductId={field.value}
+                                    onProductSelect={(productId) => {
+                                      field.onChange(productId);
+                                      handleProductChange(index, productId);
+                                    }}
+                                    disabledProductIds={
+                                      watchedItems
+                                        .filter((_, i) => i !== index)
+                                        .map(item => item.productId)
+                                        .filter(id => !!id) as string[]
+                                    }
+                                    placeholder="Chọn hoặc tìm sản phẩm"
+                                    disabled={isDataContextLoading}
+                                  />
+                                </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -694,7 +697,7 @@ export default function SalesOrdersPage() {
                     type="button" 
                     variant="outline" 
                     onClick={() => append({ tempId: Date.now().toString(), productId: '', productName: '', quantity: 1, unitPrice: 0, costPrice: 0 })}
-                    disabled={products.filter(p => getProductStock(p.id) > 0 && !watchedItems.some(item => item.productId === p.id)).length === 0}
+                    disabled={products.filter(p => p.currentStock > 0 && !watchedItems.some(item => item.productId === p.id)).length === 0}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
                   </Button>
