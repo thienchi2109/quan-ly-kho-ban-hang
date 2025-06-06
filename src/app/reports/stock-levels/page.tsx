@@ -18,15 +18,15 @@ const ProductKanbanCard = ({ product }: { product: Product }) => {
   let statusTextClass = 'text-green-600 dark:text-green-400';
 
   if (product.currentStock === 0) {
-    statusBorderColor = 'border-l-red-500 dark:border-l-red-400'; // Changed to Red
+    statusBorderColor = 'border-l-red-500 dark:border-l-red-400'; 
     statusIndicatorText = 'Hết hàng';
-    statusTextClass = 'text-red-600 dark:text-red-400'; // Changed to Red
+    statusTextClass = 'text-red-600 dark:text-red-400';
   } else if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
-    statusBorderColor = 'border-l-orange-500 dark:border-l-orange-400'; // Changed to Orange
+    statusBorderColor = 'border-l-orange-500 dark:border-l-orange-400';
     statusIndicatorText = 'Sắp hết';
-    statusTextClass = 'text-orange-600 dark:text-orange-400'; // Changed to Orange
+    statusTextClass = 'text-orange-600 dark:text-orange-400';
   } else {
-    statusBorderColor = 'border-l-green-500 dark:border-l-green-400'; // Stays Green
+    statusBorderColor = 'border-l-green-500 dark:border-l-green-400'; 
   }
 
   return (
@@ -74,7 +74,7 @@ const ProductKanbanCard = ({ product }: { product: Product }) => {
 };
 
 interface KanbanColumn {
-  id: 'inStock' | 'outOfStock' | 'lowStock';
+  id: 'inStock' | 'lowStock' | 'outOfStock';
   title: string;
   products: Product[];
   headerClassName: string;
@@ -98,7 +98,7 @@ export default function StockLevelsKanbanPage() {
       }
     });
 
-    // New column order: In Stock, Out of Stock, Low Stock
+    // New column order: In Stock, Low Stock, Out of Stock
     return [
       { 
         id: 'inStock', 
@@ -107,16 +107,16 @@ export default function StockLevelsKanbanPage() {
         headerClassName: "bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-200 border-green-300 dark:border-green-700" 
       },
       { 
-        id: 'outOfStock', // Moved here
-        title: `Hết hàng (${outOfStockProducts.length})`, 
-        products: outOfStockProducts, 
-        headerClassName: "bg-red-100 text-red-800 dark:bg-red-800/30 dark:text-red-200 border-red-300 dark:border-red-700" // Changed to Red
-      },
-      { 
-        id: 'lowStock', // Moved here
+        id: 'lowStock', 
         title: `Sắp hết hàng (${lowStockProducts.length})`, 
         products: lowStockProducts, 
-        headerClassName: "bg-orange-100 text-orange-800 dark:bg-orange-800/30 dark:text-orange-200 border-orange-300 dark:border-orange-700" // Changed to Orange
+        headerClassName: "bg-orange-100 text-orange-800 dark:bg-orange-800/30 dark:text-orange-200 border-orange-300 dark:border-orange-700"
+      },
+      { 
+        id: 'outOfStock',
+        title: `Hết hàng (${outOfStockProducts.length})`, 
+        products: outOfStockProducts, 
+        headerClassName: "bg-red-100 text-red-800 dark:bg-red-800/30 dark:text-red-200 border-red-300 dark:border-red-700" 
       },
     ];
   }, [allProducts]);
@@ -128,8 +128,8 @@ export default function StockLevelsKanbanPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             "Đang tải cột Còn hàng...", 
-            "Đang tải cột Hết hàng...", // Updated placeholder text
-            "Đang tải cột Sắp hết..."  // Updated placeholder text
+            "Đang tải cột Sắp hết hàng...", 
+            "Đang tải cột Hết hàng..."  
           ].map((title, i) => (
             <Card key={i} className="flex flex-col overflow-hidden rounded-lg">
               <CardHeader className="p-3 border-b">
@@ -174,3 +174,4 @@ export default function StockLevelsKanbanPage() {
     </>
   );
 }
+
