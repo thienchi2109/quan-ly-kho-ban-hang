@@ -38,6 +38,27 @@ const tooltipContentFormatter = (value: number, name: string, props: Payload<num
     );
 };
 
+const pieChartTooltipFormatter = (value: number, name: string, props: Payload<number, string>) => {
+  const formattedValue = chartDataFormatter(value);
+  const indicatorColor = props.color || (props.payload && (props.payload as any).fill);
+
+  return (
+      <div className="flex items-center gap-1.5 text-sm">
+          <span style={{
+              display: 'inline-block',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: indicatorColor,
+              marginRight: '2px',
+              flexShrink: 0,
+          }} />
+          <span className="text-muted-foreground">{name}:</span>
+          <span className="font-semibold ml-1">{formattedValue}</span>
+      </div>
+  );
+};
+
 
 export default function DashboardPage() {
   const { 
@@ -274,7 +295,7 @@ export default function DashboardPage() {
                 <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
+                      <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}}/>
                       <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
                         {incomeCategories.map((entry, index) => (
@@ -298,7 +319,7 @@ export default function DashboardPage() {
                 <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <RechartsTooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
+                      <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}} />
                       <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
                        {expenseCategories.map((entry, index) => (
