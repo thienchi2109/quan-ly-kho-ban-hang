@@ -188,51 +188,64 @@ export default function SalesOrdersPage() {
     cashReceived?: number;
   }) => {
     if (!orderDataForPayment) return;
+
     setIsSubmittingOrder(true);
+    let orderSuccessfullyProcessed = false;
 
-    const { items, date, customerName, notes, currentOrderTotal } = orderDataForPayment;
+    try {
+        const { items, date, customerName, notes, currentOrderTotal } = orderDataForPayment;
 
-    const finalAmount = (currentOrderTotal * (1 - paymentDetails.discountPercentage / 100)) + paymentDetails.otherIncomeAmount;
-    const changeGiven = paymentDetails.paymentMethod === 'Tiền mặt' && paymentDetails.cashReceived !== undefined
-                        ? paymentDetails.cashReceived - finalAmount
-                        : undefined;
+        const finalAmount = (currentOrderTotal * (1 - paymentDetails.discountPercentage / 100)) + paymentDetails.otherIncomeAmount;
+        const changeGiven = paymentDetails.paymentMethod === 'Tiền mặt' && paymentDetails.cashReceived !== undefined
+                            ? paymentDetails.cashReceived - finalAmount
+                            : undefined;
 
-    const itemsForOrder = items.map(item => {
-      const productDetails = products.find(p => p.id === item.productId);
-      return {
-        productId: item.productId,
-        productName: item.productName, 
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
-        costPrice: productDetails?.costPrice || 0,
-      };
-    });
+        const itemsForOrder = items.map(item => {
+            const productDetails = products.find(p => p.id === item.productId);
+            return {
+                productId: item.productId,
+                productName: item.productName, 
+                quantity: Number(item.quantity),
+                unitPrice: Number(item.unitPrice),
+                costPrice: productDetails?.costPrice || 0,
+            };
+        });
 
-    const orderPayloadToSave: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'> = {
-      customerName,
-      date,
-      items: itemsForOrder,
-      notes,
-      status: 'Mới', 
-      totalAmount: currentOrderTotal,
-      discountPercentage: paymentDetails.discountPercentage,
-      otherIncomeAmount: paymentDetails.otherIncomeAmount,
-      finalAmount: Math.round(finalAmount), // Ensure final amount is rounded
-      paymentMethod: paymentDetails.paymentMethod,
-      cashReceived: paymentDetails.cashReceived,
-      changeGiven: changeGiven !== undefined ? Math.round(changeGiven) : undefined, // Round change if it exists
-    };
+        const orderPayloadToSave: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'> = {
+            customerName,
+            date,
+            items: itemsForOrder,
+            notes,
+            status: 'Mới', // Status is 'Mới', will be updated to 'Hoàn thành' by updateSalesOrderStatus
+            totalAmount: currentOrderTotal,
+            discountPercentage: paymentDetails.discountPercentage,
+            otherIncomeAmount: paymentDetails.otherIncomeAmount,
+            finalAmount: Math.round(finalAmount),
+            paymentMethod: paymentDetails.paymentMethod,
+            cashReceived: paymentDetails.cashReceived,
+            changeGiven: changeGiven !== undefined ? Math.round(changeGiven) : undefined,
+        };
 
-    const newOrderId = await addSalesOrder(orderPayloadToSave, false); 
+        const newOrderId = await addSalesOrder(orderPayloadToSave, false); // isDraft = false
 
-    if (newOrderId) {
-      await updateSalesOrderStatus(newOrderId, 'Hoàn thành'); 
-      toast({ title: "Thành công!", description: "Đã hoàn tất thanh toán và lưu đơn hàng." });
-      createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' });
-      setIsPaymentModalOpen(false);
-      setOrderDataForPayment(null);
+        if (newOrderId) {
+            await updateSalesOrderStatus(newOrderId, 'Hoàn thành');
+            toast({ title: "Thành công!", description: "Đã hoàn tất thanh toán và lưu đơn hàng." });
+            createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' });
+            orderSuccessfullyProcessed = true;
+        }
+        // If newOrderId is undefined, addSalesOrder in DataContext has already shown an error toast.
+    } catch (e) {
+        // This catch block is for unexpected errors not caught by addSalesOrder or updateSalesOrderStatus.
+        console.error("Unexpected error during payment confirmation:", e);
+        toast({ title: "Lỗi Hệ Thống", description: "Đã xảy ra lỗi không mong muốn khi xử lý thanh toán.", variant: "destructive" });
+        orderSuccessfullyProcessed = false; // Ensure this is set if an error occurs here
+    } finally {
+        setIsSubmittingOrder(false);
+        // Always close the payment modal and clear its data after an attempt.
+        setIsPaymentModalOpen(false);
+        setOrderDataForPayment(null);
     }
-    setIsSubmittingOrder(false);
   };
 
   const handlePrintOrderFromTable = (order: SalesOrder) => {
