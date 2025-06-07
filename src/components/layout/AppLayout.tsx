@@ -5,66 +5,44 @@ import React, { useEffect } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import AppHeader from './AppHeader';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePathname, useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+// import { useAuth } from '@/contexts/AuthContext'; // No longer strictly needed for redirection logic here
+// import { usePathname, useRouter } from 'next/navigation'; // No longer strictly needed for redirection logic here
+// import { Loader2 } from 'lucide-react'; // No longer strictly needed for loading state here
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const { currentUser, loadingAuth } = useAuth();
-  const pathname = usePathname();
-  const router = useRouter();
+  // const { currentUser, loadingAuth } = useAuth(); // Temporarily disabled
+  // const pathname = usePathname(); // Temporarily disabled
+  // const router = useRouter(); // Temporarily disabled
 
-  useEffect(() => {
-    if (loadingAuth) {
-      return; // Wait for authentication state to be determined
-    }
+  // useEffect(() => { // Temporarily disable auth checks and redirects
+  //   if (loadingAuth) {
+  //     return; 
+  //   }
+  //   if (currentUser && pathname === '/login') {
+  //     router.replace('/dashboard');
+  //   } else if (!currentUser && pathname !== '/login') {
+  //     router.replace('/login');
+  //   }
+  // }, [currentUser, loadingAuth, pathname, router]);
 
-    if (currentUser && pathname === '/login') {
-      router.replace('/dashboard');
-    } else if (!currentUser && pathname !== '/login') {
-      router.replace('/login');
-    }
-  }, [currentUser, loadingAuth, pathname, router]);
+  // if (loadingAuth) { // Temporarily disable loading screen based on auth
+  //   return (
+  //     <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+  //       <Loader2 className="h-10 w-10 animate-spin text-primary" />
+  //       <p className="ml-3 text-lg">Đang xác thực...</p>
+  //     </div>
+  //   );
+  // }
 
-  if (loadingAuth) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="ml-3 text-lg">Đang xác thực...</p>
-      </div>
-    );
-  }
+  // if (pathname === '/login') { // Temporarily allow direct access to login page if needed, or remove this block
+  //   return <>{children}</>;
+  // }
 
-  if (pathname === '/login') {
-    if (currentUser) {
-      // User is logged in but useEffect hasn't redirected yet
-      return (
-        <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="ml-3 text-lg">Đang chuyển hướng...</p>
-        </div>
-      );
-    }
-    // User is not logged in, render the login page
-    return <>{children}</>;
-  }
-
-  // For protected routes
-  if (!currentUser) {
-    // User is not logged in, and useEffect will redirect. Show loading.
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="ml-3 text-lg">Đang chuyển hướng đến trang đăng nhập...</p>
-      </div>
-    );
-  }
-
-  // User is logged in and not on the login page, render the main app layout
+  // Render the main app layout directly without auth checks
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
@@ -77,3 +55,4 @@ export default function AppLayout({ children }: AppLayoutProps) {
     </SidebarProvider>
   );
 }
+
