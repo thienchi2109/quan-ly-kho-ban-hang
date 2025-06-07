@@ -48,24 +48,24 @@ export default function AppSidebarNavigation() {
                      <UiAccordionTrigger
                         className={cn(
                           sidebarMenuButtonVariants({variant: "default", size: "default"}),
-                          !isCollapsedAndDesktop && "justify-between", // Apply justify-between only if expanded or mobile
+                          "text-[0.95rem] leading-snug", // Increased font size
+                          !isCollapsedAndDesktop && "justify-between", 
                           { "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90": isActiveParent },
                         )}
                       >
                         <div className={cn(
                           "flex items-center gap-2 min-w-0",
-                          !isCollapsedAndDesktop && "flex-1" // flex-1 only if expanded or mobile
+                          !isCollapsedAndDesktop && "flex-1" 
                         )}>
                            <LucideIcon name={link.icon as NavLinkIcon} />
                            <span className={cn(
                              "min-w-0 truncate",
                              !isCollapsedAndDesktop && "flex-1",
-                             isCollapsedAndDesktop && "hidden" // Directly hide label when collapsed on desktop
+                             isCollapsedAndDesktop && "hidden" 
                            )}>
                              {link.label}
                            </span>
                         </div>
-                         {/* Chevron will be rendered by UiAccordionTrigger internally */}
                       </UiAccordionTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="right" align="center"
@@ -112,13 +112,14 @@ export default function AppSidebarNavigation() {
                         onClick={handleLinkClick}
                         className={cn(
                           sidebarMenuButtonVariants({variant: "default", size: "default"}),
+                          "text-[0.95rem] leading-snug", // Increased font size
                           isActiveDirect && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
                         )}
                       >
                         <LucideIcon name={link.icon as NavLinkIcon} />
                         <span className={cn(
                           "flex-1 min-w-0 truncate",
-                          isCollapsedAndDesktop && "hidden" // Directly hide label when collapsed on desktop
+                          isCollapsedAndDesktop && "hidden" 
                         )}>{link.label}</span>
                       </a>
                     </Link>
@@ -138,4 +139,3 @@ export default function AppSidebarNavigation() {
     </nav>
   );
 }
-

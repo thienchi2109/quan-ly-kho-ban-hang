@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
 import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
-import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react'; // Added ShoppingCart
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -126,6 +126,14 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <Link href="/sales/orders" passHref legacyBehavior>
+              <Button className="w-full justify-start" variant="outline">
+                <a className="flex items-center">
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  <span>Tạo Đơn Hàng</span>
+                </a>
+              </Button>
+            </Link>
             <Link href="/inventory/products" passHref legacyBehavior>
               <Button className="w-full justify-start" variant="outline">
                 <a className="flex items-center">
@@ -325,4 +333,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
