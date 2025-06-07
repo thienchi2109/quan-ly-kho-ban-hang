@@ -116,15 +116,18 @@ export default function ProductsPage() {
   }, [isMobile]);
 
   const handleProductFormSubmit = async (values: ProductFormValues, productBeingEdited: Product | null, closeModalFn: () => void) => {
-    const costPrice = values.costPrice === '' ? undefined : Number(values.costPrice);
-    const sellingPrice = values.sellingPrice === '' ? undefined : Number(values.sellingPrice);
-    const minStockLevel = values.minStockLevel === '' ? undefined : Number(values.minStockLevel);
+    const costPrice = values.costPrice === '' || values.costPrice === undefined ? undefined : Number(values.costPrice);
+    const sellingPrice = values.sellingPrice === '' || values.sellingPrice === undefined ? undefined : Number(values.sellingPrice);
+    const minStockLevel = values.minStockLevel === '' || values.minStockLevel === undefined ? undefined : Number(values.minStockLevel);
+    const initialStock = values.initialStock === undefined ? 0 : Number(values.initialStock);
+
 
     const processedValues = {
       ...values,
       costPrice,
       sellingPrice,
       minStockLevel,
+      initialStock,
     };
     
     if (productBeingEdited) {
@@ -460,9 +463,9 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             name: editingProductFull.name,
             sku: editingProductFull.sku || '',
             unit: editingProductFull.unit,
-            costPrice: editingProductFull.costPrice === undefined ? '' : editingProductFull.costPrice,
-            sellingPrice: editingProductFull.sellingPrice === undefined ? '' : editingProductFull.sellingPrice,
-            minStockLevel: editingProductFull.minStockLevel === undefined ? '' : editingProductFull.minStockLevel,
+            costPrice: editingProductFull.costPrice === undefined || editingProductFull.costPrice === null ? '' : editingProductFull.costPrice,
+            sellingPrice: editingProductFull.sellingPrice === undefined || editingProductFull.sellingPrice === null ? '' : editingProductFull.sellingPrice,
+            minStockLevel: editingProductFull.minStockLevel === undefined || editingProductFull.minStockLevel === null ? '' : editingProductFull.minStockLevel,
             initialStock: editingProductFull.initialStock, 
             imageUrl: editingProductFull.imageUrl || '',
         } : {
@@ -472,7 +475,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             costPrice: '',
             sellingPrice: '',
             minStockLevel: '',
-            initialStock: 0,
+            initialStock: 0, // Keep as 0 for initial, input will show placeholder
             imageUrl: '',
         };
         return initialValues;
@@ -542,6 +545,28 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         setImageFile(null); 
         // closeModalSignal() is called by the `handleProductFormSubmit` after it's done.
     };
+    
+    // Helper to format value for display in number inputs
+    const formatNumberInputValue = (value: number | string | undefined | null): string => {
+        if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
+            return ''; // Show empty for 0, undefined, null, or actual NaN
+        }
+        return String(value);
+    };
+
+    // Helper to parse value from number inputs for form state
+    const parseNumberInputValue = (value: string): number | '' => {
+        if (value === '') return ''; // Keep empty string for Zod to preprocess to undefined if optional
+        const num = parseFloat(value);
+        return isNaN(num) ? '' : num; // Return number or empty string if parse fails
+    };
+    
+    const parseIntegerInputValue = (value: string): number | '' => {
+        if (value === '') return '';
+        const num = parseInt(value, 10);
+        return isNaN(num) ? '' : num;
+    };
+
 
     return (
         <Form {...formMethods}> 
@@ -619,8 +644,8 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                           step="any"
                           placeholder="0"
                           {...field}
-                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
-                          onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          value={formatNumberInputValue(field.value)}
+                          onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
                         /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={formMethods.control} name="sellingPrice" render={({ field }) => (
@@ -629,22 +654,22 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                           step="any"
                           placeholder="0"
                           {...field}
-                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
-                          onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          value={formatNumberInputValue(field.value)}
+                          onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
                         /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={formMethods.control} name="initialStock" render={({ field }) => (
+                     <FormField control={formMethods.control} name="initialStock" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Tồn Kho Ban Đầu</FormLabel>
                           <FormControl><Input
                             type="number"
                             placeholder="0"
                             {...field}
-                            value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                            value={formatNumberInputValue(field.value)}
                             disabled={isEditing}
-                            onChange={e => field.onChange(parseInt(e.target.value,10) || 0)}
+                            onChange={e => field.onChange(parseIntegerInputValue(e.target.value))}
                           /></FormControl>
                           {isEditing && <p className="text-xs text-muted-foreground">Không thể sửa tồn kho ban đầu. Sử dụng Nhập/Xuất kho để điều chỉnh.</p>}
                           <FormMessage />
@@ -655,8 +680,8 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                           type="number"
                           placeholder="0"
                           {...field}
-                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
-                          onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                          value={formatNumberInputValue(field.value)}
+                          onChange={e => field.onChange(parseIntegerInputValue(e.target.value))}
                         /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>

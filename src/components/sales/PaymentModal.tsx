@@ -33,16 +33,15 @@ interface PaymentModalProps {
 
 const PaymentFormSchema = z.object({
   discountPercentage: z.preprocess(
-    val => parseFloat(String(val)),
+    val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val)), // Treat empty as 0
     z.number().min(0, "Giảm giá không âm").max(100, "Giảm giá tối đa 100%")
   ).default(0),
   otherIncomeAmount: z.preprocess(
-    val => parseFloat(String(val)),
+    val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val)), // Treat empty as 0
     z.number().min(0, "Thu khác không âm")
   ).default(0),
   paymentMethod: z.enum(PAYMENT_METHODS),
   cashReceived: z.preprocess(
-    // Ensure empty strings, null, or undefined become undefined for Zod's .optional()
     val => (val === "" || val === undefined || val === null) ? undefined : parseFloat(String(val)),
     z.number().min(0, "Tiền khách trả không âm").optional()
   ),
@@ -106,8 +105,8 @@ export default function PaymentModal({
       const shopName = "Maimiel Shop";
       const addInfoRaw = `TT DH ${orderData.customerName || 'KhachLe'} ${new Date().getTime().toString().slice(-5)}`;
       const accountNameRaw = "Maimiel";
-      const bankId = "VCB";
-      const accountNumber = "0111000317652";
+      const bankId = "VCB"; // Example, replace with actual
+      const accountNumber = "0111000317652"; // Example, replace with actual
       const qr = `https://img.vietqr.io/image/${bankId}-${accountNumber}-print.png?amount=${Math.round(amountDue)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
       setVietQRUrl(qr);
     } else {
@@ -117,14 +116,13 @@ export default function PaymentModal({
   
   useEffect(() => {
     if (selectedPaymentMethod === 'Chuyển khoản') {
-      clearErrors('cashReceived'); // Clear any lingering errors from cash tab
+      clearErrors('cashReceived'); 
     }
-    // No specific action needed for 'Tiền mặt' here, validation happens on submit
   }, [selectedPaymentMethod, clearErrors]);
 
 
   const onSubmit = async (values: PaymentFormValues) => {
-    if (values.paymentMethod === 'Tiền mặt' && amountDue > 0) {
+    if (values.paymentMethod === 'Tiền mặt' && amountDue > 0) { 
       if (values.cashReceived === undefined) {
         setError('cashReceived', { type: 'manual', message: 'Vui lòng nhập số tiền khách trả.' });
         return;
@@ -134,12 +132,26 @@ export default function PaymentModal({
         return;
       }
     }
-    // If paymentMethod is 'Chuyển khoản', or if amountDue is 0 for 'Tiền mặt',
-    // cashReceived validation for sufficiency is not strictly needed here as Zod handles min(0).
     await onConfirmPayment(values);
   };
 
   if (!isOpen) return null;
+
+  // Helper to format value for display in number inputs
+  const formatNumberInputValue = (value: number | string | undefined | null): string => {
+      if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
+          return ''; // Show empty for 0, undefined, null, or actual NaN
+      }
+      return String(value);
+  };
+
+  // Helper to parse value from number inputs for form state
+  const parseNumberInputValue = (value: string): number | '' => {
+      if (value === '') return ''; // Keep empty string for Zod to preprocess
+      const num = parseFloat(value);
+      return isNaN(num) ? '' : num; // Return number or empty string if parse fails
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -166,8 +178,8 @@ export default function PaymentModal({
                           type="number"
                           placeholder="0"
                           {...field}
-                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
-                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                          value={formatNumberInputValue(field.value)}
+                          onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
@@ -185,8 +197,8 @@ export default function PaymentModal({
                           type="number"
                           placeholder="0"
                           {...field}
-                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
-                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                          value={formatNumberInputValue(field.value)}
+                          onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
@@ -208,7 +220,7 @@ export default function PaymentModal({
                     <ShadcnFormLabel className="text-base">Phương thức thanh toán</ShadcnFormLabel>
                     <FormControl>
                       <Tabs 
-                        value={field.value} // Controlled Tabs component
+                        value={field.value} 
                         onValueChange={(value) => field.onChange(value as PaymentMethodType)}
                         className="w-full"
                       >
@@ -229,15 +241,10 @@ export default function PaymentModal({
                                     type="number"
                                     placeholder="0"
                                     {...cashField}
-                                    value={(cashField.value === undefined || cashField.value === null || (typeof cashField.value === 'number' && isNaN(cashField.value))) ? '' : String(cashField.value)}
+                                    value={formatNumberInputValue(cashField.value)}
                                     onChange={e => {
-                                      const rawValue = e.target.value;
-                                      if (rawValue === '') {
-                                        cashField.onChange(undefined);
-                                      } else {
-                                        const numValue = parseFloat(rawValue);
-                                        cashField.onChange(isNaN(numValue) ? undefined : numValue);
-                                      }
+                                      const parsed = parseNumberInputValue(e.target.value);
+                                      cashField.onChange(parsed === '' ? undefined : parsed);
                                     }}
                                   />
                                 </FormControl>
