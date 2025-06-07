@@ -1,15 +1,45 @@
+
 "use client";
 
 import PageHeader from '@/components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useData } from '@/hooks';
 import { BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Bar, PieChart, Pie, Cell } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent'; // Import Payload
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 const chartDataFormatter = (value: number) => value.toLocaleString('vi-VN') + ' đ';
+
+// Hàm định dạng cho từng mục trong tooltip (tương tự trang Dashboard)
+const tooltipItemFormatter = (value: number, name: string, props: Payload<number, string> | undefined) => {
+    if (!props) return null;
+    const formattedValue = chartDataFormatter(value);
+    // props.color là màu từ Bar component (ví dụ: var(--color-income))
+    // props.payload.fill cũng có thể chứa màu nếu props.color không có.
+    const indicatorColor = props.color || (props.payload && (props.payload as any).fill);
+
+    return (
+        <div className="flex w-full items-center justify-start gap-1.5 text-sm" style={{ minWidth: '150px' }}>
+            {indicatorColor && (
+              <span style={{
+                  display: 'inline-block',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: indicatorColor,
+                  marginRight: '4px',
+                  flexShrink: 0,
+              }} />
+            )}
+            <span className="text-muted-foreground flex-shrink-0 min-w-[50px]">{name}:</span>
+            <span className="font-semibold ml-1 truncate text-right flex-grow">{formattedValue}</span>
+        </div>
+    );
+};
+
 
 export default function RevenueExpensesPage() {
   const { incomeEntries, expenseEntries, getCategoryTotals } = useData();
@@ -80,7 +110,7 @@ export default function RevenueExpensesPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={chartDataFormatter} />
-                <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} />} />
+                <Tooltip content={<ChartTooltipContent formatter={tooltipItemFormatter} />} />
                 <Legend />
                 <Bar dataKey="income" fill="var(--color-income)" name="Thu Nhập" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="expenses" fill="var(--color-expenses)" name="Chi Phí" radius={[4, 4, 0, 0]} />

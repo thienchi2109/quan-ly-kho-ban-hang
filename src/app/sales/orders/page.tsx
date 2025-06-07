@@ -284,64 +284,213 @@ export default function SalesOrdersPage() {
     <meta charset="UTF-8">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', 'Arial', sans-serif; margin: 0; padding: 0; font-size: 10px; line-height: 1.4; color: #000; background-color: #fff; }
-        .invoice-container { width: 280px; margin: auto; background: #fff; padding: 10px; }
-        .header, .shop-info, .footer { text-align: center; }
-        .header h1 { font-size: 1.4em; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; }
-        .shop-info h2 { font-size: 1.4em; font-weight: 600; margin: 0 0 5px 0; }
-        .shop-info p { margin: 0; font-size: 0.9em; }
-        .invoice-details { margin: 15px 0; padding-top: 10px; border-top: 1px dashed #000; }
-        .invoice-details .detail-item { display: flex; justify-content: space-between; margin-bottom: 2px; }
-        .invoice-details .label { font-weight: 600; }
-        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; padding: 10px 0; border-top: 1px solid #000; border-bottom: 1px dashed #000; }
-        .items-table th, .items-table td { font-size: 0.7em; padding: 3px 1px; text-align: left; vertical-align: top; }
-        .items-table th { font-size: 0.75em; font-weight: 600; border-bottom: 1px solid #000; } /* Thay đổi ở đây */
-        .align-right { text-align: right; }
-        .items-table td:nth-child(1) { font-size: 0.75em; word-break: break-word; }
-        .items-table th:nth-child(2), .items-table td:nth-child(2) { font-size: 0.75em; width: 30px; text-align: center; padding-right: 20px; }
-        .items-table th:nth-child(3), .items-table td:nth-child(3) { font-size: 0.75em; width: 70px; text-align: right; }
+        /* CSS Reset & Basic Setup */
+        body {
+            font-family: 'Roboto', 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #1a1a1a;
+            background-color: #f5f5f5; /* Light grey background for contrast */
+        }
+        .invoice-box {
+            width: 300px;
+            margin: 20px auto;
+            padding: 15px;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
 
-        .totals-summary { margin-top: 5px; text-align: right; }
-        .totals-summary .summary-item { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 1px; }
-        .totals-summary .summary-item .label { font-weight: normal; }
-        .totals-summary .summary-item .value { font-weight: normal; }
-        .totals-summary .destructive .value { color: #ef4444; } /* red-500 */
-        .totals-summary .positive .value { color: #16a34a; } /* green-600 */
+        /* Header Section */
+        .header-section {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .header-section h1 {
+            font-size: 1.6em;
+            font-weight: 700;
+            margin: 0 0 5px 0;
+            color: #000;
+        }
+        .header-section p {
+            margin: 0;
+            font-size: 0.9em;
+        }
 
-        .grand-total { text-align: right; margin: 5px 0 10px 0; padding-top: 5px; border-top: 1px solid #000;}
-        .grand-total strong { font-size: 1.3em; font-weight: 700; }
+        /* Invoice Details Section */
+        .details-section {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .details-section .detail-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.95em;
+        }
+        .details-section .label {
+            font-weight: 500;
+        }
+        .details-section .value {
+            font-weight: 400;
+        }
+
+        /* Items Table Section */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .items-table thead th {
+            font-size: 1em;
+            font-weight: 700;
+            text-align: left;
+            padding: 8px 2px;
+            border-bottom: 2px solid #000;
+        }
+        .items-table tbody td {
+            padding: 8px 2px;
+            vertical-align: top;
+            border-bottom: 1px solid #eee;
+        }
+        .items-table .item-name {
+             font-weight: 500;
+             word-break: break-word;
+        }
+        .items-table .align-center { text-align: center; }
+        .items-table .align-right { text-align: right; }
         
-        .qr-code { text-align: center; margin-bottom: 10px; }
-        .qr-code img { max-width: 150px; }
-        .qr-code p { margin-top: 5px; font-size: 0.9em; }
-        .footer { margin-top: 10px; font-size: 0.9em; }
+        /* Totals Section */
+        .totals-section {
+            margin-top: 10px;
+        }
+        .totals-section .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 0.95em;
+        }
+         .totals-section .summary-item .label {
+            font-weight: 400;
+        }
+        .totals-section .summary-item .value {
+            font-weight: 500;
+        }
+        .totals-section .grand-total {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 2px solid #000;
+        }
+        .totals-section .grand-total .label,
+        .totals-section .grand-total .value {
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+         .totals-section .cash-details {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #ccc;
+        }
+         .totals-section .cash-details .summary-item .label,
+         .totals-section .cash-details .summary-item .value {
+            font-size: 1.1em;
+            font-weight: 700;
+        }
+
+        /* QR & Footer */
+        .qr-section {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .qr-section img {
+            max-width: 180px;
+        }
+        .footer-section {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
-    <div class="invoice-container">
-        <section class="shop-info"><h2>${shopName}</h2><p>${shopAddress}</p><p>ĐT: ${shopPhone}</p></section>
-        <header class="header"><h1>Hóa Đơn</h1></header>
-        <section class="invoice-details">
-            <div class="detail-item"><span class="label">Số HĐ:</span><span class="value">${order.orderNumber}</span></div>
-            <div class="detail-item"><span class="label">Ngày:</span><span class="value">${format(parse(order.date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy HH:mm", { locale: vi })}</span></div>
-            <div class="detail-item"><span class="label">Khách hàng:</span><span class="value">${order.customerName || 'Khách lẻ'}</span></div>
+    <div class="invoice-box">
+        <header class="header-section">
+            <h1>${shopName}</h1>
+            <p>${shopAddress}</p>
+            <p>ĐT: ${shopPhone}</p>
+        </header>
+
+        <section>
+            <h2 style="text-align: center; font-size: 1.5em; margin: 15px 0; font-weight: 700;">HÓA ĐƠN BÁN HÀNG</h2>
         </section>
+
+        <section class="details-section">
+            <div class="detail-item">
+                <span class="label">Số HĐ:</span>
+                <span class="value">${order.orderNumber}</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Ngày:</span>
+                <span class="value">${format(parse(order.date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy HH:mm", { locale: vi })}</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Khách hàng:</span>
+                <span class="value">${order.customerName || 'Khách lẻ'}</span>
+            </div>
+        </section>
+
         <table class="items-table">
-            <thead><tr><th>Tên sản phẩm</th><th class="align-right">SL</th><th class="align-right">Thành tiền</th></tr></thead>
-            <tbody>${itemsHtml}</tbody>
+            <thead>
+                <tr>
+                    <th>Tên sản phẩm</th>
+                    <th class="align-center">SL</th>
+                    <th class="align-right">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${itemsHtml}
+            </tbody>
         </table>
-        ${paymentDetailsHtml}
-        <div class="grand-total"><strong>Tổng thanh toán: ${(order.finalAmount || order.totalAmount).toLocaleString('vi-VN')} đ</strong></div>
+
+        <section class="totals-section">
+            ${paymentDetailsHtml}
+            
+            <div class="summary-item grand-total">
+                <span class="label">TỔNG CỘNG</span>
+                <span class="value">${(order.finalAmount || order.totalAmount).toLocaleString('vi-VN')} đ</span>
+            </div>
+
+            ${order.paymentMethod === 'Tiền mặt' && order.cashReceived ? `
+            <div class="cash-details">
+                <div class="summary-item">
+                    <span class="label">Tiền khách trả</span>
+                    <span class="value">${(order.cashReceived).toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Tiền thối lại</span>
+                    <span class="value">${(order.changeGiven || 0).toLocaleString('vi-VN')} đ</span>
+                </div>
+            </div>
+            ` : ''}
+        </section>
+
         ${order.paymentMethod === 'Chuyển khoản' && order.status === 'Hoàn thành' ? `
-            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
-            <div class="qr-code">
+            <section class="qr-section">
                 <p>Quét mã QR để thanh toán</p>
                 <img src="${vietQRURL}" alt="VietQR Payment" data-ai-hint="payment QR"/>
-            </div>
+            </section>
         ` : ''}
-        <footer class="footer"><p>Cảm ơn quý khách!</p></footer>
+        
+        <footer class="footer-section">
+            <p>Cảm ơn quý khách và hẹn gặp lại!</p>
+        </footer>
     </div>
 </body>
 </html>
