@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default rule: Allow read and write access if the user is authenticated.
+    //
+    // WARNING: This rule is quite permissive as it allows any authenticated user
+    // to read and write any file in your bucket.
+    // For production applications, you should implement more granular rules,
+    // such as restricting users to only write/read files in their own user-specific
+    // directory (e.g., /users/{userId}/{allPaths=**}) and validating file types,
+    // sizes, and metadata.
+    //
+    // Example for user-specific directories (requires code changes to upload to these paths):
+    // match /users/{userId}/{allPaths=**} {
+    //   allow read, write: if request.auth != null && request.auth.uid == userId;
+    // }
+    // match /receipts/{userId}/{fileName} {
+    //   allow read, write: if request.auth != null && request.auth.uid == userId;
+    // }
+    // match /products/{fileName} { // Assuming product images might be more public
+    //   allow read; // Anyone can read
+    //   allow write: if request.auth != null; // Only authenticated users can write (e.g., admins)
+    // }
+
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
