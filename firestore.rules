@@ -1,17 +1,28 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read and write access to all documents
-    // if the user is authenticated.
-    // This is a basic rule suitable for when a user deploys
-    // this app to their own Firebase project, effectively giving them
-    // full access to their own data.
-    // For multi-tenant applications on a single database,
-    // you would need more granular, user-specific rules.
-    match /{document=**} {
+    // Allow authenticated users to read and write to any document in these collections.
+    // This is a basic rule and should be refined for production for better security,
+    // especially if you plan to have multiple users whose data should be isolated.
+
+    match /products/{productId} {
       allow read, write: if request.auth != null;
     }
+    match /incomeEntries/{entryId} {
+      allow read, write: if request.auth != null;
+    }
+    match /expenseEntries/{entryId} {
+      allow read, write: if request.auth != null;
+    }
+    match /inventoryTransactions/{transactionId} {
+      allow read, write: if request.auth != null;
+    }
+    match /salesOrders/{orderId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // IMPORTANT: If you have other collections, you'll need to add rules for them too.
+    // Any path not explicitly matched by a rule will be denied access.
   }
 }
