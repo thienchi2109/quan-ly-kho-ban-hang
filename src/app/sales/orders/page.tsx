@@ -295,14 +295,14 @@ export default function SalesOrdersPage() {
         .invoice-details { margin: 15px 0; padding-top: 10px; border-top: 1px dashed #000; }
         .invoice-details .detail-item { display: flex; justify-content: space-between; margin-bottom: 2px; }
         .invoice-details .label { font-weight: 600; }
-        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; padding: 10px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; padding: 10px 0; border-top: 1px solid #000; border-bottom: 1px dashed #000; }
         .items-table th, .items-table td { font-size: 0.7em; padding: 3px 1px; text-align: left; vertical-align: top; }
-        .items-table th { font-size: 0.75em; font-weight: 600; border-bottom: 1px solid #000; }
+        .items-table th { font-size: 0.75em; font-weight: 600; border-bottom: 1px solid #000; } /* Thay đổi ở đây */
         .align-right { text-align: right; }
         .items-table td:nth-child(1) { font-size: 0.75em; word-break: break-word; }
         .items-table th:nth-child(2), .items-table td:nth-child(2) { font-size: 0.75em; width: 30px; text-align: center; padding-right: 20px; }
         .items-table th:nth-child(3), .items-table td:nth-child(3) { font-size: 0.75em; width: 70px; text-align: right; }
-        
+
         .totals-summary { margin-top: 5px; text-align: right; }
         .totals-summary .summary-item { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 1px; }
         .totals-summary .summary-item .label { font-weight: normal; }
@@ -312,7 +312,7 @@ export default function SalesOrdersPage() {
 
         .grand-total { text-align: right; margin: 5px 0 10px 0; padding-top: 5px; border-top: 1px solid #000;}
         .grand-total strong { font-size: 1.3em; font-weight: 700; }
-
+        
         .qr-code { text-align: center; margin-bottom: 10px; }
         .qr-code img { max-width: 150px; }
         .qr-code p { margin-top: 5px; font-size: 0.9em; }

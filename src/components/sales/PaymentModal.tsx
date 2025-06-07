@@ -50,23 +50,40 @@ const PaymentFormSchema = z.object({
 type PaymentFormValues = z.infer<typeof PaymentFormSchema>;
 
 const formatNumericForDisplay = (value: number | string | undefined | null): string => {
-  if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
-    return ''; 
+  if (value === undefined || value === null || value === '' || (typeof value === 'number' && isNaN(value))) {
+    return '';
   }
-  const numStr = String(value).replace(/\./g, ''); 
+  if (typeof value === 'number' && value === 0 && String(value) === '0') return '0'; // Handle explicit 0
+
+  const numStr = String(value).replace(/\./g, '');
   const num = parseFloat(numStr);
   if (isNaN(num)) {
-    return String(value); 
+    return String(value); // Return original if not a parseable number after cleaning
   }
   return num.toLocaleString('vi-VN');
 };
 
 const parseNumericFromDisplay = (displayValue: string): string => {
-  const cleaned = displayValue.replace(/\./g, ''); 
+  const cleaned = String(displayValue).replace(/\./g, '');
   if (/^\d*$/.test(cleaned)) {
     return cleaned;
   }
-  return cleaned.replace(/[^\d]/g, ''); 
+  return cleaned.replace(/[^\d]/g, '');
+};
+
+const formatNumberInputValue = (value: number | string | undefined | null): string => {
+    if (value === undefined || value === null || value === '' || (typeof value === 'number' && isNaN(value))) {
+        return '';
+    }
+    if (value === 0) return ''; // Show placeholder if 0
+    return String(value); // For input value, don't format with thousand separators initially
+};
+
+const parseNumberInputValue = (value: string): number | '' => {
+    const cleaned = String(value).replace(/\./g, '');
+    if (cleaned === '') return '';
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? '' : num;
 };
 
 
@@ -89,9 +106,11 @@ export default function PaymentModal({
   });
 
   const { watch, setValue, control, handleSubmit, setError, clearErrors, formState: { errors } } = form;
-  const discountPercentage = watch('discountPercentage') || 0;
-  const otherIncomeAmount = watch('otherIncomeAmount') || 0;
-  const cashReceived = watch('cashReceived');
+  
+  // Watched values from the form
+  const watchedDiscountPercentage = watch('discountPercentage');
+  const watchedOtherIncomeAmount = watch('otherIncomeAmount');
+  const watchedCashReceived = watch('cashReceived');
   const selectedPaymentMethod = watch('paymentMethod');
 
   const [amountDue, setAmountDue] = useState(orderData.currentOrderTotal);
@@ -109,25 +128,30 @@ export default function PaymentModal({
 
 
   useEffect(() => {
-    const newAmountDue = (orderData.currentOrderTotal * (1 - discountPercentage / 100)) + otherIncomeAmount;
+    // Ensure watched values are treated as numbers for calculation
+    const numDiscount = parseFloat(String(watchedDiscountPercentage)) || 0;
+    const numOtherIncome = parseFloat(String(watchedOtherIncomeAmount).replace(/\./g, '')) || 0; // Ensure to remove dots if any from display format during watch
+
+    const newAmountDue = (orderData.currentOrderTotal * (1 - numDiscount / 100)) + numOtherIncome;
     setAmountDue(Math.max(0, newAmountDue));
-  }, [orderData.currentOrderTotal, discountPercentage, otherIncomeAmount]);
+  }, [orderData.currentOrderTotal, watchedDiscountPercentage, watchedOtherIncomeAmount]);
 
   useEffect(() => {
-    if (selectedPaymentMethod === 'Tiền mặt' && cashReceived !== undefined && cashReceived >= 0) {
-      setChangeAmount(Math.max(0, cashReceived - amountDue));
+    const numCashReceived = parseFloat(String(watchedCashReceived).replace(/\./g, '')) || 0;
+    if (selectedPaymentMethod === 'Tiền mặt' && numCashReceived >= 0) {
+      setChangeAmount(Math.max(0, numCashReceived - amountDue));
     } else {
       setChangeAmount(0);
     }
-  }, [cashReceived, amountDue, selectedPaymentMethod]);
+  }, [watchedCashReceived, amountDue, selectedPaymentMethod]);
 
   useEffect(() => {
     if (selectedPaymentMethod === 'Chuyển khoản' && amountDue > 0) {
       const shopName = "Maimiel Shop";
       const addInfoRaw = `TT DH ${orderData.customerName || 'KhachLe'} ${new Date().getTime().toString().slice(-5)}`;
       const accountNameRaw = "Maimiel";
-      const bankId = "VCB"; 
-      const accountNumber = "0111000317652"; 
+      const bankId = "VCB";
+      const accountNumber = "0111000317652";
       const qr = `https://img.vietqr.io/image/${bankId}-${accountNumber}-print.png?amount=${Math.round(amountDue)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
       setVietQRUrl(qr);
     } else {
@@ -137,13 +161,14 @@ export default function PaymentModal({
   
   useEffect(() => {
     if (selectedPaymentMethod === 'Chuyển khoản') {
-      clearErrors('cashReceived'); 
+      clearErrors('cashReceived');
     }
   }, [selectedPaymentMethod, clearErrors]);
 
 
   const onSubmit = async (values: PaymentFormValues) => {
-    if (values.paymentMethod === 'Tiền mặt' && amountDue > 0) { 
+    // Values from form submit (already processed by Zod) are numbers or undefined
+    if (values.paymentMethod === 'Tiền mặt' && amountDue > 0) {
       if (values.cashReceived === undefined) {
         setError('cashReceived', { type: 'manual', message: 'Vui lòng nhập số tiền khách trả.' });
         return;
@@ -157,14 +182,6 @@ export default function PaymentModal({
   };
 
   if (!isOpen) return null;
-
-  const parseNumberInputValue = (value: string): number | '' => {
-      const cleaned = value.replace(/\./g, '');
-      if (cleaned === '') return ''; 
-      const num = parseFloat(cleaned);
-      return isNaN(num) ? '' : num; 
-  };
-
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -188,10 +205,11 @@ export default function PaymentModal({
                       <ShadcnFormLabel>Giảm giá (%)</ShadcnFormLabel>
                       <FormControl>
                         <Input
-                          type="number" // Percentage doesn't need thousand separators
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0"
                           {...field}
-                          value={field.value === 0 ? '' : field.value} // Keep 0 as empty for placeholder
+                          value={formatNumberInputValue(field.value)}
                           onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
                         />
                       </FormControl>
@@ -233,8 +251,8 @@ export default function PaymentModal({
                   <FormItem className="space-y-3">
                     <ShadcnFormLabel className="text-base">Phương thức thanh toán</ShadcnFormLabel>
                     <FormControl>
-                      <Tabs 
-                        value={field.value} 
+                      <Tabs
+                        value={field.value}
                         onValueChange={(value) => field.onChange(value as PaymentMethodType)}
                         className="w-full"
                       >
@@ -301,11 +319,11 @@ export default function PaymentModal({
                 </Button>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Hủy</Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       disabled={
                         isSubmitting ||
-                        (selectedPaymentMethod === 'Tiền mặt' && amountDue > 0 && (cashReceived === undefined || cashReceived < amountDue))
+                        (selectedPaymentMethod === 'Tiền mặt' && amountDue > 0 && (watchedCashReceived === undefined || (parseFloat(String(watchedCashReceived).replace(/\./g, '')) || 0) < amountDue))
                       }
                     >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

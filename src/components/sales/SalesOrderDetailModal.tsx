@@ -90,9 +90,9 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         .invoice-details { margin: 15px 0; padding-top: 10px; border-top: 1px dashed #000; }
         .invoice-details .detail-item { display: flex; justify-content: space-between; margin-bottom: 2px; }
         .invoice-details .label { font-weight: 600; }
-        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; padding: 10px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; padding: 10px 0; border-top: 1px solid #000; border-bottom: 1px dashed #000; }
         .items-table th, .items-table td { font-size: 0.7em; padding: 3px 1px; text-align: left; vertical-align: top; }
-        .items-table th { font-size: 0.75em; font-weight: 600; border-bottom: 1px solid #000; }
+        .items-table th { font-size: 0.75em; font-weight: 600; border-bottom: 1px solid #000; } /* Thay đổi ở đây */
         .align-right { text-align: right; }
         .items-table td:nth-child(1) { font-size: 0.75em; word-break: break-word; }
         .items-table th:nth-child(2), .items-table td:nth-child(2) { font-size: 0.75em; width: 30px; text-align: center; padding-right: 20px; }
