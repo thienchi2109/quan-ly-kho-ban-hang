@@ -52,10 +52,10 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
   addSalesOrder: (
-    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'>, // totalAmount is now original, finalAmount will be calculated
+    orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'>, 
     isDraft: boolean
   ) => Promise<string | undefined>;
-  updateSalesOrderStatus: (orderId: string, status: SalesOrderStatus) => Promise<void>;
+  updateSalesOrderStatus: (orderId: string, newStatus: SalesOrderStatus) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -296,74 +296,83 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const newOrderRef = doc(collection(db, 'salesOrders'));
 
     try {
-      // totalAmount is the original sum of item.totalPrice
-      // finalAmount includes discount and otherIncome, to be calculated and passed in orderData if available
-      // totalCost is sum of item.costPrice * quantity
-      // totalProfit will be finalAmount - totalCost
-
+      for (const item of orderData.items) {
+        const productExists = productsWithCurrentStock.find(p => p.id === item.productId);
+        if (!productExists) {
+          throw new Error(`Sản phẩm "${item.productName || 'không xác định'}" (ID: ${item.productId}) không tìm thấy hoặc đã bị xóa. Vui lòng kiểm tra lại đơn hàng.`);
+        }
+      }
+      
       let calculatedTotalCost = 0;
       const processedItems: OrderItem[] = orderData.items.map((item) => {
         const product = productsWithCurrentStock.find(p => p.id === item.productId);
-        if (!product) throw new Error(`Sản phẩm với ID ${item.productId} không tìm thấy.`);
-        const currentCostPrice = product.costPrice || 0;
+        // We already checked for product existence above, so product should be defined here
+        const currentCostPrice = product!.costPrice || 0;
         calculatedTotalCost += item.quantity * currentCostPrice;
         return {
-          ...item, // Should already include productName, quantity, unitPrice, costPrice
-          id: doc(collection(db, 'dummy')).id, // Generate temp id for sub-collection like items
-          totalPrice: item.quantity * item.unitPrice, // Ensure totalPrice is correctly calculated here
+          ...item,
+          id: doc(collection(db, 'dummy')).id, 
+          totalPrice: item.quantity * item.unitPrice,
+          costPrice: currentCostPrice, // Ensure costPrice is set from product
         };
       });
 
-      const finalAmountForDB = orderData.finalAmount ?? orderData.totalAmount; // Use finalAmount if provided, else original totalAmount
+      const finalAmountForDB = orderData.finalAmount ?? orderData.totalAmount;
       const calculatedTotalProfit = finalAmountForDB - calculatedTotalCost;
       const orderNumber = `DH-${Date.now().toString().slice(-6)}`;
 
-      const finalOrderDataToSave: SalesOrder = {
-        ...orderData, // Includes customerName, date, items, notes, discountPercentage, otherIncomeAmount, paymentMethod etc from form
+      const dataToSave: SalesOrder = {
         id: newOrderRef.id,
         orderNumber,
-        items: processedItems, // Use processed items with correct totalPrice and costPrice
-        totalAmount: orderData.totalAmount, // Original total amount from items
-        finalAmount: finalAmountForDB,
+        date: orderData.date,
+        items: processedItems,
+        totalAmount: orderData.totalAmount,
+        finalAmount: finalAmountForDB, // finalAmount is defined
         totalCost: calculatedTotalCost,
         totalProfit: calculatedTotalProfit,
-        status: orderData.status || 'Mới', // Default to 'Mới' if not provided, this will be updated later if payment is confirmed
+        status: orderData.status || 'Mới',
+        // Conditionally add optional fields to prevent 'undefined' values
+        ...(orderData.customerName && orderData.customerName.trim() !== '' && { customerName: orderData.customerName }),
+        ...(orderData.notes && orderData.notes.trim() !== '' && { notes: orderData.notes }),
+        ...(orderData.discountPercentage !== undefined && { discountPercentage: orderData.discountPercentage }), // Allows 0
+        ...(orderData.otherIncomeAmount !== undefined && { otherIncomeAmount: orderData.otherIncomeAmount }), // Allows 0
+        ...(orderData.paymentMethod && { paymentMethod: orderData.paymentMethod }), // paymentMethod is optional in SalesOrder type
+        ...(orderData.cashReceived !== undefined && { cashReceived: orderData.cashReceived }),
+        ...(orderData.changeGiven !== undefined && { changeGiven: orderData.changeGiven }),
       };
+      
+      localBatch.set(newOrderRef, dataToSave);
 
-      localBatch.set(newOrderRef, finalOrderDataToSave);
-
-      // Always create export transactions
-      for (const item of processedItems) {
-        const transactionResult = await addInventoryTransaction({
-          productId: item.productId,
-          type: 'export',
-          quantity: item.quantity,
-          date: finalOrderDataToSave.date,
-          relatedParty: finalOrderDataToSave.customerName || 'Khách lẻ',
-          notes: `Xuất kho cho đơn hàng ${orderNumber}`,
-          relatedOrderId: newOrderRef.id,
-        }, localBatch);
-        if (transactionResult !== null) {
-          throw new Error(transactionResult);
+      if (!isDraft) { // Only create related transactions if it's not a draft order being saved
+        for (const item of processedItems) {
+          const transactionResult = await addInventoryTransaction({
+            productId: item.productId,
+            type: 'export',
+            quantity: item.quantity,
+            date: dataToSave.date,
+            relatedParty: dataToSave.customerName || 'Khách lẻ',
+            notes: `Xuất kho cho đơn hàng ${orderNumber}`,
+            relatedOrderId: newOrderRef.id,
+          }, localBatch);
+          if (transactionResult !== null) {
+            throw new Error(transactionResult);
+          }
         }
-      }
 
-      if (!isDraft) {
-        // Record income and COGS only if not a draft (i.e., payment process initiated)
         await addIncomeEntry({
-          date: finalOrderDataToSave.date,
-          amount: finalOrderDataToSave.finalAmount, // Income is based on the final amount paid
+          date: dataToSave.date,
+          amount: dataToSave.finalAmount,
           category: 'Bán hàng',
           description: `Thu nhập từ đơn hàng ${orderNumber}`,
           relatedOrderId: newOrderRef.id,
         }, localBatch);
 
-        if (finalOrderDataToSave.totalCost > 0) {
+        if (dataToSave.totalCost > 0) {
           await addExpenseEntry({
-              date: finalOrderDataToSave.date,
-              amount: finalOrderDataToSave.totalCost,
+              date: dataToSave.date,
+              amount: dataToSave.totalCost,
               category: 'Giá vốn hàng bán' as ExpenseCategory,
-              description: `Giá vốn cho đơn hàng ${finalOrderDataToSave.orderNumber}`,
+              description: `Giá vốn cho đơn hàng ${dataToSave.orderNumber}`,
               relatedOrderId: newOrderRef.id,
               receiptImageUrl: '',
           }, localBatch);
@@ -381,23 +390,120 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateSalesOrderStatus = async (orderId: string, status: SalesOrderStatus) => {
+  const updateSalesOrderStatus = async (orderId: string, newStatus: SalesOrderStatus) => {
     const localBatch = writeBatch(db);
     const orderRef = doc(db, 'salesOrders', orderId);
+    let orderToUpdate = salesOrders.find(o => o.id === orderId);
 
     try {
-        const orderToUpdate = salesOrders.find(o => o.id === orderId);
-        if (!orderToUpdate) {
+      if (!orderToUpdate) {
+        // Attempt to refetch if not found in local state (though onSnapshot should keep it up-to-date)
+        const orderSnapshot = await getDocs(query(salesOrdersCol, where("id", "==", orderId)));
+        if (!orderSnapshot.empty) {
+            orderToUpdate = { id: orderSnapshot.docs[0].id, ...orderSnapshot.docs[0].data() } as SalesOrder;
+        } else {
             throw new Error("Không tìm thấy đơn hàng để cập nhật.");
         }
+      }
+      
+      const oldStatus = orderToUpdate.status;
+      localBatch.update(orderRef, { status: newStatus });
 
-        localBatch.update(orderRef, { status });
-        await localBatch.commit();
-        toast({ title: "Thành công", description: `Đã cập nhật trạng thái đơn hàng thành ${status}.` });
+      if (newStatus === 'Hoàn thành' && oldStatus !== 'Hoàn thành') {
+        // Logic to create transactions and financial entries IF THEY DON'T EXIST YET
+        // Check if income entry already exists for this order
+        const incomeQuery = query(incomeCol, where("relatedOrderId", "==", orderId));
+        const existingIncomeEntries = await getDocs(incomeQuery);
+        if (existingIncomeEntries.empty) {
+          await addIncomeEntry({
+            date: orderToUpdate.date,
+            amount: orderToUpdate.finalAmount || orderToUpdate.totalAmount,
+            category: 'Bán hàng',
+            description: `Thu nhập từ đơn hàng ${orderToUpdate.orderNumber}`,
+            relatedOrderId: orderId,
+          }, localBatch);
+        }
+
+        // Check if COGS expense entry already exists
+        const cogsQuery = query(expensesCol, where("relatedOrderId", "==", orderId), where("category", "==", "Giá vốn hàng bán"));
+        const existingCogsEntries = await getDocs(cogsQuery);
+        if (existingCogsEntries.empty && orderToUpdate.totalCost > 0) {
+           await addExpenseEntry({
+            date: orderToUpdate.date,
+            amount: orderToUpdate.totalCost,
+            category: 'Giá vốn hàng bán',
+            description: `Giá vốn cho đơn hàng ${orderToUpdate.orderNumber}`,
+            relatedOrderId: orderId,
+            receiptImageUrl: '',
+          }, localBatch);
+        }
+        
+        // Check and create export transactions for items if not already present
+        for (const item of orderToUpdate.items) {
+          const product = productsWithCurrentStock.find(p => p.id === item.productId);
+          if (!product) {
+            console.warn(`Sản phẩm ID ${item.productId} không tìm thấy khi hoàn thành đơn hàng ${orderId}. Bỏ qua giao dịch kho cho sản phẩm này.`);
+            continue;
+          }
+          const exportQuery = query(transactionsCol, 
+            where("relatedOrderId", "==", orderId), 
+            where("productId", "==", item.productId),
+            where("type", "==", "export")
+          );
+          const existingExports = await getDocs(exportQuery);
+          if (existingExports.empty) { // Only add if no export transaction for this item in this order exists
+            const transactionResult = await addInventoryTransaction({
+              productId: item.productId,
+              type: 'export',
+              quantity: item.quantity,
+              date: orderToUpdate.date,
+              relatedParty: orderToUpdate.customerName || 'Khách lẻ',
+              notes: `Xuất kho tự động khi hoàn thành đơn hàng ${orderToUpdate.orderNumber}`,
+              relatedOrderId: orderId,
+            }, localBatch);
+            if (transactionResult !== null) {
+              // Log or handle minor error, but don't necessarily stop the whole status update
+              console.error(`Lỗi tạo giao dịch xuất kho cho ${item.productName}: ${transactionResult}`);
+              toast({ title: "Cảnh báo", description: `Không thể tạo giao dịch xuất kho cho ${item.productName}: ${transactionResult}`, variant: "default"});
+            }
+          }
+        }
+
+      } else if (newStatus === 'Đã hủy' && oldStatus === 'Hoàn thành') {
+        // Reverse transactions and financial entries
+        for (const item of orderToUpdate.items) {
+          const product = productsWithCurrentStock.find(p => p.id === item.productId);
+          if (!product) {
+            console.warn(`Sản phẩm ID ${item.productId} không tìm thấy khi hủy đơn hàng ${orderId}. Bỏ qua hoàn kho cho sản phẩm này.`);
+            continue;
+          }
+          await addInventoryTransaction({ // Create import transaction to reverse export
+            productId: item.productId,
+            type: 'import',
+            quantity: item.quantity,
+            date: orderToUpdate.date,
+            relatedParty: 'Hủy đơn hàng',
+            notes: `Hoàn kho do hủy đơn hàng ${orderToUpdate.orderNumber}`,
+            relatedOrderId: orderId,
+          }, localBatch);
+        }
+        // Delete related income entries
+        const incomeQuery = query(incomeCol, where("relatedOrderId", "==", orderId));
+        const incomeDocs = await getDocs(incomeQuery);
+        incomeDocs.forEach(docSnapshot => localBatch.delete(doc(db, 'incomeEntries', docSnapshot.id)));
+        
+        // Delete related COGS expense entries
+        const cogsQuery = query(expensesCol, where("relatedOrderId", "==", orderId), where("category", "==", "Giá vốn hàng bán"));
+        const cogsDocs = await getDocs(cogsQuery);
+        cogsDocs.forEach(docSnapshot => localBatch.delete(doc(db, 'expenseEntries', docSnapshot.id)));
+      }
+
+      await localBatch.commit();
+      toast({ title: "Thành công", description: `Đã cập nhật trạng thái đơn hàng thành ${newStatus}.` });
     } catch (e: any) {
         console.error("Error updating sales order status: ", e);
-        toast({ title: "Lỗi", description: "Không thể cập nhật trạng thái đơn hàng.", variant: "destructive" });
-        setError("Không thể cập nhật trạng thái đơn hàng.");
+        toast({ title: "Lỗi", description: e.message || "Không thể cập nhật trạng thái đơn hàng.", variant: "destructive" });
+        setError(e.message || "Không thể cập nhật trạng thái đơn hàng.");
     }
   };
 
