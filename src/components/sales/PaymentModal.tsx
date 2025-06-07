@@ -42,7 +42,8 @@ const PaymentFormSchema = z.object({
   ).default(0),
   paymentMethod: z.enum(PAYMENT_METHODS),
   cashReceived: z.preprocess(
-    val => parseFloat(String(val)),
+    // Ensure empty strings, null, or undefined become undefined for Zod's .optional()
+    val => (val === "" || val === undefined || val === null) ? undefined : parseFloat(String(val)),
     z.number().min(0, "Tiền khách trả không âm").optional()
   ),
 });
@@ -67,7 +68,7 @@ export default function PaymentModal({
     },
   });
 
-  const { watch, setValue } = form;
+  const { watch, setValue, control, handleSubmit, setError, clearErrors, formState: { errors } } = form;
   const discountPercentage = watch('discountPercentage') || 0;
   const otherIncomeAmount = watch('otherIncomeAmount') || 0;
   const cashReceived = watch('cashReceived');
@@ -78,7 +79,7 @@ export default function PaymentModal({
   const [vietQRUrl, setVietQRUrl] = useState('');
 
   useEffect(() => {
-    form.reset({ // Reset form when orderData changes or modal opens
+    form.reset({
         discountPercentage: 0,
         otherIncomeAmount: 0,
         paymentMethod: 'Tiền mặt',
@@ -89,7 +90,7 @@ export default function PaymentModal({
 
   useEffect(() => {
     const newAmountDue = (orderData.currentOrderTotal * (1 - discountPercentage / 100)) + otherIncomeAmount;
-    setAmountDue(Math.max(0, newAmountDue)); // Ensure amount due is not negative
+    setAmountDue(Math.max(0, newAmountDue));
   }, [orderData.currentOrderTotal, discountPercentage, otherIncomeAmount]);
 
   useEffect(() => {
@@ -102,24 +103,39 @@ export default function PaymentModal({
 
   useEffect(() => {
     if (selectedPaymentMethod === 'Chuyển khoản' && amountDue > 0) {
-      const shopName = "Maimiel Shop"; // Replace with your actual shop name
-      const addInfoRaw = `TT DH ${orderData.customerName || 'KhachLe'} ${new Date().getTime().toString().slice(-5)}`; // Example, make unique
-      const accountNameRaw = "Maimiel"; // Replace
-      const bankId = "VCB"; // Example: Vietcombank
-      const accountNumber = "0111000317652"; // Replace
-
+      const shopName = "Maimiel Shop";
+      const addInfoRaw = `TT DH ${orderData.customerName || 'KhachLe'} ${new Date().getTime().toString().slice(-5)}`;
+      const accountNameRaw = "Maimiel";
+      const bankId = "VCB";
+      const accountNumber = "0111000317652";
       const qr = `https://img.vietqr.io/image/${bankId}-${accountNumber}-print.png?amount=${Math.round(amountDue)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
       setVietQRUrl(qr);
     } else {
       setVietQRUrl('');
     }
   }, [selectedPaymentMethod, amountDue, orderData.customerName]);
+  
+  useEffect(() => {
+    if (selectedPaymentMethod === 'Chuyển khoản') {
+      clearErrors('cashReceived'); // Clear any lingering errors from cash tab
+    }
+    // No specific action needed for 'Tiền mặt' here, validation happens on submit
+  }, [selectedPaymentMethod, clearErrors]);
+
 
   const onSubmit = async (values: PaymentFormValues) => {
-    if (values.paymentMethod === 'Tiền mặt' && (values.cashReceived === undefined || values.cashReceived < amountDue)) {
-        form.setError('cashReceived', { type: 'manual', message: 'Số tiền khách trả phải lớn hơn hoặc bằng số tiền cần trả.' });
+    if (values.paymentMethod === 'Tiền mặt' && amountDue > 0) {
+      if (values.cashReceived === undefined) {
+        setError('cashReceived', { type: 'manual', message: 'Vui lòng nhập số tiền khách trả.' });
         return;
+      }
+      if (values.cashReceived < amountDue) {
+        setError('cashReceived', { type: 'manual', message: 'Số tiền khách trả phải lớn hơn hoặc bằng số tiền cần trả.' });
+        return;
+      }
     }
+    // If paymentMethod is 'Chuyển khoản', or if amountDue is 0 for 'Tiền mặt',
+    // cashReceived validation for sufficiency is not strictly needed here as Zod handles min(0).
     await onConfirmPayment(values);
   };
 
@@ -137,10 +153,10 @@ export default function PaymentModal({
         </DialogHeader>
         <ScrollArea className="max-h-[calc(90vh-250px)] pr-5 -mr-2">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="discountPercentage"
                   render={({ field }) => (
                     <FormItem>
@@ -159,7 +175,7 @@ export default function PaymentModal({
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="otherIncomeAmount"
                   render={({ field }) => (
                     <FormItem>
@@ -185,20 +201,25 @@ export default function PaymentModal({
               </div>
 
               <FormField
-                control={form.control}
+                control={control}
                 name="paymentMethod"
                 render={({ field }) => (
                   <FormItem className="space-y-3">
                     <ShadcnFormLabel className="text-base">Phương thức thanh toán</ShadcnFormLabel>
                     <FormControl>
-                      <Tabs defaultValue="Tiền mặt" className="w-full" onValueChange={(value) => field.onChange(value as PaymentMethodType)}>
+                      <Tabs 
+                        value={field.value} // Controlled Tabs component
+                        onValueChange={(value) => field.onChange(value as PaymentMethodType)}
+                        className="w-full"
+                      >
                         <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="Tiền mặt">Tiền mặt</TabsTrigger>
-                          <TabsTrigger value="Chuyển khoản">Chuyển khoản</TabsTrigger>
+                          {PAYMENT_METHODS.map(method => (
+                            <TabsTrigger key={method} value={method}>{method}</TabsTrigger>
+                          ))}
                         </TabsList>
                         <TabsContent value="Tiền mặt" className="mt-4">
                           <FormField
-                            control={form.control}
+                            control={control}
                             name="cashReceived"
                             render={({ field: cashField }) => (
                               <FormItem>
@@ -258,7 +279,13 @@ export default function PaymentModal({
                 </Button>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Hủy</Button>
-                    <Button type="submit" disabled={isSubmitting || (selectedPaymentMethod === 'Tiền mặt' && (cashReceived === undefined || cashReceived < amountDue))}>
+                    <Button 
+                      type="submit" 
+                      disabled={
+                        isSubmitting ||
+                        (selectedPaymentMethod === 'Tiền mặt' && amountDue > 0 && (cashReceived === undefined || cashReceived < amountDue))
+                      }
+                    >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <DollarSign className="mr-2 h-4 w-4" /> Xác Nhận Thanh Toán
                     </Button>
