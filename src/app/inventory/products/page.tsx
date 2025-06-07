@@ -8,7 +8,7 @@ import { ProductSchema } from '@/lib/schemas';
 import type { Product, ProductUnit, ProductFormValues as ProductFormValuesType } from '@/lib/types';
 import { useData } from '@/hooks';
 import PageHeader from '@/components/PageHeader';
-import { Button, buttonVariants } from '@/components/ui/button'; // Import buttonVariants
+import { Button, buttonVariants } from '@/components/ui/button';
 import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,7 +17,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import type { ColumnDef, VisibilityState, Row } from '@tanstack/react-table';
 import { flexRender } from "@tanstack/react-table";
-import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX, Loader2, Upload } from 'lucide-react'; // Added Upload icon
+import { PlusCircle, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, FilterX, Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -137,7 +137,7 @@ export default function ProductsPage() {
       await addProduct(processedValues);
       toast({ title: "Thành công!", description: "Đã thêm sản phẩm mới." });
     }
-    setEditingProduct(null); // Clear editing state
+    setEditingProduct(null); 
     closeModalFn();
   };
 
@@ -154,7 +154,7 @@ export default function ProductsPage() {
         const url = row.original.imageUrl;
         const name = row.original.name;
         return url ? (
-          <Image src={url} alt={name} width={40} height={40} className="h-10 w-10 object-cover rounded-sm" data-ai-hint="product item"/>
+          <Image src={url} alt={name} width={40} height={40} className="h-10 w-10 object-cover rounded-sm" data-ai-hint="product item" />
         ) : (
           <div className="h-10 w-10 bg-muted rounded-sm flex items-center justify-center text-muted-foreground text-xs">
             N/A
@@ -200,7 +200,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Changed to yellow for out of stock
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
           )}>
             {product.currentStock}
           </span>
@@ -218,7 +218,7 @@ export default function ProductsPage() {
       header: "Trạng Thái",
       cell: ({ row }) => {
         const product = row.original;
-        if (product.currentStock === 0) { // Check out of stock first
+        if (product.currentStock === 0) {
           return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10 text-xs sm:text-sm">Hết hàng</span>;
         }
         if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
@@ -443,11 +443,31 @@ export default function ProductsPage() {
 
 interface ProductFormContentProps {
     editingProductFull: Product | null;
-    onSubmit: (values: ProductFormValues) => Promise<void>; // Ensure onSubmit prop is async
+    onSubmit: (values: ProductFormValues) => Promise<void>;
     closeModalSignal: () => void;
     isEditing: boolean;
     formHtmlId: string;
 }
+
+const formatNumericForDisplay = (value: number | string | undefined | null): string => {
+  if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
+    return ''; 
+  }
+  const numStr = String(value).replace(/\./g, ''); 
+  const num = parseFloat(numStr);
+  if (isNaN(num)) {
+    return String(value); 
+  }
+  return num.toLocaleString('vi-VN');
+};
+
+const parseNumericFromDisplay = (displayValue: string): string => {
+  const cleaned = displayValue.replace(/\./g, ''); 
+  if (/^\d*$/.test(cleaned)) {
+    return cleaned;
+  }
+  return cleaned.replace(/[^\d]/g, ''); 
+};
 
 
 function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, isEditing, formHtmlId }: ProductFormContentProps) {
@@ -475,7 +495,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
             costPrice: '',
             sellingPrice: '',
             minStockLevel: '',
-            initialStock: 0, // Keep as 0 for initial, input will show placeholder
+            initialStock: 0,
             imageUrl: '',
         };
         return initialValues;
@@ -538,32 +558,24 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         }
         
         const submissionData = { ...data, imageUrl: finalImageUrl };
-        await onSubmit(submissionData); // Await the onSubmit prop
+        await onSubmit(submissionData);
         
         setIsUploading(false);
         setUploadProgress(null);
         setImageFile(null); 
-        // closeModalSignal() is called by the `handleProductFormSubmit` after it's done.
     };
     
-    // Helper to format value for display in number inputs
-    const formatNumberInputValue = (value: number | string | undefined | null): string => {
-        if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
-            return ''; // Show empty for 0, undefined, null, or actual NaN
-        }
-        return String(value);
-    };
-
-    // Helper to parse value from number inputs for form state
     const parseNumberInputValue = (value: string): number | '' => {
-        if (value === '') return ''; // Keep empty string for Zod to preprocess to undefined if optional
-        const num = parseFloat(value);
-        return isNaN(num) ? '' : num; // Return number or empty string if parse fails
+        const cleaned = value.replace(/\./g, '');
+        if (cleaned === '') return '';
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? '' : num;
     };
     
     const parseIntegerInputValue = (value: string): number | '' => {
-        if (value === '') return '';
-        const num = parseInt(value, 10);
+        const cleaned = value.replace(/\./g, '');
+        if (cleaned === '') return '';
+        const num = parseInt(cleaned, 10);
         return isNaN(num) ? '' : num;
     };
 
@@ -640,22 +652,22 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="costPrice" render={({ field }) => (
                         <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input
-                          type="number"
-                          step="any"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0"
                           {...field}
-                          value={formatNumberInputValue(field.value)}
-                          onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
                         /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={formMethods.control} name="sellingPrice" render={({ field }) => (
                         <FormItem><FormLabel>Giá Bán (tùy chọn)</FormLabel><FormControl><Input
-                          type="number"
-                          step="any"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0"
                           {...field}
-                          value={formatNumberInputValue(field.value)}
-                          onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
                         /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
@@ -664,12 +676,13 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                         <FormItem>
                           <FormLabel>Tồn Kho Ban Đầu</FormLabel>
                           <FormControl><Input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             placeholder="0"
                             {...field}
-                            value={formatNumberInputValue(field.value)}
+                            value={formatNumericForDisplay(field.value)}
                             disabled={isEditing}
-                            onChange={e => field.onChange(parseIntegerInputValue(e.target.value))}
+                            onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
                           /></FormControl>
                           {isEditing && <p className="text-xs text-muted-foreground">Không thể sửa tồn kho ban đầu. Sử dụng Nhập/Xuất kho để điều chỉnh.</p>}
                           <FormMessage />
@@ -677,11 +690,12 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
                     )} />
                     <FormField control={formMethods.control} name="minStockLevel" render={({ field }) => (
                         <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           placeholder="0"
                           {...field}
-                          value={formatNumberInputValue(field.value)}
-                          onChange={e => field.onChange(parseIntegerInputValue(e.target.value))}
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
                         /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>

@@ -26,6 +26,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 type IncomeFormValues = Omit<IncomeEntry, 'id'>;
 
+const formatNumericForDisplay = (value: number | string | undefined | null): string => {
+  if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
+    return ''; 
+  }
+  const numStr = String(value).replace(/\./g, ''); 
+  const num = parseFloat(numStr);
+  if (isNaN(num)) {
+    return String(value); 
+  }
+  return num.toLocaleString('vi-VN');
+};
+
+const parseNumericFromDisplay = (displayValue: string): string => {
+  const cleaned = displayValue.replace(/\./g, ''); 
+  if (/^\d*$/.test(cleaned)) {
+    return cleaned;
+  }
+  return cleaned.replace(/[^\d]/g, ''); 
+};
+
 export default function IncomePage() {
   const { incomeEntries, addIncomeEntry, deleteIncomeEntry } = useData();
   const { toast } = useToast();
@@ -55,7 +75,6 @@ export default function IncomePage() {
       });
       closeModal();
     }
-    // Error toast is handled within addIncomeEntry if it returns undefined/null
     setIsSubmitting(false);
   };
 
@@ -183,7 +202,14 @@ export default function IncomePage() {
                     <FormItem>
                       <FormLabel>Số Tiền</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                        <Input 
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0" 
+                          {...field} 
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -32,7 +32,26 @@ import { cn } from '@/lib/utils';
 
 type ExpenseFormValues = Omit<ExpenseEntry, 'id'>;
 
-// Helper function to convert dataURL to File
+const formatNumericForDisplay = (value: number | string | undefined | null): string => {
+  if (value === undefined || value === null || value === '' || (typeof value === 'number' && (isNaN(value) || value === 0))) {
+    return ''; 
+  }
+  const numStr = String(value).replace(/\./g, ''); 
+  const num = parseFloat(numStr);
+  if (isNaN(num)) {
+    return String(value); 
+  }
+  return num.toLocaleString('vi-VN');
+};
+
+const parseNumericFromDisplay = (displayValue: string): string => {
+  const cleaned = displayValue.replace(/\./g, ''); 
+  if (/^\d*$/.test(cleaned)) {
+    return cleaned;
+  }
+  return cleaned.replace(/[^\d]/g, ''); 
+};
+
 function dataURLtoFile(dataurl: string, filename: string): File | null {
   const arr = dataurl.split(',');
   if (arr.length < 2) return null;
@@ -54,13 +73,11 @@ export default function ExpensesPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // State for image handling
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // State for camera
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -74,7 +91,7 @@ export default function ExpensesPage() {
       amount: 0,
       category: EXPENSE_CATEGORIES[0],
       description: '',
-      receiptImageUrl: '', // This will be populated after upload
+      receiptImageUrl: '',
     },
   });
 
@@ -84,7 +101,7 @@ export default function ExpensesPage() {
     setUploadProgress(null);
     setIsUploading(false);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset file input
+      fileInputRef.current.value = "";
     }
   }, []);
 
@@ -97,7 +114,7 @@ export default function ExpensesPage() {
       receiptImageUrl: '',
     });
     resetImageState();
-    setIsCameraOpen(false); // Close camera if open
+    setIsCameraOpen(false);
     setHasCameraPermission(null);
   }, [form, resetImageState]);
 
@@ -106,8 +123,8 @@ export default function ExpensesPage() {
       const file = event.target.files[0];
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
-      form.setValue('receiptImageUrl', ''); // Clear any existing URL
-      setIsCameraOpen(false); // Close camera if it was open
+      form.setValue('receiptImageUrl', '');
+      setIsCameraOpen(false);
     }
   };
 
@@ -116,7 +133,6 @@ export default function ExpensesPage() {
     form.setValue('receiptImageUrl', '');
   };
   
-  // Camera Logic
   useEffect(() => {
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
@@ -147,7 +163,7 @@ export default function ExpensesPage() {
 
     getCameraPermission();
 
-    return () => { // Cleanup function
+    return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
@@ -171,11 +187,11 @@ export default function ExpensesPage() {
         const capturedFile = dataURLtoFile(dataUrl, `receipt-${Date.now()}.jpg`);
         if (capturedFile) {
           setImageFile(capturedFile);
-          setImagePreview(dataUrl); // Use dataUrl for immediate preview
-          form.setValue('receiptImageUrl', ''); // Clear any existing URL
+          setImagePreview(dataUrl);
+          form.setValue('receiptImageUrl', '');
         }
       }
-      setIsCameraOpen(false); // Close camera after capture
+      setIsCameraOpen(false);
     }
   };
 
@@ -184,7 +200,7 @@ export default function ExpensesPage() {
     setIsUploading(true);
     let finalReceiptImageUrl = values.receiptImageUrl || '';
 
-    if (imageFile && !values.receiptImageUrl) { // Only upload if no URL is already set (e.g. from editing)
+    if (imageFile && !values.receiptImageUrl) {
       const fileName = `receipts/${Date.now()}-${imageFile.name.replace(/\s+/g, '_')}`;
       const fileRef = storageRef(storage, fileName);
       const uploadTask = uploadBytesResumable(fileRef, imageFile);
@@ -216,12 +232,12 @@ export default function ExpensesPage() {
     
     const dataToSubmit = { ...values, receiptImageUrl: finalReceiptImageUrl };
     
-    await addExpenseEntry(dataToSubmit); // Assuming addExpenseEntry is async or can be awaited
+    await addExpenseEntry(dataToSubmit);
     toast({ title: "Thành công!", description: "Đã thêm khoản chi tiêu mới." });
     
     resetFormAndImageState();
-    setIsUploading(false); // Ensure this is reset
-    setUploadProgress(null); // Ensure this is reset
+    setIsUploading(false);
+    setUploadProgress(null);
     closeModal();
   };
 
@@ -346,7 +362,7 @@ export default function ExpensesPage() {
           onOpenChange={(isOpen) => {
             setIsModalOpen(isOpen);
             if (!isOpen) {
-              resetFormAndImageState(); // Reset if modal is closed externally
+              resetFormAndImageState(); 
               setIsCameraOpen(false); 
             }
           }}
@@ -374,7 +390,14 @@ export default function ExpensesPage() {
                     <FormItem>
                       <FormLabel>Số Tiền</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                        <Input 
+                          type="text" 
+                          inputMode="decimal"
+                          placeholder="0" 
+                          {...field} 
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -416,7 +439,6 @@ export default function ExpensesPage() {
                   )}
                 />
                 
-                {/* Image Upload Section */}
                 <FormItem>
                   <FormLabel>Ảnh Biên Lai (tùy chọn)</FormLabel>
                   {!isCameraOpen && (
@@ -463,7 +485,6 @@ export default function ExpensesPage() {
                   )}
                 </FormItem>
 
-                {/* Camera View Section */}
                 {isCameraOpen && (
                   <Card className="mt-2">
                     <CardHeader>
@@ -525,4 +546,3 @@ export default function ExpensesPage() {
     </>
   );
 }
-
