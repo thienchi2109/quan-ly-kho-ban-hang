@@ -197,7 +197,7 @@ export default function ProductsPage() {
         return (
           <span className={cn(
             isLowStock && "text-destructive font-semibold",
-            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold"
+            isOutOfStock && !isLowStock && "text-yellow-600 font-semibold" // Changed to yellow for out of stock
           )}>
             {product.currentStock}
           </span>
@@ -215,11 +215,11 @@ export default function ProductsPage() {
       header: "Trạng Thái",
       cell: ({ row }) => {
         const product = row.original;
+        if (product.currentStock === 0) { // Check out of stock first
+          return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10 text-xs sm:text-sm">Hết hàng</span>;
+        }
         if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
           return <span className="text-destructive font-semibold px-2 py-1 rounded-md bg-destructive/10 text-xs sm:text-sm">Sắp hết</span>;
-        }
-        if (product.currentStock === 0) {
-          return <span className="text-yellow-600 font-semibold px-2 py-1 rounded-md bg-yellow-500/10 text-xs sm:text-sm">Hết hàng</span>;
         }
         return <span className="text-green-600 font-semibold px-2 py-1 rounded-md bg-green-500/10 text-xs sm:text-sm">Còn hàng</span>;
       },
@@ -614,23 +614,50 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="costPrice" render={({ field }) => (
-                        <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Giá Vốn (tùy chọn)</FormLabel><FormControl><Input
+                          type="number"
+                          step="any"
+                          placeholder="0"
+                          {...field}
+                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                          onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={formMethods.control} name="sellingPrice" render={({ field }) => (
-                        <FormItem><FormLabel>Giá Bán (tùy chọn)</FormLabel><FormControl><Input type="number" step="any" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Giá Bán (tùy chọn)</FormLabel><FormControl><Input
+                          type="number"
+                          step="any"
+                          placeholder="0"
+                          {...field}
+                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                          onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={formMethods.control} name="initialStock" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Tồn Kho Ban Đầu</FormLabel>
-                          <FormControl><Input type="number" placeholder="0" {...field} disabled={isEditing} onChange={e => field.onChange(parseInt(e.target.value,10) || 0)} /></FormControl>
+                          <FormControl><Input
+                            type="number"
+                            placeholder="0"
+                            {...field}
+                            value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                            disabled={isEditing}
+                            onChange={e => field.onChange(parseInt(e.target.value,10) || 0)}
+                          /></FormControl>
                           {isEditing && <p className="text-xs text-muted-foreground">Không thể sửa tồn kho ban đầu. Sử dụng Nhập/Xuất kho để điều chỉnh.</p>}
                           <FormMessage />
                         </FormItem>
                     )} />
                     <FormField control={formMethods.control} name="minStockLevel" render={({ field }) => (
-                        <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Mức Tồn Kho Tối Thiểu (tùy chọn)</FormLabel><FormControl><Input
+                          type="number"
+                          placeholder="0"
+                          {...field}
+                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                          onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                        /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 
@@ -645,3 +672,4 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
+

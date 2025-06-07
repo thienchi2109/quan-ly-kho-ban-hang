@@ -146,7 +146,13 @@ export default function PaymentModal({
                     <FormItem>
                       <ShadcnFormLabel>Giảm giá (%)</ShadcnFormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          {...field}
+                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -159,7 +165,13 @@ export default function PaymentModal({
                     <FormItem>
                       <ShadcnFormLabel>Thu khác (đ)</ShadcnFormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          {...field}
+                          value={(field.value === undefined || field.value === null || field.value === '' || (typeof field.value === 'number' && isNaN(field.value))) ? '' : String(field.value)}
+                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -192,7 +204,21 @@ export default function PaymentModal({
                               <FormItem>
                                 <ShadcnFormLabel>Tiền khách trả (đ)</ShadcnFormLabel>
                                 <FormControl>
-                                  <Input type="number" placeholder="0" {...cashField} onChange={e => cashField.onChange(parseFloat(e.target.value) || undefined)} />
+                                  <Input
+                                    type="number"
+                                    placeholder="0"
+                                    {...cashField}
+                                    value={(cashField.value === undefined || cashField.value === null || (typeof cashField.value === 'number' && isNaN(cashField.value))) ? '' : String(cashField.value)}
+                                    onChange={e => {
+                                      const rawValue = e.target.value;
+                                      if (rawValue === '') {
+                                        cashField.onChange(undefined);
+                                      } else {
+                                        const numValue = parseFloat(rawValue);
+                                        cashField.onChange(isNaN(numValue) ? undefined : numValue);
+                                      }
+                                    }}
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
