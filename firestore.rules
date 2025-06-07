@@ -1,0 +1,17 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read and write access to all documents
+    // if the user is authenticated.
+    // This is a basic rule suitable for when a user deploys
+    // this app to their own Firebase project, effectively giving them
+    // full access to their own data.
+    // For multi-tenant applications on a single database,
+    // you would need more granular, user-specific rules.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
