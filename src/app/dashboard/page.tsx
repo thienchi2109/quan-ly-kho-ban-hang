@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks';
 import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
-import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react'; // Added ShoppingCart
+import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -257,15 +257,15 @@ export default function DashboardPage() {
           <CardContent>
             {monthlyChartData.length > 0 ? (
               <ChartContainer config={incomeExpenseChartConfig} className="h-[270px] sm:h-[300px] w-full">
-                <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 20, bottom: 5, left: 40 }}>
+                <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis
                     dataKey="month"
                     tickLine={false}
-                    tickMargin={10}
+                    tickMargin={5} 
                     axisLine={false}
                   />
-                  <YAxis tickFormatter={chartDataFormatter} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={chartDataFormatter} axisLine={false} tickLine={false} tickMargin={5} />
                   <RechartsTooltip content={<ChartTooltipContent formatter={tooltipContentFormatter} />} />
                   <Legend />
                   <Line type="monotone" dataKey="income" strokeWidth={2} stroke="var(--color-income)" name="Thu Nhập" dot={{ r: 4, fill: "var(--color-income)" }} activeDot={{ r: 6 }} />
@@ -290,8 +290,8 @@ export default function DashboardPage() {
                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                        <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
-                      <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}}/>
-                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
+                      <Legend layout="vertical" verticalAlign="middle" align="right" iconSize={10} wrapperStyle={{paddingLeft: 10}} />
+                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={50}>
                         {incomeCategories.map((entry, index) => (
                           <Cell key={`cell-income-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
@@ -314,8 +314,8 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
-                      <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{paddingTop: 20}} />
-                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={58}>
+                      <Legend layout="vertical" verticalAlign="middle" align="right" iconSize={10} wrapperStyle={{paddingLeft: 10}} />
+                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={50}>
                        {expenseCategories.map((entry, index) => (
                         <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
