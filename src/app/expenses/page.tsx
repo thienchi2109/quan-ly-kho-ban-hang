@@ -19,7 +19,7 @@ import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, ExternalLink, UploadCloud, Camera, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, ExternalLink, UploadCloud, Camera, Trash2, Loader2, Eye } from 'lucide-react'; // Added Eye
 import { useToast } from '@/hooks';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
 import Image from 'next/image';
@@ -29,6 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { cn } from '@/lib/utils';
+import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'; // Import the new modal
 
 type ExpenseFormValues = Omit<ExpenseEntry, 'id'>;
 
@@ -71,7 +72,7 @@ function dataURLtoFile(dataurl: string, filename: string): File | null {
 export default function ExpensesPage() {
   const { expenseEntries, addExpenseEntry, deleteExpenseEntry } = useData();
   const { toast } = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -83,6 +84,8 @@ export default function ExpensesPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [viewingExpenseEntry, setViewingExpenseEntry] = useState<ExpenseEntry | null>(null); // State for detail modal
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(ExpenseEntrySchema),
@@ -264,7 +267,11 @@ export default function ExpensesPage() {
     {
       accessorKey: "description",
       header: "Mô Tả",
-      cell: ({ row }) => row.getValue("description") || <span className="text-muted-foreground italic">Không có</span>,
+      cell: ({ row }) => {
+        const description = row.getValue<string | undefined>("description");
+        const truncatedDescription = description && description.length > 40 ? `${description.substring(0, 40)}...` : description;
+        return truncatedDescription || <span className="text-muted-foreground italic">Không có</span>;
+      }
     },
     {
       accessorKey: "receiptImageUrl",
@@ -285,7 +292,10 @@ export default function ExpensesPage() {
     {
       id: "actions",
       cell: ({ row }) => (
-        <div className="flex gap-2">
+        <div className="flex gap-1">
+           <Button variant="ghost" size="icon" onClick={() => setViewingExpenseEntry(row.original)} title="Xem chi tiết">
+            <Eye className="h-4 w-4" />
+          </Button>
           <DeleteConfirmDialog 
             onConfirm={() => handleDelete(row.original.id)}
             itemName={`khoản chi tiêu "${row.original.description || row.original.category}"`}
@@ -297,16 +307,27 @@ export default function ExpensesPage() {
 
   const renderExpenseCard = (row: Row<ExpenseEntry>): React.ReactNode => {
     const expense = row.original;
-    const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+    // const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
     const dateCell = row.getVisibleCells().find(cell => cell.column.id === 'date');
     const amountCell = row.getVisibleCells().find(cell => cell.column.id === 'amount');
     const receiptCell = row.getVisibleCells().find(cell => cell.column.id === 'receiptImageUrl');
     
     return (
       <Card key={expense.id} className="w-full">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base mb-1">{expense.category}</CardTitle>
-          {dateCell && <CardDescription>{flexRender(dateCell.column.columnDef.cell, dateCell.getContext())}</CardDescription>}
+        <CardHeader className="pb-3 flex flex-row items-start justify-between">
+          <div>
+            <CardTitle className="text-base mb-1">{expense.category}</CardTitle>
+            {dateCell && <CardDescription>{flexRender(dateCell.column.columnDef.cell, dateCell.getContext())}</CardDescription>}
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => setViewingExpenseEntry(expense)} title="Xem chi tiết">
+               <Eye className="h-4 w-4" />
+            </Button>
+            <DeleteConfirmDialog 
+              onConfirm={() => handleDelete(expense.id)}
+              itemName={`khoản chi tiêu "${expense.description || expense.category}"`}
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm pt-0">
           {amountCell && 
@@ -318,7 +339,7 @@ export default function ExpensesPage() {
           {expense.description && (
             <div>
               <span className="text-muted-foreground font-medium">Mô tả: </span>
-              <span>{expense.description}</span>
+              <span>{expense.description.length > 60 ? `${expense.description.substring(0, 60)}...` : expense.description}</span>
             </div>
           )}
            {!expense.description && (
@@ -334,11 +355,7 @@ export default function ExpensesPage() {
             </div>
           )}
         </CardContent>
-        {actionsCell && (
-          <CardFooter className="flex justify-end pt-3 pb-3">
-            {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
-          </CardFooter>
-        )}
+        {/* Actions removed from footer as they are in header for card view */}
       </Card>
     );
   };
@@ -349,7 +366,7 @@ export default function ExpensesPage() {
       <PageHeader title="Theo Dõi Chi Tiêu" description="Quản lý các khoản chi tiêu của bạn.">
         <Button onClick={() => {
           resetFormAndImageState();
-          setIsModalOpen(true);
+          setIsFormModalOpen(true);
         }}>
             <PlusCircle className="mr-2 h-4 w-4" /> Thêm Mới
         </Button>
@@ -358,9 +375,9 @@ export default function ExpensesPage() {
           title="Thêm Khoản Chi Tiêu Mới"
           description="Điền thông tin chi tiết về khoản chi tiêu."
           formId="add-expense-form"
-          open={isModalOpen}
+          open={isFormModalOpen}
           onOpenChange={(isOpen) => {
-            setIsModalOpen(isOpen);
+            setIsFormModalOpen(isOpen);
             if (!isOpen) {
               resetFormAndImageState(); 
               setIsCameraOpen(false); 
@@ -543,6 +560,11 @@ export default function ExpensesPage() {
           />
         </CardContent>
       </Card>
+
+      <ExpenseDetailModal
+        entry={viewingExpenseEntry}
+        onClose={() => setViewingExpenseEntry(null)}
+      />
     </>
   );
 }
