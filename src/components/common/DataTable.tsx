@@ -8,8 +8,8 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
-  SortingState,
-  getSortedRowModel,
+  SortingState, // Added
+  getSortedRowModel, // Added
   ColumnFiltersState,
   getFilteredRowModel,
   VisibilityState,
@@ -44,7 +44,9 @@ interface DataTableProps<TData, TValue> {
   filterPlaceholder?: string
   columnVisibility?: VisibilityState
   onColumnVisibilityChange?: (visibility: VisibilityState) => void
-  renderCardRow?: (row: Row<TData>) => React.ReactNode; 
+  renderCardRow?: (row: Row<TData>) => React.ReactNode;
+  sorting?: SortingState; // Added
+  onSortingChange?: React.Dispatch<React.SetStateAction<SortingState>>; // Added
 }
 
 export function DataTable<TData, TValue>({
@@ -55,8 +57,17 @@ export function DataTable<TData, TValue>({
   columnVisibility: initialColumnVisibility,
   onColumnVisibilityChange,
   renderCardRow,
+  sorting: parentSorting, // Renamed for clarity
+  onSortingChange: parentOnSortingChange, // Renamed for clarity
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  // Internal state for sorting if not controlled from parent
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
+  
+  // Determine if sorting is controlled externally
+  const sorting = parentSorting !== undefined ? parentSorting : internalSorting;
+  const setSorting = parentOnSortingChange !== undefined ? parentOnSortingChange : setInternalSorting;
+
+
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   
   const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility || {});
@@ -68,19 +79,19 @@ export function DataTable<TData, TValue>({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
+    onSortingChange: setSorting, // Use the determined setSorting
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setCurrentColumnVisibility,
     state: {
-      sorting,
+      sorting, // Use the determined sorting state
       columnFilters,
       columnVisibility: currentColumnVisibility,
     },
     initialState: {
       pagination: {
-        pageSize: 10, // Default page size
+        pageSize: 10, 
       }
     }
   })
@@ -91,7 +102,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
-      {(filterColumn || hasHideableColumns) && (
+      {(!isMobile && (filterColumn || hasHideableColumns)) && ( // Only show these filters on non-mobile
         <div className={cn(
           "flex flex-col gap-2 py-4 sm:flex-row sm:items-center",
           (filterColumn && hasHideableColumns) ? "sm:justify-between" : 
@@ -261,3 +272,4 @@ export function DataTable<TData, TValue>({
     </div>
   )
 }
+

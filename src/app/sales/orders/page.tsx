@@ -15,10 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
-import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
+import { ColumnDef, Row, flexRender, SortingState, getSortedRowModel } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -31,11 +31,12 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
-import PaymentModal from '@/components/sales/PaymentModal'; // Import PaymentModal
+import PaymentModal from '@/components/sales/PaymentModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { SearchableProductSelect } from '@/components/common/SearchableProductSelect';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 type SalesOrderFormValues = {
@@ -43,6 +44,22 @@ type SalesOrderFormValues = {
   date: string;
   items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId?: string }>;
   notes?: string;
+};
+
+const SortableHeader = ({ column, title }: { column: any, title: string }) => {
+  const isSorted = column.getIsSorted();
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => column.toggleSorting(isSorted === "asc")}
+      className="px-2 py-1 -ml-2 text-xs sm:text-sm"
+    >
+      {title}
+      {isSorted === "asc" && <ArrowUp className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" />}
+      {isSorted === "desc" && <ArrowDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" />}
+      {!isSorted && <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-30" />}
+    </Button>
+  );
 };
 
 
@@ -65,6 +82,10 @@ export default function SalesOrdersPage() {
   const productSelectRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const newlyAddedItemIndexRef = useRef<number | null>(null);
   const customerNameInputRef = useRef<HTMLInputElement>(null);
+
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const isMobile = useIsMobile();
+  const [mobileSortOption, setMobileSortOption] = useState<string>('date_desc'); // Default sort for mobile
 
 
   const createOrderForm = useForm<SalesOrderFormValues>({
@@ -102,7 +123,7 @@ export default function SalesOrdersPage() {
   }, [fields]);
 
   useEffect(() => {
-    if (isCreateOrderModalOpen && !isPaymentModalOpen) { // Only focus if create modal is open and payment modal is not
+    if (isCreateOrderModalOpen && !isPaymentModalOpen) {
       setTimeout(() => {
         customerNameInputRef.current?.focus();
       }, 100);
@@ -612,8 +633,8 @@ export default function SalesOrdersPage() {
   };
 
 
-  const filteredSalesOrders = useMemo(() => {
-    return salesOrders.filter(order => {
+  const displayedOrders = useMemo(() => {
+    let filtered = salesOrders.filter(order => {
       let isDateMatch = true;
       const orderDate = parse(order.date, 'yyyy-MM-dd', new Date());
 
@@ -626,10 +647,53 @@ export default function SalesOrdersPage() {
       }
 
       const isStatusMatch = filterStatus === 'all' || order.status === filterStatus;
-
       return isDateMatch && isStatusMatch;
     });
-  }, [salesOrders, filterFromDate, filterToDate, filterStatus]);
+
+    if (isMobile && mobileSortOption) {
+      const [field, direction] = mobileSortOption.split('_');
+      filtered = [...filtered].sort((a, b) => {
+        let valA: any;
+        let valB: any;
+
+        switch (field) {
+          case 'date':
+            valA = new Date(a.date).getTime();
+            valB = new Date(b.date).getTime();
+            break;
+          case 'amount':
+            valA = a.finalAmount ?? a.totalAmount;
+            valB = b.finalAmount ?? b.totalAmount;
+            break;
+          case 'profit':
+            valA = a.totalProfit;
+            valB = b.totalProfit;
+            break;
+          case 'orderNumber':
+            valA = a.orderNumber;
+            valB = b.orderNumber;
+            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          case 'customerName':
+            valA = a.customerName || '';
+            valB = b.customerName || '';
+            return direction === 'asc' ? valA.localeCompare(valB, 'vi') : valB.localeCompare(valA, 'vi');
+          case 'status':
+            valA = a.status;
+            valB = b.status;
+            return direction === 'asc' ? valA.localeCompare(valB, 'vi') : valB.localeCompare(valA, 'vi');
+          default:
+            return 0;
+        }
+        
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return direction === 'asc' ? valA - valB : valB - valA;
+        }
+        return 0;
+      });
+    }
+    return filtered;
+  }, [salesOrders, filterFromDate, filterToDate, filterStatus, isMobile, mobileSortOption]);
+
 
   const resetFilters = () => {
     setFilterFromDate(undefined);
@@ -638,30 +702,31 @@ export default function SalesOrdersPage() {
   };
 
   const filteredStats = useMemo(() => {
-    const revenue = filteredSalesOrders.reduce((sum, order) => sum + (order.finalAmount ?? order.totalAmount), 0);
-    const cogs = filteredSalesOrders.reduce((sum, order) => sum + order.totalCost, 0);
-    const profit = filteredSalesOrders.reduce((sum, order) => sum + order.totalProfit, 0);
+    const revenue = displayedOrders.reduce((sum, order) => sum + (order.finalAmount ?? order.totalAmount), 0);
+    const cogs = displayedOrders.reduce((sum, order) => sum + order.totalCost, 0);
+    const profit = displayedOrders.reduce((sum, order) => sum + order.totalProfit, 0);
     return { revenue, cogs, profit };
-  }, [filteredSalesOrders]);
+  }, [displayedOrders]);
 
   const columns: ColumnDef<SalesOrder>[] = [
     {
       accessorKey: "orderNumber",
-      header: "Mã ĐH",
+      header: ({ column }) => <SortableHeader column={column} title="Mã ĐH" />,
     },
     {
       accessorKey: "date",
-      header: "Ngày Tạo",
+      header: ({ column }) => <SortableHeader column={column} title="Ngày Tạo" />,
       cell: ({ row }) => format(parse(row.getValue("date"), 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }),
     },
     {
       accessorKey: "customerName",
-      header: "Khách Hàng",
+      header: ({ column }) => <SortableHeader column={column} title="Khách Hàng" />,
       cell: ({ row }) => row.getValue("customerName") || "Khách lẻ",
     },
     {
-      accessorKey: "finalAmount",
-      header: "Tổng Thanh Toán",
+      accessorFn: row => row.finalAmount ?? row.totalAmount,
+      id: 'finalAmount',
+      header: ({ column }) => <SortableHeader column={column} title="Tổng TT" />, // Abbreviated for space
       cell: ({ row }) => {
         const finalAmount = row.original.finalAmount ?? row.original.totalAmount;
         return `${Number(finalAmount).toLocaleString('vi-VN')} đ`;
@@ -669,7 +734,7 @@ export default function SalesOrdersPage() {
     },
     {
       accessorKey: "totalProfit",
-      header: "Lợi Nhuận",
+      header: ({ column }) => <SortableHeader column={column} title="Lợi Nhuận" />,
       cell: ({ row }) => {
         const profit = Number(row.getValue("totalProfit"));
         const profitColor = profit > 0 ? "text-green-600" : profit < 0 ? "text-red-600" : "text-muted-foreground";
@@ -678,7 +743,7 @@ export default function SalesOrdersPage() {
     },
     {
       accessorKey: "status",
-      header: "Trạng Thái",
+      header: ({ column }) => <SortableHeader column={column} title="Trạng Thái" />,
       cell: ({ row }) => {
         const status = row.getValue<SalesOrderStatus>("status");
         return (
@@ -798,6 +863,21 @@ export default function SalesOrdersPage() {
     );
   };
 
+  const mobileSortOptions = [
+    { value: 'date_desc', label: 'Ngày tạo (Mới nhất)' },
+    { value: 'date_asc', label: 'Ngày tạo (Cũ nhất)' },
+    { value: 'amount_desc', label: 'Tổng TT (Cao nhất)' },
+    { value: 'amount_asc', label: 'Tổng TT (Thấp nhất)' },
+    { value: 'profit_desc', label: 'Lợi nhuận (Cao nhất)' },
+    { value: 'profit_asc', label: 'Lợi nhuận (Thấp nhất)' },
+    { value: 'orderNumber_asc', label: 'Mã ĐH (A-Z)' },
+    { value: 'orderNumber_desc', label: 'Mã ĐH (Z-A)' },
+    { value: 'customerName_asc', label: 'Khách hàng (A-Z)' },
+    { value: 'customerName_desc', label: 'Khách hàng (Z-A)' },
+    { value: 'status_asc', label: 'Trạng thái (A-Z)' },
+    { value: 'status_desc', label: 'Trạng thái (Z-A)' },
+  ];
+
 
   return (
     <>
@@ -906,7 +986,7 @@ export default function SalesOrdersPage() {
         </CardContent>
       </Card>
 
-      {(filterFromDate || filterToDate || filterStatus !== 'all') && filteredSalesOrders.length > 0 && (
+      {(filterFromDate || filterToDate || filterStatus !== 'all') && displayedOrders.length > 0 && (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1200,12 +1280,31 @@ export default function SalesOrdersPage() {
 
       <Card>
         <CardContent className="pt-6">
+          {isMobile && (
+            <div className="mb-4">
+              <Label htmlFor="mobile-sort-order">Sắp xếp theo</Label>
+              <Select value={mobileSortOption} onValueChange={setMobileSortOption}>
+                <SelectTrigger id="mobile-sort-order" className="w-full sm:w-auto">
+                  <SelectValue placeholder="Chọn cách sắp xếp" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mobileSortOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <DataTable
             columns={columns}
-            data={filteredSalesOrders}
-            filterColumn="orderNumber"
+            data={displayedOrders}
+            filterColumn="orderNumber" // Could make this more generic, e.g., filter by customer name too
             filterPlaceholder="Lọc theo mã ĐH, khách hàng..."
             renderCardRow={renderSalesOrderCard}
+            sorting={sorting}
+            onSortingChange={setSorting}
           />
         </CardContent>
       </Card>
