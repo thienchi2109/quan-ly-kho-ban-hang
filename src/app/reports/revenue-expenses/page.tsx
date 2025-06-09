@@ -131,11 +131,11 @@ export default function RevenueExpensesPage() {
           </CardHeader>
           <CardContent className="flex justify-center">
             {incomeCategories.length > 0 ? (
-              <ChartContainer config={{}} className="h-[300px] w-full max-w-md">
+              <ChartContainer config={{}} className="h-[330px] w-full max-w-md">
                 <PieChart>
                   <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                   <Legend />
-                  <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                  <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} innerRadius={65} label>
                     {incomeCategories.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
@@ -155,11 +155,11 @@ export default function RevenueExpensesPage() {
           </CardHeader>
           <CardContent className="flex justify-center">
             {expenseCategories.length > 0 ? (
-              <ChartContainer config={{}} className="h-[300px] w-full max-w-md">
+              <ChartContainer config={{}} className="h-[330px] w-full max-w-md">
                 <PieChart>
                   <Tooltip content={<ChartTooltipContent formatter={chartDataFormatter} nameKey="name" />} />
                   <Legend />
-                  <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                  <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} innerRadius={65} label>
                     {expenseCategories.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
@@ -175,3 +175,4 @@ export default function RevenueExpensesPage() {
     </>
   );
 }
+

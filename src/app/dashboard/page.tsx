@@ -286,12 +286,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-center">
               {incomeCategories.length > 0 ? (
-                <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
+                <ChartContainer config={{}} className="h-[250px] w-full max-w-xs">
                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                        <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
                       <Legend layout="vertical" verticalAlign="middle" align="right" iconSize={10} wrapperStyle={{paddingLeft: 10}} />
-                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={50}>
+                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={60} innerRadius={35}>
                         {incomeCategories.map((entry, index) => (
                           <Cell key={`cell-income-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
@@ -310,12 +310,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-center">
                {expenseCategories.length > 0 ? (
-                <ChartContainer config={{}} className="h-[220px] w-full max-w-xs">
+                <ChartContainer config={{}} className="h-[250px] w-full max-w-xs">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
                       <Legend layout="vertical" verticalAlign="middle" align="right" iconSize={10} wrapperStyle={{paddingLeft: 10}} />
-                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={50}>
+                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={60} innerRadius={35}>
                        {expenseCategories.map((entry, index) => (
                         <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -333,5 +333,4 @@ export default function DashboardPage() {
     </>
   );
 }
-
     
