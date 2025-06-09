@@ -79,7 +79,7 @@ export default function DashboardPage() {
   
   const totalProducts = products.length;
   const numOutOfStock = products.filter(p => p.currentStock === 0).length;
-  const numLowStock = products.filter(p => p.currentStock > 0 && p.minStockLevel !== undefined && p.currentStock < p.minStockLevel).length;
+  const numLowStock = products.filter(p => p.currentStock > 0 && p.minStockLevel !== undefined && p.currentStock <= p.minStockLevel).length;
 
 
   const monthlyChartData = useMemo(() => {
@@ -333,3 +333,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    

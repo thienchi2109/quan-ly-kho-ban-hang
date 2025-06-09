@@ -6,7 +6,6 @@ import { useData } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Product } from '@/lib/types';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,7 +20,7 @@ const ProductKanbanCard = ({ product }: { product: Product }) => {
     statusBorderColor = 'border-l-red-500 dark:border-l-red-400'; 
     statusIndicatorText = 'Hết hàng';
     statusTextClass = 'text-red-600 dark:text-red-400';
-  } else if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
+  } else if (product.minStockLevel !== undefined && product.currentStock <= product.minStockLevel) {
     statusBorderColor = 'border-l-orange-500 dark:border-l-orange-400';
     statusIndicatorText = 'Sắp hết';
     statusTextClass = 'text-orange-600 dark:text-orange-400';
@@ -32,18 +31,7 @@ const ProductKanbanCard = ({ product }: { product: Product }) => {
   return (
     <Card className={cn("mb-2 shadow-sm hover:shadow-md transition-shadow border-l-4 rounded-lg", statusBorderColor)}>
       <CardHeader className="flex flex-row items-center gap-3 p-3 space-y-0">
-        {product.imageUrl ? (
-          <Image 
-            src={product.imageUrl} 
-            alt={product.name} 
-            width={40} 
-            height={40} 
-            className="h-10 w-10 object-cover rounded-sm border flex-shrink-0" 
-            data-ai-hint="product item"
-          />
-        ) : (
-          <div className="h-10 w-10 bg-muted rounded-sm flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">N/A</div>
-        )}
+         <div className="h-10 w-10 bg-muted rounded-sm flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Ảnh</div>
         <div className="flex-grow min-w-0">
           <CardTitle className="text-sm font-medium leading-tight truncate" title={product.name}>{product.name}</CardTitle>
           <CardDescription className="text-xs text-muted-foreground truncate">{product.sku || 'Không có SKU'}</CardDescription>
@@ -91,7 +79,7 @@ export default function StockLevelsKanbanPage() {
     allProducts.forEach(product => {
       if (product.currentStock === 0) {
         outOfStockProducts.push(product);
-      } else if (product.minStockLevel !== undefined && product.currentStock < product.minStockLevel) {
+      } else if (product.minStockLevel !== undefined && product.currentStock <= product.minStockLevel) {
         lowStockProducts.push(product);
       } else {
         inStockProducts.push(product);
@@ -175,3 +163,4 @@ export default function StockLevelsKanbanPage() {
   );
 }
 
+    
