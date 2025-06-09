@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ExpenseEntrySchema } from '@/lib/schemas';
@@ -16,10 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
-import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
+import { ColumnDef, Row, flexRender, VisibilityState } from '@tanstack/react-table'; // Added VisibilityState
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, ExternalLink, UploadCloud, Camera, Trash2, Loader2, Eye } from 'lucide-react'; // Added Eye
+import { PlusCircle, ExternalLink, UploadCloud, Camera, Trash2, Loader2, Eye } from 'lucide-react'; 
 import { useToast } from '@/hooks';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
 import Image from 'next/image';
@@ -29,7 +29,9 @@ import { Progress } from "@/components/ui/progress";
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { cn } from '@/lib/utils';
-import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'; // Import the new modal
+import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal';
+import { Label } from '@/components/ui/label'; // Added Label
+import { useIsMobile } from '@/hooks/use-mobile'; // Added useIsMobile
 
 type ExpenseFormValues = Omit<ExpenseEntry, 'id'>;
 
@@ -85,7 +87,11 @@ export default function ExpensesPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [viewingExpenseEntry, setViewingExpenseEntry] = useState<ExpenseEntry | null>(null); // State for detail modal
+  const [viewingExpenseEntry, setViewingExpenseEntry] = useState<ExpenseEntry | null>(null);
+  const [filterCategory, setFilterCategory] = useState<ExpenseCategory | 'all'>('all'); // State for category filter
+  const isMobile = useIsMobile();
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(ExpenseEntrySchema),
@@ -97,6 +103,28 @@ export default function ExpensesPage() {
       receiptImageUrl: '',
     },
   });
+  
+  React.useEffect(() => {
+    if (isMobile) {
+      setColumnVisibility({
+        description: false, 
+        receiptImageUrl: false,
+      });
+    } else {
+      setColumnVisibility({});
+    }
+  }, [isMobile]);
+
+  const uniqueCategories = useMemo(() => {
+    return ['all', ...EXPENSE_CATEGORIES] as const;
+  }, []);
+
+  const displayedExpenseEntries = useMemo(() => {
+    if (filterCategory === 'all') {
+      return expenseEntries;
+    }
+    return expenseEntries.filter(entry => entry.category === filterCategory);
+  }, [expenseEntries, filterCategory]);
 
   const resetImageState = useCallback(() => {
     setImageFile(null);
@@ -271,7 +299,8 @@ export default function ExpensesPage() {
         const description = row.getValue<string | undefined>("description");
         const truncatedDescription = description && description.length > 40 ? `${description.substring(0, 40)}...` : description;
         return truncatedDescription || <span className="text-muted-foreground italic">Không có</span>;
-      }
+      },
+      enableHiding: true,
     },
     {
       accessorKey: "receiptImageUrl",
@@ -288,6 +317,7 @@ export default function ExpensesPage() {
         }
         return <span className="text-muted-foreground italic">Không có</span>;
       },
+      enableHiding: true,
     },
     {
       id: "actions",
@@ -307,7 +337,6 @@ export default function ExpensesPage() {
 
   const renderExpenseCard = (row: Row<ExpenseEntry>): React.ReactNode => {
     const expense = row.original;
-    // const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
     const dateCell = row.getVisibleCells().find(cell => cell.column.id === 'date');
     const amountCell = row.getVisibleCells().find(cell => cell.column.id === 'amount');
     const receiptCell = row.getVisibleCells().find(cell => cell.column.id === 'receiptImageUrl');
@@ -355,7 +384,6 @@ export default function ExpensesPage() {
             </div>
           )}
         </CardContent>
-        {/* Actions removed from footer as they are in header for card view */}
       </Card>
     );
   };
@@ -551,12 +579,34 @@ export default function ExpensesPage() {
 
       <Card>
         <CardContent className="pt-6">
+          <div className="mb-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <Label htmlFor="category-filter-expense">Lọc theo danh mục</Label>
+              <Select
+                value={filterCategory}
+                onValueChange={(value) => setFilterCategory(value as ExpenseCategory | 'all')}
+              >
+                <SelectTrigger id="category-filter-expense" className="w-full sm:w-[250px]">
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueCategories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category === 'all' ? 'Tất cả Danh Mục' : category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DataTable 
             columns={columns} 
-            data={expenseEntries} 
+            data={displayedExpenseEntries} 
             filterColumn="description" 
             filterPlaceholder="Lọc theo mô tả..."
             renderCardRow={renderExpenseCard}
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
           />
         </CardContent>
       </Card>

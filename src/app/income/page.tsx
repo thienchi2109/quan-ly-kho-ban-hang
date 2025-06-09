@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react'; // Added useMemo
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IncomeEntrySchema } from '@/lib/schemas';
@@ -16,14 +16,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
-import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
+import { ColumnDef, Row, flexRender, VisibilityState } from '@tanstack/react-table'; // Added VisibilityState
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Loader2, Eye } from 'lucide-react'; // Added Eye icon
+import { PlusCircle, Loader2, Eye } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { PRODUCT_CATEGORIES } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import IncomeDetailModal from '@/components/income/IncomeDetailModal'; // Import the new modal
+import IncomeDetailModal from '@/components/income/IncomeDetailModal';
+import { Label } from '@/components/ui/label'; // Added Label
+import { useIsMobile } from '@/hooks/use-mobile'; // Added useIsMobile
 
 type IncomeFormValues = Omit<IncomeEntry, 'id'>;
 
@@ -52,7 +54,10 @@ export default function IncomePage() {
   const { toast } = useToast();
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewingIncomeEntry, setViewingIncomeEntry] = useState<IncomeEntry | null>(null); // State for detail modal
+  const [viewingIncomeEntry, setViewingIncomeEntry] = useState<IncomeEntry | null>(null);
+  const [filterCategory, setFilterCategory] = useState<ProductCategory | 'all'>('all'); // State for category filter
+  const isMobile = useIsMobile(); // Hook to check if mobile
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 
   const form = useForm<IncomeFormValues>({
     resolver: zodResolver(IncomeEntrySchema),
@@ -63,6 +68,29 @@ export default function IncomePage() {
       description: '',
     },
   });
+
+  React.useEffect(() => {
+    if (isMobile) {
+      setColumnVisibility({
+        description: false, // Hide description on mobile by default
+      });
+    } else {
+      setColumnVisibility({}); // Show all on desktop
+    }
+  }, [isMobile]);
+
+
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set(incomeEntries.map(entry => entry.category));
+    return ['all', ...Array.from(categories)] as const;
+  }, [incomeEntries]);
+
+  const displayedIncomeEntries = useMemo(() => {
+    if (filterCategory === 'all') {
+      return incomeEntries;
+    }
+    return incomeEntries.filter(entry => entry.category === filterCategory);
+  }, [incomeEntries, filterCategory]);
 
   const onSubmit = async (values: IncomeFormValues, closeModal: () => void) => {
     setIsSubmitting(true);
@@ -108,6 +136,7 @@ export default function IncomePage() {
         const truncatedDescription = description && description.length > 50 ? `${description.substring(0, 50)}...` : description;
         return truncatedDescription || <span className="text-muted-foreground italic">Không có</span>;
       },
+      enableHiding: true,
     },
     {
       id: "actions",
@@ -127,7 +156,6 @@ export default function IncomePage() {
 
   const renderIncomeCard = (row: Row<IncomeEntry>): React.ReactNode => {
     const income = row.original;
-    // const actionsCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
     const dateCell = row.getVisibleCells().find(cell => cell.column.id === 'date');
     const amountCell = row.getVisibleCells().find(cell => cell.column.id === 'amount');
     
@@ -168,7 +196,6 @@ export default function IncomePage() {
             </div>
           )}
         </CardContent>
-        {/* Actions removed from footer as they are in header for card view */}
       </Card>
     );
   };
@@ -280,12 +307,34 @@ export default function IncomePage() {
 
       <Card>
         <CardContent className="pt-6">
+          <div className="mb-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <Label htmlFor="category-filter-income">Lọc theo danh mục</Label>
+              <Select
+                value={filterCategory}
+                onValueChange={(value) => setFilterCategory(value as ProductCategory | 'all')}
+              >
+                <SelectTrigger id="category-filter-income" className="w-full sm:w-[250px]">
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueCategories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category === 'all' ? 'Tất cả Danh Mục' : category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DataTable 
             columns={columns} 
-            data={incomeEntries} 
+            data={displayedIncomeEntries} 
             filterColumn="description" 
             filterPlaceholder="Lọc theo mô tả..."
             renderCardRow={renderIncomeCard}
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
           />
         </CardContent>
       </Card>

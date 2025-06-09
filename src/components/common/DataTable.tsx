@@ -8,8 +8,8 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
-  SortingState, // Added
-  getSortedRowModel, // Added
+  SortingState, 
+  getSortedRowModel, 
   ColumnFiltersState,
   getFilteredRowModel,
   VisibilityState,
@@ -45,8 +45,9 @@ interface DataTableProps<TData, TValue> {
   columnVisibility?: VisibilityState
   onColumnVisibilityChange?: (visibility: VisibilityState) => void
   renderCardRow?: (row: Row<TData>) => React.ReactNode;
-  sorting?: SortingState; // Added
-  onSortingChange?: React.Dispatch<React.SetStateAction<SortingState>>; // Added
+  sorting?: SortingState; 
+  onSortingChange?: React.Dispatch<React.SetStateAction<SortingState>>; 
+  additionalFilters?: React.ReactNode; // Added for external filters
 }
 
 export function DataTable<TData, TValue>({
@@ -57,13 +58,12 @@ export function DataTable<TData, TValue>({
   columnVisibility: initialColumnVisibility,
   onColumnVisibilityChange,
   renderCardRow,
-  sorting: parentSorting, // Renamed for clarity
-  onSortingChange: parentOnSortingChange, // Renamed for clarity
+  sorting: parentSorting, 
+  onSortingChange: parentOnSortingChange, 
+  additionalFilters, // Destructure new prop
 }: DataTableProps<TData, TValue>) {
-  // Internal state for sorting if not controlled from parent
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   
-  // Determine if sorting is controlled externally
   const sorting = parentSorting !== undefined ? parentSorting : internalSorting;
   const setSorting = parentOnSortingChange !== undefined ? parentOnSortingChange : setInternalSorting;
 
@@ -79,13 +79,13 @@ export function DataTable<TData, TValue>({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting, // Use the determined setSorting
+    onSortingChange: setSorting, 
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setCurrentColumnVisibility,
     state: {
-      sorting, // Use the determined sorting state
+      sorting, 
       columnFilters,
       columnVisibility: currentColumnVisibility,
     },
@@ -99,29 +99,37 @@ export function DataTable<TData, TValue>({
   const isMobile = useIsMobile();
   const hasHideableColumns = React.useMemo(() => columns.some(col => col.enableHiding !== false && col.getCanHide && col.getCanHide()), [columns]);
 
+  // Sync initialColumnVisibility if it's provided and changes
+  React.useEffect(() => {
+    if (initialColumnVisibility) {
+      setCurrentColumnVisibility(initialColumnVisibility);
+    }
+  }, [initialColumnVisibility, setCurrentColumnVisibility]);
+
 
   return (
     <div>
-      {(!isMobile && (filterColumn || hasHideableColumns)) && ( // Only show these filters on non-mobile
-        <div className={cn(
-          "flex flex-col gap-2 py-4 sm:flex-row sm:items-center",
-          (filterColumn && hasHideableColumns) ? "sm:justify-between" : 
-          filterColumn ? "sm:justify-start" : "sm:justify-end"
+      <div className={cn(
+          "flex flex-col gap-3 py-4 sm:flex-row sm:items-end",
+          (filterColumn || hasHideableColumns || additionalFilters) ? "sm:justify-between" : ""
         )}>
-          {filterColumn && (
-            <Input
-              placeholder={filterPlaceholder}
-              value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn(filterColumn)?.setFilterValue(event.target.value)
-              }
-              className="w-full sm:max-w-xs md:max-w-sm"
-            />
-          )}
-          {hasHideableColumns && (
+          <div className="flex flex-col sm:flex-row gap-3 items-end w-full">
+            {filterColumn && !isMobile && ( // Hide text filter on mobile if card view is primary
+              <Input
+                placeholder={filterPlaceholder}
+                value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
+                onChange={(event) =>
+                  table.getColumn(filterColumn)?.setFilterValue(event.target.value)
+                }
+                className="w-full sm:max-w-xs md:max-w-sm"
+              />
+            )}
+            {additionalFilters} 
+          </div>
+          {hasHideableColumns && !isMobile && ( // Hide column toggle on mobile
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                   Cột <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -167,7 +175,6 @@ export function DataTable<TData, TValue>({
             </DropdownMenu>
           )}
         </div>
-      )}
 
       {isMobile && renderCardRow ? (
         <div className="space-y-3 pb-4">
@@ -249,7 +256,7 @@ export function DataTable<TData, TValue>({
         </div>
         <div className="flex items-center space-x-2">
            <span className="text-sm text-muted-foreground">
-            Trang {table.getState().pagination.pageIndex + 1} của {table.getPageCount()}
+            Trang {table.getState().pagination.pageIndex + 1} của {Math.max(1, table.getPageCount())}
           </span>
           <Button
             variant="outline"
@@ -272,4 +279,3 @@ export function DataTable<TData, TValue>({
     </div>
   )
 }
-
