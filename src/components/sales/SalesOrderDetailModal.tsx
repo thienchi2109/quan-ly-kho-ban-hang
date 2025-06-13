@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import type { SalesOrder, OrderItem } from '@/lib/types';
+import type { SalesOrder, OrderItem, Product } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,13 +12,15 @@ import { vi } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Printer } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SalesOrderDetailModalProps {
   order: SalesOrder | null;
   onClose: () => void;
+  onViewProductDetails?: (productId: string) => void; // New prop
 }
 
-export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDetailModalProps) {
+export default function SalesOrderDetailModal({ order, onClose, onViewProductDetails }: SalesOrderDetailModalProps) {
   if (!order) {
     return null;
   }
@@ -26,9 +28,9 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
   const getStatusVariant = (status: SalesOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'Mới':
-        return 'default'; 
+        return 'default';
       case 'Hoàn thành':
-        return 'secondary'; 
+        return 'secondary';
       case 'Đã hủy':
         return 'destructive';
       default:
@@ -39,9 +41,9 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
   const handlePrintInvoice = () => {
     if (!order) return;
 
-    const shopName = "Maimiel Shop"; 
-    const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ"; 
-    const shopPhone = "0834xxxxxx"; 
+    const shopName = "Maimiel Shop";
+    const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ";
+    const shopPhone = "0834xxxxxx";
 
     const accountNameRaw = "Maimiel";
     const bankIdAndAccountNo = "vietcombank-0111000317652";
@@ -61,11 +63,11 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
 
     let paymentDetailsHtml = `<div class="totals-summary">`;
     paymentDetailsHtml += `<div class="summary-item"><span class="label">Tổng tiền hàng:</span><span class="value">${order.totalAmount.toLocaleString('vi-VN')} đ</span></div>`;
-    
+
     const discountPercentage = order.discountPercentage || 0;
     const discountAmount = order.totalAmount * (discountPercentage / 100);
     paymentDetailsHtml += `<div class="summary-item ${discountAmount > 0 ? 'destructive' : ''}"><span class="label">Giảm giá (${discountPercentage}%):</span><span class="value">- ${discountAmount.toLocaleString('vi-VN')} đ</span></div>`;
-    
+
     const otherIncomeAmount = order.otherIncomeAmount || 0;
     paymentDetailsHtml += `<div class="summary-item ${otherIncomeAmount > 0 ? 'positive' : ''}"><span class="label">Thu khác:</span><span class="value">+ ${otherIncomeAmount.toLocaleString('vi-VN')} đ</span></div>`;
 
@@ -294,10 +296,10 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(invoiceHtml);
-      printWindow.document.close(); 
+      printWindow.document.close();
       setTimeout(() => {
         printWindow.print();
-      }, 500); 
+      }, 500);
     } else {
       // Consider using a toast notification here
       alert('Vui lòng cho phép pop-up để in hóa đơn.');
@@ -316,6 +318,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
         </DialogHeader>
         
         <ScrollArea className="max-h-[calc(80vh-200px)] pr-5">
+          <TooltipProvider>
             <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     <div>
@@ -324,7 +327,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
                     </div>
                     <div>
                         <span className="font-semibold">Trạng thái:</span>
-                        <div> 
+                        <div>
                              <Badge variant={getStatusVariant(order.status)} className={cn(
                                 "text-xs font-medium",
                                 order.status === "Mới" && "bg-blue-500 text-white",
@@ -351,7 +354,25 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
                         <TableBody>
                         {order.items.map((item, index) => (
                             <TableRow key={item.productId + index}>
-                            <TableCell>{item.productName}</TableCell>
+                            <TableCell>
+                              {onViewProductDetails ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      className="text-primary hover:underline cursor-pointer font-medium"
+                                      onClick={() => onViewProductDetails(item.productId)}
+                                    >
+                                      {item.productName}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Xem chi tiết sản phẩm</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                item.productName
+                              )}
+                            </TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
                             <TableCell className="text-right">{item.unitPrice.toLocaleString('vi-VN')} đ</TableCell>
                             <TableCell className="text-right">{item.totalPrice.toLocaleString('vi-VN')} đ</TableCell>
@@ -415,6 +436,7 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
                     </div>
                 )}
             </div>
+          </TooltipProvider>
         </ScrollArea>
         
         <DialogFooter className="sm:justify-between pt-4">
@@ -430,4 +452,3 @@ export default function SalesOrderDetailModal({ order, onClose }: SalesOrderDeta
     </Dialog>
   );
 }
-

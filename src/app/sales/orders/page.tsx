@@ -37,6 +37,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { SearchableProductSelect } from '@/components/common/SearchableProductSelect';
 import { useIsMobile } from '@/hooks/use-mobile';
+import ProductDetailModal from '@/components/products/ProductDetailModal'; // New import
 
 
 type SalesOrderFormValues = {
@@ -64,7 +65,7 @@ const SortableHeader = ({ column, title }: { column: any, title: string }) => {
 
 
 export default function SalesOrdersPage() {
-  const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataContextLoading, getProductStock } = useData();
+  const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataContextLoading, getProductStock, getProductById } = useData();
   const { toast } = useToast();
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -85,7 +86,9 @@ export default function SalesOrdersPage() {
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const isMobile = useIsMobile();
-  const [mobileSortOption, setMobileSortOption] = useState<string>('date_desc'); // Default sort for mobile
+  const [mobileSortOption, setMobileSortOption] = useState<string>('date_desc');
+
+  const [viewingProductFromOrder, setViewingProductFromOrder] = useState<Product | null>(null); // For product detail modal
 
 
   const createOrderForm = useForm<SalesOrderFormValues>({
@@ -152,14 +155,14 @@ export default function SalesOrdersPage() {
     }
     setOrderDataForPayment({
       ...values,
-      items: values.items.map(item => ({ 
+      items: values.items.map(item => ({
           ...item,
           costPrice: products.find(p => p.id === item.productId)?.costPrice || 0
       })),
       currentOrderTotal: currentOrderTotal,
     });
-    setIsCreateOrderModalOpen(false); 
-    setIsPaymentModalOpen(true); 
+    setIsCreateOrderModalOpen(false);
+    setIsPaymentModalOpen(true);
   };
 
   const handleSaveDraftOrder = async (values: SalesOrderFormValues) => {
@@ -189,10 +192,10 @@ export default function SalesOrdersPage() {
       items: itemsForOrder,
       notes: values.notes,
       status: 'Mới' as SalesOrderStatus,
-      totalAmount: calculateTotalAmount(), 
+      totalAmount: calculateTotalAmount(),
     };
 
-    const orderId = await addSalesOrder(orderPayload, true); 
+    const orderId = await addSalesOrder(orderPayload, true);
 
     if (orderId) {
       toast({ title: "Thành công!", description: "Đã lưu tạm đơn hàng." });
@@ -223,7 +226,7 @@ export default function SalesOrdersPage() {
           const productDetails = products.find(p => p.id === item.productId);
           return {
               productId: item.productId,
-              productName: item.productName, 
+              productName: item.productName,
               quantity: Number(item.quantity),
               unitPrice: Number(item.unitPrice),
               costPrice: productDetails?.costPrice || 0,
@@ -235,7 +238,7 @@ export default function SalesOrdersPage() {
           date,
           items: itemsForOrder,
           notes,
-          status: 'Mới',
+          status: 'Mới', // Status will be updated to 'Hoàn thành' after successful inventory transaction
           totalAmount: currentOrderTotal,
           discountPercentage: paymentDetails.discountPercentage || 0,
           otherIncomeAmount: paymentDetails.otherIncomeAmount || 0,
@@ -245,7 +248,7 @@ export default function SalesOrdersPage() {
           changeGiven: changeGiven !== undefined ? Math.round(changeGiven) : undefined,
       };
 
-      const newOrderId = await addSalesOrder(orderPayloadToSave, false); 
+      const newOrderId = await addSalesOrder(orderPayloadToSave, false); // false means it's not a draft
 
       if (newOrderId) {
           await updateSalesOrderStatus(newOrderId, 'Hoàn thành');
@@ -263,13 +266,13 @@ export default function SalesOrdersPage() {
       setOrderDataForPayment(null);
     }
   };
-  
+
   const handlePrintOrderFromTable = (order: SalesOrder) => {
     if (!order) return;
 
-    const shopName = "Maimiel Shop"; 
-    const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ"; 
-    const shopPhone = "0834xxxxxx"; 
+    const shopName = "Maimiel Shop";
+    const shopAddress = "01 Quản Trọng Hoàng, Hưng Lợi, Ninh Kiều, Cần Thơ";
+    const shopPhone = "0834xxxxxx";
 
     const accountNameRaw = "Maimiel";
     const bankIdAndAccountNo = "vietcombank-0111000317652";
@@ -292,10 +295,10 @@ export default function SalesOrdersPage() {
     const discountPercentage = order.discountPercentage || 0;
     const discountAmount = order.totalAmount * (discountPercentage / 100);
     paymentDetailsHtml += `<div class="summary-item ${discountAmount > 0 ? 'destructive' : ''}"><span class="label">Giảm giá (${discountPercentage}%):</span><span class="value">- ${discountAmount.toLocaleString('vi-VN')} đ</span></div>`;
-    
+
     const otherIncomeAmount = order.otherIncomeAmount || 0;
     paymentDetailsHtml += `<div class="summary-item ${otherIncomeAmount > 0 ? 'positive' : ''}"><span class="label">Thu khác:</span><span class="value">+ ${otherIncomeAmount.toLocaleString('vi-VN')} đ</span></div>`;
-    
+
     paymentDetailsHtml += `</div>`;
 
     const invoiceHtml = `
@@ -708,6 +711,17 @@ export default function SalesOrdersPage() {
     return { revenue, cogs, profit };
   }, [displayedOrders]);
 
+
+  const handleViewProductDetails = (productId: string) => {
+    const product = getProductById(productId);
+    if (product) {
+      setViewingProductFromOrder(product);
+    } else {
+      toast({ title: "Lỗi", description: "Không tìm thấy thông tin sản phẩm.", variant: "destructive"});
+    }
+  };
+
+
   const columns: ColumnDef<SalesOrder>[] = [
     {
       accessorKey: "orderNumber",
@@ -782,13 +796,13 @@ export default function SalesOrdersPage() {
             )}
             
             <DropdownMenuSeparator />
-            {row.original.status === 'Mới' && ( 
+            {row.original.status === 'Mới' && (
               <DropdownMenuItem onClick={() => {
                 const orderToPay = row.original;
                 setOrderDataForPayment({
                   customerName: orderToPay.customerName,
                   date: orderToPay.date,
-                  items: orderToPay.items.map(i => ({ 
+                  items: orderToPay.items.map(i => ({
                       productId: i.productId,
                       productName: i.productName,
                       quantity: i.quantity,
@@ -796,9 +810,9 @@ export default function SalesOrdersPage() {
                       costPrice: i.costPrice,
                   })),
                   notes: orderToPay.notes,
-                  currentOrderTotal: orderToPay.totalAmount, 
+                  currentOrderTotal: orderToPay.totalAmount,
                   existingOrderId: orderToPay.id,
-                } as OrderDataForPayment & { existingOrderId?: string }); 
+                } as OrderDataForPayment & { existingOrderId?: string });
                 setIsPaymentModalOpen(true);
               }}>
                 <DollarSign className="mr-2 h-4 w-4" />
@@ -1032,7 +1046,7 @@ export default function SalesOrdersPage() {
           }
         }}
       >
-        {() => ( 
+        {() => (
           <Form {...createOrderForm}>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1272,7 +1286,7 @@ export default function SalesOrdersPage() {
             onConfirmPayment={handleConfirmPayment}
             onBack={() => {
                 setIsPaymentModalOpen(false);
-                setIsCreateOrderModalOpen(true); 
+                setIsCreateOrderModalOpen(true);
             }}
             isSubmitting={isSubmittingOrder}
         />
@@ -1309,7 +1323,15 @@ export default function SalesOrdersPage() {
         </CardContent>
       </Card>
 
-      <SalesOrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} />
+      <SalesOrderDetailModal
+        order={viewingOrder}
+        onClose={() => setViewingOrder(null)}
+        onViewProductDetails={handleViewProductDetails}
+      />
+      <ProductDetailModal
+        product={viewingProductFromOrder}
+        onClose={() => setViewingProductFromOrder(null)}
+      />
     </>
   );
 }
