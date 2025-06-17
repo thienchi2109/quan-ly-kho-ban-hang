@@ -19,7 +19,7 @@ import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer, ArrowUp, ArrowDown, ArrowUpDown, ImagePlus, UploadCloud, Camera, Sparkles, PackageSearch, CheckCircle2, Wand } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer, ArrowUp, ArrowDown, ArrowUpDown, ImagePlus, UploadCloud, Camera, Sparkles, PackageSearch, CheckCircle2, Wand, ArrowRightCircle, RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,7 @@ import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
 import PaymentModal from '@/components/sales/PaymentModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Label } from '@/components/ui/label'; // Standard Label component
+import { Label } from '@/components/ui/label';
 import { SearchableProductSelect } from '@/components/common/SearchableProductSelect';
 import { useIsMobile } from '@/hooks/use-mobile';
 import ProductDetailModal from '@/components/products/ProductDetailModal';
@@ -48,7 +48,7 @@ import { Separator } from '@/components/ui/separator';
 import { 
   extractSalesNoteInfo, 
   type ExtractSalesNoteOutput, 
-  type ExtractedSalesItem // Now correctly imports the type
+  type ExtractedSalesItem
 } from '@/ai/flows/extract-sales-note-flow';
 
 
@@ -844,7 +844,11 @@ export default function SalesOrdersPage() {
         <Button onClick={() => { createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; setIsCreateOrderModalOpen(true); }}>
           <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
         </Button>
-        <Button variant="outline" onClick={() => { resetAiSalesNoteModalState(); setIsAiSalesNoteModalOpen(true); }}>
+        <Button variant="outline" onClick={() => { 
+          resetAiSalesNoteModalState(); 
+          setIsCreateOrderModalOpen(false); // Đóng modal form chính nếu đang mở
+          setIsAiSalesNoteModalOpen(true); 
+        }}>
           <ImagePlus className="mr-2 h-4 w-4" /> AI Nhập từ Ảnh
         </Button>
       </PageHeader>
@@ -1096,7 +1100,7 @@ export default function SalesOrdersPage() {
                     <CardContent className="text-sm space-y-2">
                       {aiSalesNoteResult.customerNameGuess && <p>Khách hàng: <span className="font-medium">{aiSalesNoteResult.customerNameGuess}</span></p>}
                       {aiSalesNoteResult.dateGuess && <p>Ngày: <span className="font-medium">{aiSalesNoteResult.dateGuess}</span></p>}
-                      {aiSalesNoteResult.notesGuess && <div>Ghi chú từ phiếu: <pre className="whitespace-pre-wrap font-sans bg-white p-2 rounded-sm border text-xs">{aiSalesNoteResult.notesGuess}</pre></div>}
+                      {aiSalesNoteResult.notesGuess && <div>Ghi chú từ phiếu: <pre className="whitespace-pre-wrap font-sans bg-background p-2 rounded-sm border text-xs">{aiSalesNoteResult.notesGuess}</pre></div>}
                     </CardContent>
                     <CardFooter><Button size="sm" onClick={applyAiCustomerAndDateToForm} disabled={!aiSalesNoteResult.customerNameGuess && !aiSalesNoteResult.dateGuess && !aiSalesNoteResult.notesGuess}><Wand className="mr-2 h-4 w-4" /> Áp dụng vào Form</Button></CardFooter>
                   </Card>
@@ -1145,16 +1149,55 @@ export default function SalesOrdersPage() {
               )}
             </div>
           </ScrollArea>
-          <DialogFooter className="sm:justify-between pt-4">
-            <Button type="button" variant="outline" onClick={() => { setIsAiSalesNoteModalOpen(false); resetAiSalesNoteModalState(); }} disabled={isAiSalesNoteProcessing}>
-              Đóng
+          <DialogFooter className="sm:justify-between pt-4 border-t mt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setAiSalesNoteImagePreview(null);
+                setAiSalesNoteImageDataUri(null);
+                setAiSalesNoteResult(null);
+                setAiSalesNoteItemStates([]);
+                if (aiSalesNoteFileInputRef.current) {
+                  aiSalesNoteFileInputRef.current.value = "";
+                }
+                setAiSalesNoteCameraOpen(false); 
+              }} 
+              disabled={isAiSalesNoteProcessing}
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" /> Chọn/Chụp Lại Ảnh
             </Button>
-            {aiSalesNoteImagePreview && (
-              <Button type="button" onClick={handleAnalyzeSalesNoteImage} disabled={!aiSalesNoteImageDataUri || isAiSalesNoteProcessing || aiSalesNoteCameraOpen}>
-                {isAiSalesNoteProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Phân Tích Lại Ảnh
+
+            <div className="flex gap-2 items-center">
+               <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => { setIsAiSalesNoteModalOpen(false); resetAiSalesNoteModalState(); }} 
+                disabled={isAiSalesNoteProcessing}
+              >
+                Hủy
               </Button>
-            )}
+              {aiSalesNoteImageDataUri && !aiSalesNoteResult && !aiSalesNoteCameraOpen && (
+                 <Button type="button" onClick={handleAnalyzeSalesNoteImage} disabled={isAiSalesNoteProcessing}>
+                    {isAiSalesNoteProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Phân Tích Ảnh
+                </Button>
+              )}
+              {aiSalesNoteResult && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setIsAiSalesNoteModalOpen(false);
+                    // Không reset state AI ở đây để người dùng có thể mở lại nếu cần.
+                    // State AI sẽ được reset khi mở modal AI lần tiếp theo.
+                    setIsCreateOrderModalOpen(true); 
+                  }}
+                  disabled={isAiSalesNoteProcessing}
+                >
+                  <ArrowRightCircle className="mr-2 h-4 w-4" /> Hoàn Tất & Xem Đơn
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
