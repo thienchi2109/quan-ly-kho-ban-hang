@@ -15,8 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
-import { ColumnDef, Row, flexRender, SortingState, getSortedRowModel } from '@tanstack/react-table';
-import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate, parseISO } from 'date-fns';
+import type { ColumnDef, Row, SortingState } from '@tanstack/react-table'; // Removed getSortedRowModel as it's handled by DataTable
+import { flexRender } from '@tanstack/react-table';
+import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate } from 'date-fns'; // Removed parseISO as it's not used
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer, ArrowUp, ArrowDown, ArrowUpDown, ImagePlus, UploadCloud, Camera, Sparkles, PackageSearch, CheckCircle2, Wand } from 'lucide-react';
 import { useToast } from '@/hooks';
@@ -44,7 +45,11 @@ import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { extractSalesNoteInfo, ExtractSalesNoteOutput, ExtractedSalesItemSchema } from '@/ai/flows/extract-sales-note-flow';
+import { 
+  extractSalesNoteInfo, 
+  type ExtractSalesNoteOutput, 
+  type ExtractedSalesItem // Changed from ExtractedSalesItemSchema
+} from '@/ai/flows/extract-sales-note-flow';
 
 
 type SalesOrderFormValues = {
@@ -106,7 +111,7 @@ const fuzzyMatchProductForSales = (productNameGuess: string, productsList: Produ
 
 // State for each AI Extracted Sales Item in the Dialog
 interface AiSalesItemState {
-  originalItem: ExtractedSalesItemSchema;
+  originalItem: ExtractedSalesItem; // Use the imported type
   selectedProductId: string | undefined;
   quantity: number | string;
   unitPrice: number | string;

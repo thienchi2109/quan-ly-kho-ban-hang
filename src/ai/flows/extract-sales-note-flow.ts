@@ -5,6 +5,7 @@
  *
  * - extractSalesNoteInfo - A function that handles the sales note information extraction process.
  * - ExtractSalesNoteInput - The input type for the extractSalesNoteInfo function.
+ * - ExtractedSalesItem - The type for an individual extracted sales item.
  * - ExtractSalesNoteOutput - The return type for the extractSalesNoteInfo function.
  */
 
@@ -20,19 +21,21 @@ const ExtractSalesNoteInputSchema = z.object({
 });
 export type ExtractSalesNoteInput = z.infer<typeof ExtractSalesNoteInputSchema>;
 
-export const ExtractedSalesItemSchema = z.object({
+// Internal Zod schema for an individual extracted item, not exported directly as a const.
+const _ExtractedSalesItemSchema = z.object({
   productNameGuess: z.string().describe("The name of the product as interpreted from the image. This is a best-effort guess."),
   quantityGuess: z.number().int().min(1).describe("The quantity of the product identified. Must be an integer greater than or equal to 1."),
   unitPriceGuess: z.number().min(0).optional().describe("The unit price of the product, if identifiable from the note."),
 });
-export type ExtractedSalesItemSchema = z.infer<typeof ExtractedSalesItemSchema>;
+// Export the INFERRED TYPE for use by clients.
+export type ExtractedSalesItem = z.infer<typeof _ExtractedSalesItemSchema>;
 
 
 const ExtractSalesNoteOutputSchema = z.object({
   customerNameGuess: z.string().optional().describe("The name of the customer, if identifiable from the note."),
   dateGuess: z.string().optional().describe("The date extracted from the note in YYYY-MM-DD format. If multiple dates are present, choose the most prominent one likely to be the sales date."),
   notesGuess: z.string().optional().describe("Any other relevant notes or text extracted from the sales slip."),
-  extractedItems: z.array(ExtractedSalesItemSchema).optional().describe("A list of items (product name guesses, quantities, and optional unit prices) extracted from the note."),
+  extractedItems: z.array(_ExtractedSalesItemSchema).optional().describe("A list of items (product name guesses, quantities, and optional unit prices) extracted from the note."), // Use the internal schema here
 });
 export type ExtractSalesNoteOutput = z.infer<typeof ExtractSalesNoteOutputSchema>;
 
