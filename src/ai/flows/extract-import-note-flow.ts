@@ -22,7 +22,7 @@ export type ExtractImportNoteInput = z.infer<typeof ExtractImportNoteInputSchema
 
 const ExtractedItemSchema = z.object({
   productNameGuess: z.string().describe("The name of the product as interpreted from the image. This is a best-effort guess."),
-  quantity: z.number().int().positive().describe("The quantity of the product identified."),
+  quantity: z.number().int().min(1).describe("The quantity of the product identified. Must be an integer greater than or equal to 1."),
 });
 
 const ExtractImportNoteOutputSchema = z.object({
@@ -50,7 +50,7 @@ The image contains a phiếu nhập kho (import note). Please identify the follo
 3.  **Items (Sản Phẩm và Số Lượng):**
     *   Identify each distinct product or item listed.
     *   For each product, extract its name (as accurately as possible, even if handwritten and potentially misspelled - provide the best guess for productNameGuess).
-    *   Extract the quantity associated with each product. Ensure quantity is a positive integer.
+    *   Extract the quantity associated with each product. Ensure quantity is an integer and at least 1.
     *   List these as an array of objects, where each object has "productNameGuess" and "quantity".
 4.  **Notes (Ghi Chú):** Extract any other relevant text, comments, or miscellaneous information from the note.
 
@@ -64,7 +64,7 @@ Example of a good item extraction from a line like "Bút bi Thiên Long x 20":
 { "productNameGuess": "Bút bi Thiên Long", "quantity": 20 }
 Example of a good item extraction from "Vở ABC - 50 cuốn":
 { "productNameGuess": "Vở ABC", "quantity": 50 }
-If a line only says "Sách giáo khoa", without quantity, do not include it in items. Quantity is mandatory for an item.
+If a line only says "Sách giáo khoa", without quantity, do not include it in items. Quantity is mandatory for an item and must be >= 1.
 `,
 });
 
@@ -82,3 +82,4 @@ const extractImportNoteInfoFlow = ai.defineFlow(
     return output!;
   }
 );
+
