@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { InventoryTransactionSchema } from '@/lib/schemas';
@@ -16,19 +16,87 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DataTable } from '@/components/common/DataTable';
 import { ColumnDef, Row, flexRender } from '@tanstack/react-table';
-import { format, parse } from 'date-fns';
+import { format, parse, isValid as isValidDate } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, ImagePlus, UploadCloud, Camera, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import Image from 'next/image';
+import { extractImportNoteInfo, ExtractImportNoteOutput } from '@/ai/flows/extract-import-note-flow';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ImportFormValues = Omit<InventoryTransaction, 'id' | 'type'>;
+
+function dataURLtoFile(dataurl: string, filename: string): File | null {
+  const arr = dataurl.split(',');
+  if (arr.length < 2) return null;
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  if (!mimeMatch || mimeMatch.length < 2) return null;
+  const mime = mimeMatch[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
+
+// Simple fuzzy search (can be improved with libraries like fuse.js if needed)
+const normalizeString = (str: string) => {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+};
+
+const fuzzyMatchProduct = (productNameGuess: string, products: Product[]): Product | undefined => {
+  if (!productNameGuess || products.length === 0) return undefined;
+  const normalizedGuess = normalizeString(productNameGuess);
+  
+  // Prioritize SKU match if guess looks like an SKU (e.g., alphanumeric, short)
+  const potentialSkuMatch = products.find(p => p.sku && normalizeString(p.sku) === normalizedGuess);
+  if (potentialSkuMatch) return potentialSkuMatch;
+
+  let bestMatch: Product | undefined = undefined;
+  let highestScore = 0.7; // Threshold to consider a match
+
+  for (const product of products) {
+    const normalizedProductName = normalizeString(product.name);
+    // Check for inclusion, simple but effective for partial matches
+    if (normalizedProductName.includes(normalizedGuess) || normalizedGuess.includes(normalizedProductName)) {
+      // Basic scoring: longer match is better
+      const score = Math.max(normalizedGuess.length, normalizedProductName.length) > 0 ?
+                    (Math.min(normalizedGuess.length, normalizedProductName.length) / Math.max(normalizedGuess.length, normalizedProductName.length)) : 0;
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = product;
+      }
+    }
+  }
+  return bestMatch;
+};
+
 
 export default function ImportsPage() {
   const { products, inventoryTransactions, addInventoryTransaction, getProductById } = useData();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isAiImportModalOpen, setIsAiImportModalOpen] = useState(false);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [selectedImageDataUri, setSelectedImageDataUri] = useState<string | null>(null);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiCameraOpen, setAiCameraOpen] = useState(false);
+  const [aiHasCameraPermission, setAiHasCameraPermission] = useState<boolean | null>(null);
+  const aiVideoRef = useRef<HTMLVideoElement>(null);
+  const aiCanvasRef = useRef<HTMLCanvasElement>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
 
   const importTransactions = inventoryTransactions.filter(t => t.type === 'import');
 
@@ -42,6 +110,147 @@ export default function ImportsPage() {
       notes: '',
     },
   });
+
+  const resetAiImportModalState = useCallback(() => {
+    setSelectedImagePreview(null);
+    setSelectedImageDataUri(null);
+    setAiCameraOpen(false);
+    setAiHasCameraPermission(null);
+    if (aiFileInputRef.current) {
+      aiFileInputRef.current.value = "";
+    }
+  }, []);
+
+  const handleAiImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImageDataUri(reader.result as string);
+        setSelectedImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setAiCameraOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      if (!aiCameraOpen) {
+        if (aiVideoRef.current && aiVideoRef.current.srcObject) {
+          (aiVideoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+          aiVideoRef.current.srcObject = null;
+        }
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        setAiHasCameraPermission(true);
+        if (aiVideoRef.current) {
+          aiVideoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing AI camera:', error);
+        setAiHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Không thể truy cập Camera',
+          description: 'Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.',
+        });
+        setAiCameraOpen(false);
+      }
+    };
+    getCameraPermission();
+    return () => {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (aiVideoRef.current && aiVideoRef.current.srcObject) {
+         (aiVideoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+         aiVideoRef.current.srcObject = null;
+      }
+    };
+  }, [aiCameraOpen, toast]);
+
+  const handleAiCaptureImage = () => {
+    if (aiVideoRef.current && aiCanvasRef.current) {
+      const video = aiVideoRef.current;
+      const canvas = aiCanvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setSelectedImageDataUri(dataUrl);
+        setSelectedImagePreview(dataUrl);
+      }
+      setAiCameraOpen(false);
+    }
+  };
+
+  const handleAnalyzeImage = async () => {
+    if (!selectedImageDataUri) {
+      toast({ title: "Chưa chọn ảnh", description: "Vui lòng chọn hoặc chụp ảnh phiếu nhập kho.", variant: "destructive" });
+      return;
+    }
+    setIsAiProcessing(true);
+    try {
+      const result: ExtractImportNoteOutput = await extractImportNoteInfo({ imageDataUri: selectedImageDataUri });
+      
+      // Reset form before populating
+      form.reset({
+        productId: '', // Will be set based on AI results if possible
+        quantity: 1,
+        date: result.date && isValidDate(parse(result.date, 'yyyy-MM-dd', new Date())) ? result.date : format(new Date(), 'yyyy-MM-dd'),
+        relatedParty: result.supplierName || '',
+        notes: result.notes || '',
+      });
+
+      // Populate form fields
+      if (result.date && isValidDate(parse(result.date, 'yyyy-MM-dd', new Date()))) {
+        form.setValue('date', result.date);
+      }
+      if (result.supplierName) {
+        form.setValue('relatedParty', result.supplierName);
+      }
+      let aiNotes = result.notes || '';
+
+      if (result.items && result.items.length > 0) {
+        const firstAiItem = result.items[0]; // For simplicity, handle the first item AI suggests
+        const matchedProduct = fuzzyMatchProduct(firstAiItem.productNameGuess, products);
+
+        if (matchedProduct) {
+          form.setValue('productId', matchedProduct.id);
+          form.setValue('quantity', firstAiItem.quantity > 0 ? firstAiItem.quantity : 1);
+          aiNotes += `\n\n--- AI gợi ý sản phẩm ---\nTên SP (AI): ${firstAiItem.productNameGuess}\nSố lượng (AI): ${firstAiItem.quantity}`;
+          if (result.items.length > 1) {
+            aiNotes += "\n\nAI cũng nhận diện các sản phẩm khác (xem ghi chú để thêm thủ công nếu cần):";
+            result.items.slice(1).forEach(item => {
+              aiNotes += `\n- ${item.productNameGuess} (SL: ${item.quantity})`;
+            });
+          }
+        } else {
+           aiNotes += `\n\n--- AI gợi ý sản phẩm (Không tìm thấy sản phẩm khớp) ---\n`;
+           result.items.forEach(item => {
+             aiNotes += `\nTên SP (AI): ${item.productNameGuess}\nSố lượng (AI): ${item.quantity}\n`;
+           });
+        }
+      }
+      form.setValue('notes', aiNotes.trim());
+
+      toast({ title: "AI đã phân tích xong!", description: "Thông tin đã được điền vào form. Vui lòng kiểm tra và xác nhận." });
+      setIsAiImportModalOpen(false); // Close AI modal
+      resetAiImportModalState();
+      setIsModalOpen(true); // Open the main import form modal
+
+    } catch (error: any) {
+      console.error("AI Analysis Error:", error);
+      toast({ title: "Lỗi Phân Tích Ảnh", description: error.message || "Không thể phân tích ảnh.", variant: "destructive" });
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
 
   const onSubmit = async (values: ImportFormValues, closeModal: () => void) => {
     setIsSubmitting(true);
@@ -142,6 +351,9 @@ export default function ImportsPage() {
          }}>
             <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Nhập
         </Button>
+        <Button variant="outline" onClick={() => { resetAiImportModalState(); setIsAiImportModalOpen(true); }}>
+          <ImagePlus className="mr-2 h-4 w-4" /> Nhập liệu AI từ ảnh
+        </Button>
       </PageHeader>
       <FormModal<ImportFormValues>
           title="Tạo Phiếu Nhập Kho"
@@ -152,7 +364,7 @@ export default function ImportsPage() {
         >
           {(closeModal) => (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => onSubmit(data, closeModal))} className="space-y-4 mt-4" id="add-import-form">
+              <form onSubmit={form.handleSubmit((data) => onSubmit(data, closeModal))} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-1" id="add-import-form">
                 <FormField
                   control={form.control}
                   name="date"
@@ -172,7 +384,7 @@ export default function ImportsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sản Phẩm</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Chọn sản phẩm" />
@@ -221,7 +433,7 @@ export default function ImportsPage() {
                     <FormItem>
                       <FormLabel>Ghi Chú (tùy chọn)</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Thông tin thêm về lô hàng..." {...field} />
+                        <Textarea placeholder="Thông tin thêm về lô hàng, hoặc gợi ý từ AI..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -239,6 +451,97 @@ export default function ImportsPage() {
           )}
         </FormModal>
 
+      {/* AI Import Dialog */}
+      <Dialog open={isAiImportModalOpen} onOpenChange={(isOpen) => {
+        setIsAiImportModalOpen(isOpen);
+        if (!isOpen) resetAiImportModalState();
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nhập Liệu AI Từ Ảnh Phiếu Nhập Kho</DialogTitle>
+            <DialogDescription>
+              Chọn hoặc chụp ảnh phiếu nhập kho viết tay. AI sẽ cố gắng trích xuất thông tin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            {!aiCameraOpen && (
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button type="button" variant="outline" onClick={() => aiFileInputRef.current?.click()} className="flex-1">
+                    <UploadCloud className="mr-2 h-4 w-4" /> Chọn Ảnh Từ Máy
+                  </Button>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    ref={aiFileInputRef}
+                    onChange={handleAiImageFileChange}
+                    className="hidden"
+                    id="ai-receipt-file-upload"
+                  />
+                  <Button type="button" variant="outline" onClick={() => setAiCameraOpen(true)} className="flex-1">
+                    <Camera className="mr-2 h-4 w-4" /> Chụp Ảnh
+                  </Button>
+                </div>
+                {selectedImagePreview && !isAiProcessing && (
+                  <div className="mt-2 relative w-full p-2 border rounded-md flex flex-col items-center justify-center bg-muted/30">
+                    <p className="text-sm text-muted-foreground mb-2">Ảnh đã chọn:</p>
+                    <Image src={selectedImagePreview} alt="Xem trước phiếu nhập" width={400} height={300} style={{ objectFit: 'contain', maxHeight: '300px', width: 'auto' }} className="rounded-md border" data-ai-hint="handwritten note"/>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isAiProcessing && (
+               <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                 <p className="text-muted-foreground">AI đang phân tích ảnh, vui lòng đợi...</p>
+                 <Skeleton className="h-4 w-3/4 mt-2" />
+                 <Skeleton className="h-4 w-1/2" />
+               </div>
+            )}
+
+            {aiCameraOpen && (
+              <Card className="mt-2">
+                <CardHeader><CardTitle className="text-base">Chụp Ảnh Phiếu Nhập</CardTitle></CardHeader>
+                <CardContent>
+                  {aiHasCameraPermission === false && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Không có quyền truy cập Camera</AlertTitle>
+                      <AlertDescription>Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.</AlertDescription>
+                    </Alert>
+                  )}
+                  {aiHasCameraPermission === true && (
+                    <video ref={aiVideoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay playsInline muted />
+                  )}
+                  {aiHasCameraPermission === null && (
+                    <div className="flex justify-center items-center h-32">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="ml-2 text-muted-foreground">Đang khởi tạo camera...</p>
+                    </div>
+                  )}
+                </CardContent>
+                {aiHasCameraPermission === true && (
+                  <CardFooter className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setAiCameraOpen(false)}>Hủy</Button>
+                    <Button type="button" onClick={handleAiCaptureImage} disabled={!aiVideoRef.current?.srcObject}>Chụp</Button>
+                  </CardFooter>
+                )}
+              </Card>
+            )}
+            <canvas ref={aiCanvasRef} className="hidden"></canvas>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setIsAiImportModalOpen(false); resetAiImportModalState(); }} disabled={isAiProcessing}>
+              Đóng
+            </Button>
+            <Button type="button" onClick={handleAnalyzeImage} disabled={!selectedImageDataUri || isAiProcessing || aiCameraOpen}>
+              {isAiProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Phân Tích Ảnh
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Card>
         <CardContent className="pt-6">
@@ -254,3 +557,4 @@ export default function ImportsPage() {
     </>
   );
 }
+
