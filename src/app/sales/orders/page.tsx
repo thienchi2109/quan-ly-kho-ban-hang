@@ -1096,7 +1096,7 @@ export default function SalesOrdersPage() {
                     <CardContent className="text-sm space-y-2">
                       {aiSalesNoteResult.customerNameGuess && <p>Khách hàng: <span className="font-medium">{aiSalesNoteResult.customerNameGuess}</span></p>}
                       {aiSalesNoteResult.dateGuess && <p>Ngày: <span className="font-medium">{aiSalesNoteResult.dateGuess}</span></p>}
-                      {aiSalesNoteResult.notesGuess && <p>Ghi chú từ phiếu: <pre className="whitespace-pre-wrap font-sans bg-white p-2 rounded-sm border text-xs">{aiSalesNoteResult.notesGuess}</pre></p>}
+                      {aiSalesNoteResult.notesGuess && <div>Ghi chú từ phiếu: <pre className="whitespace-pre-wrap font-sans bg-white p-2 rounded-sm border text-xs">{aiSalesNoteResult.notesGuess}</pre></div>}
                     </CardContent>
                     <CardFooter><Button size="sm" onClick={applyAiCustomerAndDateToForm} disabled={!aiSalesNoteResult.customerNameGuess && !aiSalesNoteResult.dateGuess && !aiSalesNoteResult.notesGuess}><Wand className="mr-2 h-4 w-4" /> Áp dụng vào Form</Button></CardFooter>
                   </Card>
@@ -1172,3 +1172,4 @@ export default function SalesOrdersPage() {
   );
 }
 
+    
