@@ -48,7 +48,7 @@ import { Separator } from '@/components/ui/separator';
 import { 
   extractSalesNoteInfo, 
   type ExtractSalesNoteOutput, 
-  type ExtractedSalesItem // Changed from ExtractedSalesItemSchema
+  type ExtractedSalesItem
 } from '@/ai/flows/extract-sales-note-flow';
 
 
@@ -111,7 +111,7 @@ const fuzzyMatchProductForSales = (productNameGuess: string, productsList: Produ
 
 // State for each AI Extracted Sales Item in the Dialog
 interface AiSalesItemState {
-  originalItem: ExtractedSalesItem; // Use the imported type
+  originalItem: ExtractedSalesItem; 
   selectedProductId: string | undefined;
   quantity: number | string;
   unitPrice: number | string;
@@ -869,33 +869,190 @@ export default function SalesOrdersPage() {
         </div>
       )}
 
-      <FormModal<SalesOrderFormValues> title="Tạo Đơn Hàng Mới" description="Điền thông tin chi tiết cho đơn hàng." formId="add-sales-order-form" open={isCreateOrderModalOpen} onOpenChange={(isOpen) => { setIsCreateOrderModalOpen(isOpen); if (!isOpen) { newlyAddedItemIndexRef.current = null; } }} >
-        {() => ( <Form {...createOrderForm}> <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
+      <FormModal<SalesOrderFormValues>
+        title="Tạo Đơn Hàng Mới"
+        description="Điền thông tin chi tiết cho đơn hàng."
+        formId="add-sales-order-form"
+        open={isCreateOrderModalOpen}
+        onOpenChange={(isOpen) => { setIsCreateOrderModalOpen(isOpen); if (!isOpen) { newlyAddedItemIndexRef.current = null; } }}
+      >
+        {(closeModal) => (
+          <Form {...createOrderForm}>
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4 max-h-[75vh] overflow-y-auto p-4" id="add-sales-order-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={createOrderForm.control} name="date" render={({ field }) => ( <FormItem><ShadcnFormLabel>Ngày Tạo Đơn</ShadcnFormLabel><FormControl><Input type="date" {...field} className="h-10 pr-2"/></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={createOrderForm.control} name="customerName" render={({ field }) => ( <FormItem><ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel><FormControl><Input ref={customerNameInputRef} placeholder="Nhập tên khách hàng" {...field} className="h-10"/></FormControl><FormMessage /></FormItem> )} />
+                <FormField
+                  control={createOrderForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ShadcnFormLabel>Ngày Tạo Đơn</ShadcnFormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} className="h-10 pr-2"/>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createOrderForm.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel>
+                      <FormControl>
+                        <Input ref={customerNameInputRef} placeholder="Nhập tên khách hàng" {...field} className="h-10"/>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-              <Card><CardHeader><CardTitle className="text-lg">Chi Tiết Sản Phẩm</CardTitle></CardHeader><CardContent className="space-y-3">
-                  {fields.map((itemField, index) => { const c = watchedItems[index]; const p = products.find(p => p.id === c?.productId); const s = p ? p.currentStock : 0; const q = Number(c?.quantity) || 0;
-                    return ( <div key={itemField.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30"> <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                           <FormField control={createOrderForm.control} name={`items.${index}.productId`} render={({ field }) => ( <FormItem><ShadcnFormLabel>Sản Phẩm</ShadcnFormLabel><FormControl><SearchableProductSelect ref={(el) => { if (productSelectRefs.current) productSelectRefs.current[index] = el; }} products={products} selectedProductId={field.value} onProductSelect={(pid) => { field.onChange(pid); handleProductChange(index, pid); }} disabledProductIds={watchedItems.filter((_, i) => i !== index).map(i => i.productId).filter(id => !!id) as string[]} placeholder="Chọn hoặc tìm sản phẩm" disabled={isDataContextLoading}/></FormControl><FormMessage /></FormItem> )} />
-                          <FormField control={createOrderForm.control} name={`items.${index}.quantity`} render={({ field: qField }) => ( <FormItem><ShadcnFormLabel>Số Lượng</ShadcnFormLabel><div className="flex items-center gap-1.5"><Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustItemQuantityWithButtons(index, -1)} disabled={!p || q <= 1}><MinusCircle className="h-4 w-4" /></Button><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="1" {...qField} value={qField.value === 0 && !p ? "" : qField.value} onChange={(e) => { const v = e.target.value; if (v === "" || /^[0-9]*$/.test(v)) handleItemQuantityChange(index, v); }} onBlur={() => handleItemQuantityBlur(index)} className="w-16 text-center h-9" disabled={!p}/></FormControl><Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustItemQuantityWithButtons(index, 1)} disabled={!p || (p && q >= s)}><PlusCircle className="h-4 w-4" /></Button></div><FormMessage /></FormItem> )} />
-                        </div> <div className="space-y-3 md:grid md:grid-cols-7 md:gap-x-3 md:gap-y-0 md:items-end">
-                           <FormField control={createOrderForm.control} name={`items.${index}.unitPrice`} render={({ field: pField }) => ( <FormItem className="md:col-span-3"><ShadcnFormLabel>Đơn Giá</ShadcnFormLabel><FormControl><Input type="number" placeholder="0" min="0" {...pField} value={pField.value || ''} onChange={e => pField.onChange(parseFloat(e.target.value) || 0)} disabled={!p} className="h-10"/></FormControl><FormMessage /></FormItem> )} />
-                          <div className="md:col-span-3"><ShadcnFormLabel>Thành Tiền</ShadcnFormLabel><p className="font-semibold text-sm h-10 flex items-center">{((Number(c?.quantity) || 0) * (Number(c?.unitPrice) || 0)).toLocaleString('vi-VN')} đ</p></div>
-                          <div className="flex justify-end md:col-span-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-center md:self-end"><Trash2 className="h-4 w-4" /></Button></div>
-                        </div> </div> )})}
-                  <Button type="button" variant="outline" onClick={handleAddNewItemAndFocus} disabled={products.filter(p => p.currentStock > 0 && !watchedItems.some(item => item.productId === p.id)).length === 0}><PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm</Button>
-                </CardContent></Card>
-              <div className="text-right mt-4"><p className="text-lg font-semibold">Tổng Cộng: {calculateTotalAmount().toLocaleString('vi-VN')} đ</p></div>
-              <FormField control={createOrderForm.control} name="notes" render={({ field }) => ( <FormItem><ShadcnFormLabel>Ghi Chú (tùy chọn)</ShadcnFormLabel><FormControl><Textarea placeholder="Thông tin thêm về đơn hàng..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Chi Tiết Sản Phẩm</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  {fields.map((itemField, index) => {
+                    const c = watchedItems[index];
+                    const p = products.find(p => p.id === c?.productId);
+                    const s = p ? p.currentStock : 0;
+                    const q = Number(c?.quantity) || 0;
+                    return (
+                      <div key={itemField.fieldId} className="p-3 border rounded-md space-y-3 bg-muted/30">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                           <FormField
+                            control={createOrderForm.control}
+                            name={`items.${index}.productId`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <ShadcnFormLabel>Sản Phẩm</ShadcnFormLabel>
+                                <FormControl>
+                                  <SearchableProductSelect
+                                    ref={(el) => { if (productSelectRefs.current) productSelectRefs.current[index] = el; }}
+                                    products={products}
+                                    selectedProductId={field.value}
+                                    onProductSelect={(pid) => { field.onChange(pid); handleProductChange(index, pid); }}
+                                    disabledProductIds={watchedItems.filter((_, i) => i !== index).map(i => i.productId).filter(id => !!id) as string[]}
+                                    placeholder="Chọn hoặc tìm sản phẩm"
+                                    disabled={isDataContextLoading}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={createOrderForm.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field: qField }) => (
+                              <FormItem>
+                                <ShadcnFormLabel>Số Lượng</ShadcnFormLabel>
+                                <div className="flex items-center gap-1.5">
+                                  <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustItemQuantityWithButtons(index, -1)} disabled={!p || q <= 1}>
+                                    <MinusCircle className="h-4 w-4" />
+                                  </Button>
+                                  <FormControl>
+                                    <Input
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      placeholder="1"
+                                      {...qField}
+                                      value={qField.value === 0 && !p ? "" : qField.value}
+                                      onChange={(e) => {
+                                        const v = e.target.value;
+                                        if (v === "" || /^[0-9]*$/.test(v)) handleItemQuantityChange(index, v);
+                                      }}
+                                      onBlur={() => handleItemQuantityBlur(index)}
+                                      className="w-16 text-center h-9"
+                                      disabled={!p}
+                                    />
+                                  </FormControl>
+                                  <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustItemQuantityWithButtons(index, 1)} disabled={!p || (p && q >= s)}>
+                                    <PlusCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="space-y-3 md:grid md:grid-cols-7 md:gap-x-3 md:gap-y-0 md:items-end">
+                           <FormField
+                            control={createOrderForm.control}
+                            name={`items.${index}.unitPrice`}
+                            render={({ field: pField }) => (
+                              <FormItem className="md:col-span-3">
+                                <ShadcnFormLabel>Đơn Giá</ShadcnFormLabel>
+                                <FormControl>
+                                  <Input type="number" placeholder="0" min="0" {...pField} value={pField.value || ''} onChange={e => pField.onChange(parseFloat(e.target.value) || 0)} disabled={!p} className="h-10"/>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="md:col-span-3">
+                            <ShadcnFormLabel>Thành Tiền</ShadcnFormLabel>
+                            <p className="font-semibold text-sm h-10 flex items-center">{((Number(c?.quantity) || 0) * (Number(c?.unitPrice) || 0)).toLocaleString('vi-VN')} đ</p>
+                          </div>
+                          <div className="flex justify-end md:col-span-1">
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive self-center md:self-end">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddNewItemAndFocus}
+                    disabled={products.filter(p => p.currentStock > 0 && !watchedItems.some(item => item.productId === p.id)).length === 0}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm
+                  </Button>
+                </CardContent>
+              </Card>
+              <div className="text-right mt-4">
+                <p className="text-lg font-semibold">Tổng Cộng: {calculateTotalAmount().toLocaleString('vi-VN')} đ</p>
+              </div>
+              <FormField
+                control={createOrderForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <ShadcnFormLabel>Ghi Chú (tùy chọn)</ShadcnFormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Thông tin thêm về đơn hàng..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="flex justify-end gap-2 pt-6">
-                <Button type="button" variant="outline" onClick={() => {createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; setIsCreateOrderModalOpen(false);}}>Hủy</Button>
-                <Button type="button" variant="secondary" onClick={createOrderForm.handleSubmit(handleSaveDraftOrder)} disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0))}>{isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}<Save className="mr-2 h-4 w-4" /> Lưu Tạm</Button>
-                <Button type="button" onClick={createOrderForm.handleSubmit(handleOpenPaymentModal)} disabled={ isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0)) }><DollarSign className="mr-2 h-4 w-4" /> Thanh Toán</Button>
-              </div> </form> </Form> )} </FormModal>
+                <Button type="button" variant="outline" onClick={() => {createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; closeModal();}}>Hủy</Button>
+                <Button type="button" variant="secondary" onClick={createOrderForm.handleSubmit(handleSaveDraftOrder)} disabled={isSubmittingOrder || isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0))}>
+                  {isSubmittingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Save className="mr-2 h-4 w-4" /> Lưu Tạm
+                </Button>
+                <Button type="button" onClick={createOrderForm.handleSubmit(handleOpenPaymentModal)} disabled={ isDataContextLoading || fields.length === 0 || fields.some(f => !f.productId || !(Number(f.quantity) > 0)) }>
+                  <DollarSign className="mr-2 h-4 w-4" /> Thanh Toán
+                </Button>
+              </div>
+            </form>
+          </Form>
+        )}
+      </FormModal>
 
-      {orderDataForPayment && ( <PaymentModal isOpen={isPaymentModalOpen} onClose={() => { setIsPaymentModalOpen(false); setOrderDataForPayment(null); }} orderData={orderDataForPayment} onConfirmPayment={handleConfirmPayment} onBack={() => { setIsPaymentModalOpen(false); setIsCreateOrderModalOpen(true); }} isSubmitting={isSubmittingOrder} /> )}
+      {orderDataForPayment && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => { setIsPaymentModalOpen(false); setOrderDataForPayment(null); }}
+          orderData={orderDataForPayment}
+          onConfirmPayment={handleConfirmPayment}
+          onBack={() => { setIsPaymentModalOpen(false); setIsCreateOrderModalOpen(true); }}
+          isSubmitting={isSubmittingOrder}
+        />
+      )}
 
       {/* AI Sales Note Dialog */}
       <Dialog open={isAiSalesNoteModalOpen} onOpenChange={(isOpen) => { setIsAiSalesNoteModalOpen(isOpen); if (!isOpen) resetAiSalesNoteModalState(); }}>
