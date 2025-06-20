@@ -20,8 +20,8 @@ import { format, parse, isValid as isValidDate } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Loader2, ImagePlus, UploadCloud, Camera, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent } from '@/components/ui/dialog'; // Renamed DialogFooter to avoid conflict
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import Image from 'next/image';
@@ -203,7 +203,7 @@ export default function ImportsPage() {
         quantity: 1,
         date: result.date && isValidDate(parse(result.date, 'yyyy-MM-dd', new Date())) ? result.date : format(new Date(), 'yyyy-MM-dd'),
         relatedParty: result.supplierName || '',
-        notes: result.notes || '',
+        notes: '', // Start with empty notes, append AI notes later
       });
 
       // Populate form fields
@@ -213,30 +213,35 @@ export default function ImportsPage() {
       if (result.supplierName) {
         form.setValue('relatedParty', result.supplierName);
       }
-      let aiNotes = result.notes || '';
+      
+      let aiGeneratedNotes = result.notes || '';
 
       if (result.items && result.items.length > 0) {
-        const firstAiItem = result.items[0]; // For simplicity, handle the first item AI suggests
+        const firstAiItem = result.items[0]; 
         const matchedProduct = fuzzyMatchProduct(firstAiItem.productNameGuess, products);
 
         if (matchedProduct) {
           form.setValue('productId', matchedProduct.id);
           form.setValue('quantity', firstAiItem.quantity > 0 ? firstAiItem.quantity : 1);
-          aiNotes += `\n\n--- AI gợi ý sản phẩm ---\nTên SP (AI): ${firstAiItem.productNameGuess}\nSố lượng (AI): ${firstAiItem.quantity}`;
+          
+          // Add a note about the AI suggestion if it's used
+          aiGeneratedNotes += `${aiGeneratedNotes ? '\n\n' : ''}--- AI gợi ý sản phẩm ---\nTên SP (AI): ${firstAiItem.productNameGuess}\nSố lượng (AI): ${firstAiItem.quantity}`;
+          
           if (result.items.length > 1) {
-            aiNotes += "\n\nAI cũng nhận diện các sản phẩm khác (xem ghi chú để thêm thủ công nếu cần):";
+            aiGeneratedNotes += "\n\nAI cũng nhận diện các sản phẩm khác (kiểm tra và thêm thủ công nếu cần):";
             result.items.slice(1).forEach(item => {
-              aiNotes += `\n- ${item.productNameGuess} (SL: ${item.quantity})`;
+              aiGeneratedNotes += `\n- ${item.productNameGuess} (SL: ${item.quantity})`;
             });
           }
         } else {
-           aiNotes += `\n\n--- AI gợi ý sản phẩm (Không tìm thấy sản phẩm khớp) ---\n`;
+           // If no match, put all AI items into notes for manual entry
+           aiGeneratedNotes += `${aiGeneratedNotes ? '\n\n' : ''}--- AI gợi ý sản phẩm (Không tìm thấy sản phẩm khớp, vui lòng chọn thủ công) ---\n`;
            result.items.forEach(item => {
-             aiNotes += `\nTên SP (AI): ${item.productNameGuess}\nSố lượng (AI): ${item.quantity}\n`;
+             aiGeneratedNotes += `Tên SP (AI): ${item.productNameGuess}, Số lượng (AI): ${item.quantity}\n`;
            });
         }
       }
-      form.setValue('notes', aiNotes.trim());
+      form.setValue('notes', aiGeneratedNotes.trim());
 
       toast({ title: "AI đã phân tích xong!", description: "Thông tin đã được điền vào form. Vui lòng kiểm tra và xác nhận." });
       setIsAiImportModalOpen(false); // Close AI modal
@@ -294,7 +299,11 @@ export default function ImportsPage() {
     {
       accessorKey: "notes",
       header: "Ghi Chú",
-      cell: ({ row }) => row.getValue("notes") || <span className="text-muted-foreground italic">N/A</span>,
+      cell: ({ row }) => {
+        const notes = row.getValue<string | undefined>("notes");
+        const truncatedNotes = notes && notes.length > 50 ? `${notes.substring(0, 50)}...` : notes;
+        return truncatedNotes || <span className="text-muted-foreground italic">N/A</span>;
+      },
     },
   ];
 
@@ -530,7 +539,7 @@ export default function ImportsPage() {
             )}
             <canvas ref={aiCanvasRef} className="hidden"></canvas>
           </div>
-          <DialogFooter>
+          <DialogFooterComponent>
             <Button type="button" variant="outline" onClick={() => { setIsAiImportModalOpen(false); resetAiImportModalState(); }} disabled={isAiProcessing}>
               Đóng
             </Button>
@@ -538,7 +547,7 @@ export default function ImportsPage() {
               {isAiProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Phân Tích Ảnh
             </Button>
-          </DialogFooter>
+          </DialogFooterComponent>
         </DialogContent>
       </Dialog>
 
