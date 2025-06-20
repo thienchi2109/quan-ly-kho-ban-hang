@@ -1,11 +1,11 @@
 
 "use client";
 
-import * as React from 'react'; 
+import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  SidebarMenuButton, 
+  SidebarMenuButton,
   useSidebar
 } from '@/components/ui/sidebar';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger as UiAccordionTrigger } from "@/components/ui/accordion";
@@ -24,7 +24,7 @@ const LucideIcon = ({ name, className }: { name: NavLinkIcon; className?: string
 
 export default function AppSidebarNavigation() {
   const pathname = usePathname();
-  const { isMobile, setOpenMobile, state: sidebarState, setOpen } = useSidebar(); // Added setOpen
+  const { isMobile, setOpenMobile, state: sidebarState, setOpen } = useSidebar();
 
   const handleLinkClick = React.useCallback(() => {
     if (isMobile) {
@@ -48,27 +48,27 @@ export default function AppSidebarNavigation() {
                      <UiAccordionTrigger
                         onClick={() => {
                           if (isCollapsedAndDesktop) {
-                            setOpen(true); // Expand sidebar if collapsed and an accordion is clicked
+                            setOpen(true); 
                           }
                         }}
                         className={cn(
                           "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
-                          "h-8 text-sm", 
-                          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", 
-                          "text-[0.95rem] leading-snug", 
-                          !isCollapsedAndDesktop && "justify-between", 
+                          "h-8 text-sm",
+                          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          "text-[0.95rem] leading-snug",
+                          !isCollapsedAndDesktop && "justify-between",
                           { "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 data-[state=open]:bg-sidebar-primary data-[state=open]:text-sidebar-primary-foreground": isActiveParent },
                         )}
                       >
                         <div className={cn(
                           "flex items-center gap-2 min-w-0",
-                          !isCollapsedAndDesktop && "flex-1" 
+                          !isCollapsedAndDesktop && "flex-1"
                         )}>
                            <LucideIcon name={link.icon as NavLinkIcon} />
                            <span className={cn(
                              "min-w-0 truncate",
                              !isCollapsedAndDesktop && "flex-1",
-                             isCollapsedAndDesktop && "hidden" 
+                             isCollapsedAndDesktop && "hidden"
                            )}>
                              {link.label}
                            </span>
@@ -82,24 +82,35 @@ export default function AppSidebarNavigation() {
                     {link.label}
                   </TooltipContent>
                 </Tooltip>
-                {/* AccordionContent is now always rendered, visibility controlled by accordion state & sidebar expansion */}
-                <AccordionContent className="pb-0 pl-4"> 
+                <AccordionContent className="pb-0 pl-4">
                   <ul className="ml-4 my-1 space-y-1 list-none border-l border-sidebar-border pl-2">
                     {link.subLinks.map((subLink) => (
                       <li key={subLink.href} className="list-none">
-                        <SidebarMenuButton 
-                          asChild
-                          size="sm"
-                          isActive={pathname === subLink.href || (pathname.startsWith(subLink.href) && subLink.href !== '/inventory')}
-                          onClick={handleLinkClick}
-                          className="pl-3"
-                        >
-                          <Link href={subLink.href}>
-                            <LucideIcon name={subLink.icon as NavLinkIcon} className="h-3.5 w-3.5"/>
-                            {/* Label visibility handled by SidebarMenuButton for collapsed state */}
-                            <span>{subLink.label}</span>
-                          </Link>
-                        </SidebarMenuButton>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <SidebarMenuButton
+                              asChild
+                              size="sm"
+                              isActive={pathname === subLink.href || (pathname.startsWith(subLink.href) && subLink.href !== '/inventory')}
+                              onClick={handleLinkClick}
+                              className="pl-3"
+                            >
+                              <Link href={subLink.href}>
+                                <LucideIcon name={subLink.icon as NavLinkIcon} className="h-3.5 w-3.5"/>
+                                <span className={cn(
+                                  "flex-1 min-w-0 truncate",
+                                  isCollapsedAndDesktop && "hidden" // Label visibility in collapsed mode for sub-items
+                                )}>{subLink.label}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" align="center"
+                                           className={cn("bg-popover text-popover-foreground",
+                                                        {"hidden": !isCollapsedAndDesktop})}
+                          >
+                            {subLink.label}
+                          </TooltipContent>
+                        </Tooltip>
                       </li>
                     ))}
                   </ul>
@@ -111,7 +122,7 @@ export default function AppSidebarNavigation() {
                   <TooltipTrigger asChild>
                     <SidebarMenuButton
                       asChild
-                      size="default" // Ensure this is "default" or another appropriate size
+                      size="default"
                       isActive={isActiveDirect}
                       onClick={handleLinkClick}
                       className={cn(
@@ -122,7 +133,7 @@ export default function AppSidebarNavigation() {
                         <LucideIcon name={link.icon as NavLinkIcon} />
                         <span className={cn(
                           "flex-1 min-w-0 truncate",
-                           isCollapsedAndDesktop && "hidden" // Label visibility in collapsed mode
+                           isCollapsedAndDesktop && "hidden"
                         )}>{link.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -142,4 +153,3 @@ export default function AppSidebarNavigation() {
     </nav>
   );
 }
-
