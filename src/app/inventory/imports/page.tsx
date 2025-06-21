@@ -20,7 +20,7 @@ import { format, parse, isValid as isValidDate } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PlusCircle, Loader2, ImagePlus, UploadCloud, Camera, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter as DialogFooterComponent } from '@/components/ui/dialog'; // Renamed DialogFooter to avoid conflict
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -512,29 +512,27 @@ export default function ImportsPage() {
             {aiCameraOpen && (
               <Card className="mt-2">
                 <CardHeader><CardTitle className="text-base">Chụp Ảnh Phiếu Nhập</CardTitle></CardHeader>
-                <CardContent>
+                <CardContent className="relative">
+                  <video ref={aiVideoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay playsInline muted />
                   {aiHasCameraPermission === false && (
-                    <Alert variant="destructive">
-                      <AlertTitle>Không có quyền truy cập Camera</AlertTitle>
-                      <AlertDescription>Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.</AlertDescription>
-                    </Alert>
-                  )}
-                  {aiHasCameraPermission === true && (
-                    <video ref={aiVideoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay playsInline muted />
+                    <div className="absolute inset-0 flex flex-col justify-center items-center bg-background/90 rounded-md p-4">
+                      <Alert variant="destructive">
+                        <AlertTitle>Không có quyền truy cập Camera</AlertTitle>
+                        <AlertDescription>Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.</AlertDescription>
+                      </Alert>
+                    </div>
                   )}
                   {aiHasCameraPermission === null && (
-                    <div className="flex justify-center items-center h-32">
+                     <div className="absolute inset-0 flex flex-col justify-center items-center bg-background/90 rounded-md">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="ml-2 text-muted-foreground">Đang khởi tạo camera...</p>
+                      <p className="ml-2 text-muted-foreground mt-2">Đang khởi tạo camera...</p>
                     </div>
                   )}
                 </CardContent>
-                {aiHasCameraPermission === true && (
-                  <CardFooter className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setAiCameraOpen(false)}>Hủy</Button>
-                    <Button type="button" onClick={handleAiCaptureImage} disabled={!aiVideoRef.current?.srcObject}>Chụp</Button>
-                  </CardFooter>
-                )}
+                <CardFooter className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setAiCameraOpen(false)}>Hủy</Button>
+                  <Button type="button" onClick={handleAiCaptureImage} disabled={aiHasCameraPermission !== true}>Chụp</Button>
+                </CardFooter>
               </Card>
             )}
             <canvas ref={aiCanvasRef} className="hidden"></canvas>
