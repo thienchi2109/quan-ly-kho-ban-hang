@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -12,6 +11,7 @@ import { useRouter } from 'next/navigation';
 
 interface SimpleUser {
   email: string;
+  role: 'admin' | 'user';
 }
 
 interface AuthContextType {
@@ -59,7 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = userDoc.data();
 
       if (userData.password === pass) {
-        const userToStore: SimpleUser = { email: userData.email };
+        const userToStore: SimpleUser = { 
+            email: userData.email,
+            role: userData.role === 'admin' ? 'admin' : 'user' // Get role, default to 'user'
+        };
         setCurrentUser(userToStore);
         sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userToStore));
         return { success: true };

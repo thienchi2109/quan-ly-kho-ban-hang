@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
@@ -32,6 +31,7 @@ import { cn } from '@/lib/utils';
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal';
 import { Label } from '@/components/ui/label'; // Added Label
 import { useIsMobile } from '@/hooks/use-mobile'; // Added useIsMobile
+import { useAuth } from '@/contexts/AuthContext';
 
 type ExpenseFormValues = Omit<ExpenseEntry, 'id'>;
 
@@ -74,6 +74,7 @@ function dataURLtoFile(dataurl: string, filename: string): File | null {
 export default function ExpensesPage() {
   const { expenseEntries, addExpenseEntry, deleteExpenseEntry } = useData();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -326,10 +327,12 @@ export default function ExpensesPage() {
            <Button variant="ghost" size="icon" onClick={() => setViewingExpenseEntry(row.original)} title="Xem chi tiết">
             <Eye className="h-4 w-4" />
           </Button>
-          <DeleteConfirmDialog 
-            onConfirm={() => handleDelete(row.original.id)}
-            itemName={`khoản chi tiêu "${row.original.description || row.original.category}"`}
-          />
+          {currentUser?.role === 'admin' && (
+            <DeleteConfirmDialog 
+              onConfirm={() => handleDelete(row.original.id)}
+              itemName={`khoản chi tiêu "${row.original.description || row.original.category}"`}
+            />
+          )}
         </div>
       ),
     },
@@ -352,10 +355,12 @@ export default function ExpensesPage() {
             <Button variant="ghost" size="icon" onClick={() => setViewingExpenseEntry(expense)} title="Xem chi tiết">
                <Eye className="h-4 w-4" />
             </Button>
-            <DeleteConfirmDialog 
-              onConfirm={() => handleDelete(expense.id)}
-              itemName={`khoản chi tiêu "${expense.description || expense.category}"`}
-            />
+            {currentUser?.role === 'admin' && (
+              <DeleteConfirmDialog 
+                onConfirm={() => handleDelete(expense.id)}
+                itemName={`khoản chi tiêu "${expense.description || expense.category}"`}
+              />
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm pt-0">
@@ -392,12 +397,14 @@ export default function ExpensesPage() {
   return (
     <>
       <PageHeader title="Theo Dõi Chi Tiêu" description="Quản lý các khoản chi tiêu của bạn.">
-        <Button onClick={() => {
-          resetFormAndImageState();
-          setIsFormModalOpen(true);
-        }}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Thêm Mới
-        </Button>
+        {currentUser?.role === 'admin' && (
+          <Button onClick={() => {
+            resetFormAndImageState();
+            setIsFormModalOpen(true);
+          }}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Thêm Mới
+          </Button>
+        )}
       </PageHeader>
       <FormModal<ExpenseFormValues>
           title="Thêm Khoản Chi Tiêu Mới"

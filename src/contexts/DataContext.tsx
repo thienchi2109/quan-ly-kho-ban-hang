@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory, PaymentMethod, OrderDataForPayment } from '@/lib/types'; // Added ExpenseCategory
@@ -20,6 +19,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from './AuthContext';
 
 interface AppData {
   products: Product[];
@@ -76,6 +76,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   });
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { currentUser } = useAuth();
 
   const overallLoading = useMemo(() => {
     return Object.values(loadingStates).some(state => state === true);
@@ -171,6 +172,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [products, getProductStock]);
 
   const addProduct = async (productData: Omit<Product, 'id' | 'currentStock'>) => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       const dataToSave = { ...productData };
       await addDoc(productsCol, dataToSave);
@@ -182,6 +187,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProduct = async (productData: Product) => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       const { id, currentStock, ...dataToUpdate } = productData;
       const productRef = doc(db, 'products', id);
@@ -194,6 +203,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteProduct = async (productId: string) => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       const qTransactions = query(transactionsCol, where("productId", "==", productId));
       const transactionDocs = await getDocs(qTransactions);
@@ -212,6 +225,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       const newIncomeRef = doc(collection(db, 'incomeEntries'));
       if (batch) {
@@ -229,6 +246,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteIncomeEntry = async (entryId: string) => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'incomeEntries', entryId));
     } catch (e) {
@@ -239,6 +260,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addExpenseEntry = async (entryData: Omit<ExpenseEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       const newExpenseRef = doc(collection(db, 'expenseEntries'));
       if (batch) {
@@ -256,6 +281,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteExpenseEntry = async (entryId: string) => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'expenseEntries', entryId));
     } catch (e) {
@@ -266,6 +295,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addInventoryTransaction = async (transactionData: Omit<InventoryTransaction, 'id'>, currentBatch?: ReturnType<typeof writeBatch>): Promise<string | null> => {
+    if (currentUser?.role !== 'admin') {
+      const message = "Bạn không có quyền thực hiện hành động này.";
+      toast({ title: "Không có quyền", description: message, variant: "destructive" });
+      return message;
+    }
     try {
       if (transactionData.type === 'export') {
         const currentStock = getProductStock(transactionData.productId);
@@ -292,6 +326,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'>,
     isDraft: boolean
   ): Promise<string | undefined> => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     const localBatch = writeBatch(db);
     const newOrderRef = doc(collection(db, 'salesOrders'));
 
@@ -391,6 +429,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSalesOrderStatus = async (orderId: string, newStatus: SalesOrderStatus) => {
+    if (currentUser?.role !== 'admin') {
+      toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+      return;
+    }
     const localBatch = writeBatch(db);
     const orderRef = doc(db, 'salesOrders', orderId);
     let orderToUpdate = salesOrders.find(o => o.id === orderId);
@@ -570,4 +612,3 @@ export function useData(): AppContextType {
   }
   return context;
 }
-

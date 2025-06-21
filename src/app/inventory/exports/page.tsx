@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -21,12 +20,14 @@ import { vi } from 'date-fns/locale';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ExportFormValues = Omit<InventoryTransaction, 'id' | 'type'>;
 
 export default function ExportsPage() {
   const { products, inventoryTransactions, addInventoryTransaction, getProductById, getProductStock } = useData();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -133,18 +134,20 @@ export default function ExportsPage() {
   return (
     <>
       <PageHeader title="Xuất Kho" description="Ghi nhận các giao dịch xuất hàng khỏi kho.">
-        <Button onClick={() => {
-           form.reset({
-            productId: '',
-            quantity: 1,
-            date: format(new Date(), 'yyyy-MM-dd'),
-            relatedParty: '',
-            notes: '',
-           });
-           setIsModalOpen(true);
-        }}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Xuất
-        </Button>
+        {currentUser?.role === 'admin' && (
+          <Button onClick={() => {
+            form.reset({
+              productId: '',
+              quantity: 1,
+              date: format(new Date(), 'yyyy-MM-dd'),
+              relatedParty: '',
+              notes: '',
+            });
+            setIsModalOpen(true);
+          }}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Xuất
+          </Button>
+        )}
       </PageHeader>
       <FormModal<ExportFormValues>
           title="Tạo Phiếu Xuất Kho"

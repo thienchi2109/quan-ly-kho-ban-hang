@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react'; // Added useMemo
@@ -26,6 +25,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import IncomeDetailModal from '@/components/income/IncomeDetailModal';
 import { Label } from '@/components/ui/label'; // Added Label
 import { useIsMobile } from '@/hooks/use-mobile'; // Added useIsMobile
+import { useAuth } from '@/contexts/AuthContext';
 
 type IncomeFormValues = Omit<IncomeEntry, 'id'>;
 
@@ -52,6 +52,7 @@ const parseNumericFromDisplay = (displayValue: string): string => {
 export default function IncomePage() {
   const { incomeEntries, addIncomeEntry, deleteIncomeEntry } = useData();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewingIncomeEntry, setViewingIncomeEntry] = useState<IncomeEntry | null>(null);
@@ -145,10 +146,12 @@ export default function IncomePage() {
           <Button variant="ghost" size="icon" onClick={() => setViewingIncomeEntry(row.original)} title="Xem chi tiết">
             <Eye className="h-4 w-4" />
           </Button>
-          <DeleteConfirmDialog 
-            onConfirm={() => handleDelete(row.original.id)}
-            itemName={`khoản thu nhập "${row.original.description || row.original.category}"`}
-          />
+          {currentUser?.role === 'admin' && (
+            <DeleteConfirmDialog 
+              onConfirm={() => handleDelete(row.original.id)}
+              itemName={`khoản thu nhập "${row.original.description || row.original.category}"`}
+            />
+          )}
         </div>
       ),
     },
@@ -170,10 +173,12 @@ export default function IncomePage() {
              <Button variant="ghost" size="icon" onClick={() => setViewingIncomeEntry(income)} title="Xem chi tiết">
                <Eye className="h-4 w-4" />
              </Button>
-            <DeleteConfirmDialog 
-              onConfirm={() => handleDelete(income.id)}
-              itemName={`khoản thu nhập "${income.description || income.category}"`}
-            />
+             {currentUser?.role === 'admin' && (
+              <DeleteConfirmDialog 
+                onConfirm={() => handleDelete(income.id)}
+                itemName={`khoản thu nhập "${income.description || income.category}"`}
+              />
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-1 text-sm pt-0">
@@ -203,6 +208,7 @@ export default function IncomePage() {
   return (
     <>
       <PageHeader title="Theo Dõi Thu Nhập" description="Quản lý các nguồn thu nhập của bạn.">
+        {currentUser?.role === 'admin' && (
          <Button onClick={() => {
             form.reset({
               date: format(new Date(), 'yyyy-MM-dd'),
@@ -214,6 +220,7 @@ export default function IncomePage() {
           }}>
             <PlusCircle className="mr-2 h-4 w-4" /> Thêm Mới
         </Button>
+        )}
       </PageHeader>
        <FormModal<IncomeFormValues>
           title="Thêm Khoản Thu Nhập Mới"

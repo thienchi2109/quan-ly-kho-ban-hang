@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -13,7 +12,7 @@ import { FormModal } from '@/components/common/FormModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem as RHFFormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form"; // Renamed FormItem to RHFFormItem to avoid conflict
+import { Form, FormControl, FormField, FormItem, FormLabel as ShadcnFormLabel, FormMessage } from "@/components/ui/form"; 
 import { DataTable } from '@/components/common/DataTable';
 import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
@@ -50,6 +49,7 @@ import {
   type ExtractSalesNoteOutput, 
   type ExtractedSalesItem
 } from '@/ai/flows/extract-sales-note-flow';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 type SalesOrderFormValues = {
@@ -154,6 +154,7 @@ const SortableHeader = ({ column, title }: { column: any, title: string }) => {
 export default function SalesOrdersPage() {
   const { salesOrders, products, addSalesOrder, updateSalesOrderStatus, isLoading: isDataContextLoading, getProductStock, getProductById } = useData();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orderDataForPayment, setOrderDataForPayment] = useState<OrderDataForPayment | null>(null);
@@ -825,7 +826,7 @@ export default function SalesOrdersPage() {
     { accessorFn: row => row.finalAmount ?? row.totalAmount, id: 'finalAmount', header: ({ column }) => <SortableHeader column={column} title="Tổng TT" />, cell: ({ row }) => `${Number(row.original.finalAmount ?? row.original.totalAmount).toLocaleString('vi-VN')} đ` },
     { accessorKey: "totalProfit", header: ({ column }) => <SortableHeader column={column} title="Lợi Nhuận" />, cell: ({ row }) => { const profit = Number(row.getValue("totalProfit")); const profitColor = profit > 0 ? "text-green-600" : profit < 0 ? "text-red-600" : "text-muted-foreground"; return <span className={profitColor}>{profit.toLocaleString('vi-VN')} đ</span>; } },
     { accessorKey: "status", header: ({ column }) => <SortableHeader column={column} title="Trạng Thái" />, cell: ({ row }) => { const status = row.getValue<SalesOrderStatus>("status"); return ( <span className={cn( "px-2 py-1 rounded-md text-xs font-medium", status === "Mới" && "bg-blue-500 text-white", status === "Hoàn thành" && "bg-green-500 text-white", status === "Đã hủy" && "bg-red-500 text-white", )}>{status}</span> ); }, },
-    { id: "actions", cell: ({ row }) => ( <DropdownMenu> <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Mở menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger> <DropdownMenuContent align="end"> <DropdownMenuItem onClick={() => setViewingOrder(row.original)}><Eye className="mr-2 h-4 w-4" />Xem Chi Tiết</DropdownMenuItem> {row.original.status === 'Hoàn thành' && ( <DropdownMenuItem onClick={() => handlePrintOrderFromTable(row.original)}><Printer className="mr-2 h-4 w-4" />In Hóa Đơn</DropdownMenuItem> )} <DropdownMenuSeparator /> {row.original.status === 'Mới' && ( <DropdownMenuItem onClick={() => { const o = row.original; setOrderDataForPayment({ customerName: o.customerName, date: o.date, items: o.items.map(i=>({productId: i.productId, productName: i.productName, quantity: i.quantity, unitPrice: i.unitPrice, costPrice: i.costPrice})), notes: o.notes, currentOrderTotal: o.totalAmount, existingOrderId: o.id } as OrderDataForPayment & { existingOrderId?: string }); setIsPaymentModalOpen(true); }}><DollarSign className="mr-2 h-4 w-4" />Thanh Toán Đơn Này</DropdownMenuItem> )} {row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}><Trash2 className="mr-2 h-4 w-4" />Hủy Đơn Hàng</DropdownMenuItem> )} </DropdownMenuContent> </DropdownMenu> ), },
+    { id: "actions", cell: ({ row }) => ( <DropdownMenu> <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Mở menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger> <DropdownMenuContent align="end"> <DropdownMenuItem onClick={() => setViewingOrder(row.original)}><Eye className="mr-2 h-4 w-4" />Xem Chi Tiết</DropdownMenuItem> {row.original.status === 'Hoàn thành' && ( <DropdownMenuItem onClick={() => handlePrintOrderFromTable(row.original)}><Printer className="mr-2 h-4 w-4" />In Hóa Đơn</DropdownMenuItem> )} {currentUser?.role === 'admin' && <DropdownMenuSeparator />} {currentUser?.role === 'admin' && row.original.status === 'Mới' && ( <DropdownMenuItem onClick={() => { const o = row.original; setOrderDataForPayment({ customerName: o.customerName, date: o.date, items: o.items.map(i=>({productId: i.productId, productName: i.productName, quantity: i.quantity, unitPrice: i.unitPrice, costPrice: i.costPrice})), notes: o.notes, currentOrderTotal: o.totalAmount, existingOrderId: o.id } as OrderDataForPayment & { existingOrderId?: string }); setIsPaymentModalOpen(true); }}><DollarSign className="mr-2 h-4 w-4" />Thanh Toán Đơn Này</DropdownMenuItem> )} {currentUser?.role === 'admin' && row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}><Trash2 className="mr-2 h-4 w-4" />Hủy Đơn Hàng</DropdownMenuItem> )} </DropdownMenuContent> </DropdownMenu> ), },
   ];
 
   const renderSalesOrderCard = (row: Row<SalesOrder>): React.ReactNode => {
@@ -841,16 +842,20 @@ export default function SalesOrdersPage() {
   return (
     <>
       <PageHeader title="Quản Lý Đơn Hàng Bán" description="Tạo và theo dõi các đơn hàng bán ra.">
-        <Button onClick={() => { createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; setIsCreateOrderModalOpen(true); }}>
-          <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
-        </Button>
-        <Button variant="outline" onClick={() => { 
-          resetAiSalesNoteModalState(); 
-          setIsCreateOrderModalOpen(false); // Đóng modal form chính nếu đang mở
-          setIsAiSalesNoteModalOpen(true); 
-        }}>
-          <ImagePlus className="mr-2 h-4 w-4" /> AI Nhập từ Ảnh
-        </Button>
+        {currentUser?.role === 'admin' && (
+          <>
+            <Button onClick={() => { createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; setIsCreateOrderModalOpen(true); }}>
+              <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
+            </Button>
+            <Button variant="outline" onClick={() => { 
+              resetAiSalesNoteModalState(); 
+              setIsCreateOrderModalOpen(false); // Đóng modal form chính nếu đang mở
+              setIsAiSalesNoteModalOpen(true); 
+            }}>
+              <ImagePlus className="mr-2 h-4 w-4" /> AI Nhập từ Ảnh
+            </Button>
+          </>
+        )}
       </PageHeader>
 
       <Card className="mb-6">
@@ -888,26 +893,26 @@ export default function SalesOrdersPage() {
                   control={createOrderForm.control}
                   name="date"
                   render={({ field }) => (
-                    <RHFFormItem>
+                    <FormItem>
                       <ShadcnFormLabel>Ngày Tạo Đơn</ShadcnFormLabel>
                       <FormControl>
                         <Input type="date" {...field} className="h-10 pr-2"/>
                       </FormControl>
                       <FormMessage />
-                    </RHFFormItem>
+                    </FormItem>
                   )}
                 />
                 <FormField
                   control={createOrderForm.control}
                   name="customerName"
                   render={({ field }) => (
-                    <RHFFormItem>
+                    <FormItem>
                       <ShadcnFormLabel>Tên Khách Hàng (tùy chọn)</ShadcnFormLabel>
                       <FormControl>
                         <Input ref={customerNameInputRef} placeholder="Nhập tên khách hàng" {...field} className="h-10"/>
                       </FormControl>
                       <FormMessage />
-                    </RHFFormItem>
+                    </FormItem>
                   )}
                 />
               </div>
@@ -926,7 +931,7 @@ export default function SalesOrdersPage() {
                             control={createOrderForm.control}
                             name={`items.${index}.productId`}
                             render={({ field }) => (
-                              <RHFFormItem>
+                              <FormItem>
                                 <ShadcnFormLabel>Sản Phẩm</ShadcnFormLabel>
                                 <FormControl>
                                   <SearchableProductSelect
@@ -940,14 +945,14 @@ export default function SalesOrdersPage() {
                                   />
                                 </FormControl>
                                 <FormMessage />
-                              </RHFFormItem>
+                              </FormItem>
                             )}
                           />
                           <FormField
                             control={createOrderForm.control}
                             name={`items.${index}.quantity`}
                             render={({ field: qField }) => (
-                              <RHFFormItem>
+                              <FormItem>
                                 <ShadcnFormLabel>Số Lượng</ShadcnFormLabel>
                                 <div className="flex items-center gap-1.5">
                                   <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustItemQuantityWithButtons(index, -1)} disabled={!p || q <= 1}>
@@ -975,7 +980,7 @@ export default function SalesOrdersPage() {
                                   </Button>
                                 </div>
                                 <FormMessage />
-                              </RHFFormItem>
+                              </FormItem>
                             )}
                           />
                         </div>
@@ -984,13 +989,13 @@ export default function SalesOrdersPage() {
                             control={createOrderForm.control}
                             name={`items.${index}.unitPrice`}
                             render={({ field: pField }) => (
-                              <RHFFormItem className="md:col-span-3">
+                              <FormItem className="md:col-span-3">
                                 <ShadcnFormLabel>Đơn Giá</ShadcnFormLabel>
                                 <FormControl>
                                   <Input type="number" placeholder="0" min="0" {...pField} value={pField.value || ''} onChange={e => pField.onChange(parseFloat(e.target.value) || 0)} disabled={!p} className="h-10"/>
                                 </FormControl>
                                 <FormMessage />
-                              </RHFFormItem>
+                              </FormItem>
                             )}
                           />
                           <div className="md:col-span-3">
@@ -1023,13 +1028,13 @@ export default function SalesOrdersPage() {
                 control={createOrderForm.control}
                 name="notes"
                 render={({ field }) => (
-                  <RHFFormItem>
+                  <FormItem>
                     <ShadcnFormLabel>Ghi Chú (tùy chọn)</ShadcnFormLabel>
                     <FormControl>
                       <Textarea placeholder="Thông tin thêm về đơn hàng..." {...field} />
                     </FormControl>
                     <FormMessage />
-                  </RHFFormItem>
+                  </FormItem>
                 )}
               />
               <div className="flex justify-end gap-2 pt-6">
@@ -1105,10 +1110,12 @@ export default function SalesOrdersPage() {
                       </div>
                     )}
                   </CardContent>
+                  {aiSalesNoteHasCameraPermission === true && (
                   <CardFooter className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setAiSalesNoteCameraOpen(false)}>Hủy</Button>
-                    <Button type="button" onClick={handleAiSalesNoteCaptureImage} disabled={aiSalesNoteHasCameraPermission !== true}>Chụp</Button>
+                    <Button type="button" onClick={handleAiSalesNoteCaptureImage} disabled={!aiSalesNoteVideoRef.current?.srcObject}>Chụp</Button>
                   </CardFooter>
+                  )}
                 </Card>
               )}
               <canvas ref={aiSalesNoteCanvasRef} className="hidden"></canvas>

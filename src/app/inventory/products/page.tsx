@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -26,6 +25,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from "@/components/ui/slider";
+import { useAuth } from '@/contexts/AuthContext';
 
 type ProductFormValues = ProductFormValuesType;
 
@@ -68,6 +68,7 @@ const SortableHeader = ({ column, title }: { column: any, title: string }) => {
 export default function ProductsPage() {
   const { products, addProduct, updateProduct, deleteProduct, getProductStock } = useData();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   
   // State for modal editing (add/edit via modal)
   const [editingProductModal, setEditingProductModal] = useState<Product | null>(null);
@@ -147,6 +148,7 @@ export default function ProductsPage() {
 
   // --- Inline Editing Handlers ---
   const startEditingRow = useCallback((product: Product) => {
+    if (currentUser?.role !== 'admin') return;
     if (editingRowId === product.id) return; // Already editing this row
     if (editingRowId && editingRowId !== product.id) {
       // If another row is being edited, prompt to save/cancel or auto-cancel
@@ -166,7 +168,7 @@ export default function ProductsPage() {
     };
     setEditingRowId(product.id);
     inlineFormMethods.reset(formData);
-  }, [editingRowId, inlineFormMethods, toast]);
+  }, [editingRowId, inlineFormMethods, toast, currentUser?.role]);
 
   const onSaveInlineEdit = async (data: ProductFormValues) => {
     if (!editingRowId) return;
@@ -224,7 +226,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className="min-h-[32px] flex items-center p-1 -m-1 cursor-pointer">{row.original.name}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.name}</div>;
       }
     },
     { 
@@ -241,7 +243,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className="min-h-[32px] flex items-center p-1 -m-1 cursor-pointer">{row.original.sku || 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.sku || 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -270,7 +272,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className="min-h-[32px] flex items-center p-1 -m-1 cursor-pointer">{row.original.unit}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.unit}</div>;
       }
     },
     { 
@@ -296,7 +298,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className="min-h-[32px] flex items-center p-1 -m-1 cursor-pointer">{row.original.costPrice !== undefined ? row.original.costPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.costPrice !== undefined ? row.original.costPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -323,7 +325,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className="min-h-[32px] flex items-center p-1 -m-1 cursor-pointer">{row.original.sellingPrice !== undefined ? row.original.sellingPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.sellingPrice !== undefined ? row.original.sellingPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -364,7 +366,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className="min-h-[32px] flex items-center p-1 -m-1 cursor-pointer">{row.original.minStockLevel ?? 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.minStockLevel ?? 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -382,6 +384,9 @@ export default function ProductsPage() {
     {
       id: "actions",
       cell: ({ row }) => {
+        if (currentUser?.role !== 'admin') {
+          return null; // No actions for non-admins
+        }
         const isEditingThisRow = editingRowId === row.original.id;
         if (isEditingThisRow) {
           return (
@@ -445,42 +450,43 @@ export default function ProductsPage() {
           {product.costPrice !== undefined && ( <div className="flex justify-between"> <span className="text-muted-foreground font-medium">Giá vốn:</span> <span>{product.costPrice.toLocaleString('vi-VN')} đ</span> </div> )}
           {product.minStockLevel !== undefined && ( <div className="flex justify-between"> <span className="text-muted-foreground font-medium">Tồn tối thiểu:</span> <span>{product.minStockLevel}</span> </div> )}
         </CardContent>
-        <CardFooter className="flex justify-end pt-4">
-           {/* For mobile, edit is via modal for simplicity, not inline */}
-           <Button variant="outline" size="sm" onClick={() => {
-             setEditingProductModal(row.original);
-             setOpenedEditModalId(row.original.id);
-           }}>
-             <Edit2 className="h-3 w-3 mr-1" /> Sửa
-           </Button>
-            <FormModal<ProductFormValues> // This modal is for mobile view, if "Sửa" on card is clicked
-              title="Chỉnh Sửa Sản Phẩm"
-              formId={`product-form-edit-modal-${row.original.id}`}
-              open={openedEditModalId === row.original.id && editingProductModal?.id === row.original.id}
-              onOpenChange={(modalIsOpen) => {
-                if (!modalIsOpen) {
-                  setOpenedEditModalId(null);
-                  setEditingProductModal(null); 
-                }
-              }}
-            >
-            {(closeModal) => (
-                <ProductFormContent
-                  key={`modal-edit-form-${row.original.id}`}
-                  editingProductFull={row.original} // Pass the full product for modal editing
-                  onSubmit={(formValues) => handleModalFormSubmit(formValues, row.original, closeModal)}
-                  closeModalSignal={closeModal}
-                  isEditing={true}
-                  formHtmlId={`product-form-edit-modal-${row.original.id}`}
-                />
-              )}
-          </FormModal>
-           <DeleteConfirmDialog 
-            onConfirm={() => handleDelete(row.original.id)}
-            itemName={`sản phẩm "${row.original.name}"`}
-            triggerButton={<Button variant="ghost" size="sm" className="text-destructive ml-2"><Trash2 className="h-3 w-3 mr-1"/> Xóa</Button>}
-          />
-        </CardFooter>
+        {currentUser?.role === 'admin' && (
+          <CardFooter className="flex justify-end pt-4">
+            <Button variant="outline" size="sm" onClick={() => {
+              setEditingProductModal(row.original);
+              setOpenedEditModalId(row.original.id);
+            }}>
+              <Edit2 className="h-3 w-3 mr-1" /> Sửa
+            </Button>
+              <FormModal<ProductFormValues> // This modal is for mobile view, if "Sửa" on card is clicked
+                title="Chỉnh Sửa Sản Phẩm"
+                formId={`product-form-edit-modal-${row.original.id}`}
+                open={openedEditModalId === row.original.id && editingProductModal?.id === row.original.id}
+                onOpenChange={(modalIsOpen) => {
+                  if (!modalIsOpen) {
+                    setOpenedEditModalId(null);
+                    setEditingProductModal(null); 
+                  }
+                }}
+              >
+              {(closeModal) => (
+                  <ProductFormContent
+                    key={`modal-edit-form-${row.original.id}`}
+                    editingProductFull={row.original} // Pass the full product for modal editing
+                    onSubmit={(formValues) => handleModalFormSubmit(formValues, row.original, closeModal)}
+                    closeModalSignal={closeModal}
+                    isEditing={true}
+                    formHtmlId={`product-form-edit-modal-${row.original.id}`}
+                  />
+                )}
+            </FormModal>
+            <DeleteConfirmDialog 
+              onConfirm={() => handleDelete(row.original.id)}
+              itemName={`sản phẩm "${row.original.name}"`}
+              triggerButton={<Button variant="ghost" size="sm" className="text-destructive ml-2"><Trash2 className="h-3 w-3 mr-1"/> Xóa</Button>}
+            />
+          </CardFooter>
+        )}
       </Card>
     );
   };
@@ -488,25 +494,27 @@ export default function ProductsPage() {
   return (
     <>
       <PageHeader title="Quản Lý Sản Phẩm" description="Thêm mới, chỉnh sửa và xem danh sách sản phẩm của bạn.">
-        <FormModal<ProductFormValues>
-          title="Thêm Sản Phẩm Mới"
-          description="Điền thông tin chi tiết về sản phẩm."
-          formId="product-form-main-new-modal"
-          key="add-new-product-modal-main" 
-          triggerButton={<Button><PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm</Button>}
-          onOpenChange={(isOpen) => { if (isOpen) { setEditingProductModal(null); setOpenedEditModalId(null); } }}
-        >
-          {(closeModal) => (
-            <ProductFormContent
-              key={"new-product-form-content-main-modal"} 
-              editingProductFull={null}
-              onSubmit={(formValues) => handleModalFormSubmit(formValues, null, closeModal)}
-              closeModalSignal={closeModal}
-              isEditing={false}
-              formHtmlId="product-form-main-new-modal"
-            />
-          )}
-        </FormModal>
+        {currentUser?.role === 'admin' && (
+          <FormModal<ProductFormValues>
+            title="Thêm Sản Phẩm Mới"
+            description="Điền thông tin chi tiết về sản phẩm."
+            formId="product-form-main-new-modal"
+            key="add-new-product-modal-main" 
+            triggerButton={<Button><PlusCircle className="mr-2 h-4 w-4" /> Thêm Sản Phẩm</Button>}
+            onOpenChange={(isOpen) => { if (isOpen) { setEditingProductModal(null); setOpenedEditModalId(null); } }}
+          >
+            {(closeModal) => (
+              <ProductFormContent
+                key={"new-product-form-content-main-modal"} 
+                editingProductFull={null}
+                onSubmit={(formValues) => handleModalFormSubmit(formValues, null, closeModal)}
+                closeModalSignal={closeModal}
+                isEditing={false}
+                formHtmlId="product-form-main-new-modal"
+              />
+            )}
+          </FormModal>
+        )}
       </PageHeader>
       <Form {...inlineFormMethods}> {/* FormProvider for inline editing */}
         <Card>
@@ -642,6 +650,3 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
-    
-
-    

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -27,6 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import Image from 'next/image';
 import { extractImportNoteInfo, ExtractImportNoteOutput } from '@/ai/flows/extract-import-note-flow';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ImportFormValues = Omit<InventoryTransaction, 'id' | 'type'>;
 
@@ -85,6 +85,7 @@ const fuzzyMatchProduct = (productNameGuess: string, products: Product[]): Produ
 export default function ImportsPage() {
   const { products, inventoryTransactions, addInventoryTransaction, getProductById } = useData();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -348,21 +349,25 @@ export default function ImportsPage() {
   return (
     <>
       <PageHeader title="Nhập Kho" description="Ghi nhận các giao dịch nhập hàng vào kho.">
-         <Button onClick={() => {
-           form.reset({
-            productId: '',
-            quantity: 1,
-            date: format(new Date(), 'yyyy-MM-dd'),
-            relatedParty: '',
-            notes: '',
-           });
-           setIsModalOpen(true);
-         }}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Nhập
-        </Button>
-        <Button variant="outline" onClick={() => { resetAiImportModalState(); setIsAiImportModalOpen(true); }}>
-          <ImagePlus className="mr-2 h-4 w-4" /> Nhập liệu AI từ ảnh
-        </Button>
+        {currentUser?.role === 'admin' && (
+          <>
+            <Button onClick={() => {
+              form.reset({
+                productId: '',
+                quantity: 1,
+                date: format(new Date(), 'yyyy-MM-dd'),
+                relatedParty: '',
+                notes: '',
+              });
+              setIsModalOpen(true);
+            }}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Tạo Phiếu Nhập
+            </Button>
+            <Button variant="outline" onClick={() => { resetAiImportModalState(); setIsAiImportModalOpen(true); }}>
+              <ImagePlus className="mr-2 h-4 w-4" /> Nhập liệu AI từ ảnh
+            </Button>
+          </>
+        )}
       </PageHeader>
       <FormModal<ImportFormValues>
           title="Tạo Phiếu Nhập Kho"
@@ -564,4 +569,3 @@ export default function ImportsPage() {
     </>
   );
 }
-
