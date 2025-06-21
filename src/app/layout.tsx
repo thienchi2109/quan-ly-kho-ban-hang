@@ -10,8 +10,8 @@ import AppLayout from '@/components/layout/AppLayout';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'QUẢN LÝ KHO - THU CHI',
-  description: 'Ứng dụng quản lý kho và thu chi cá nhân/doanh nghiệp nhỏ',
+  title: 'Quản Lý Bán Hàng',
+  description: 'Ứng dụng quản lý bán hàng, kho và thu chi cá nhân/doanh nghiệp nhỏ',
   manifest: '/manifest.json', // Link to the manifest file
 };
 

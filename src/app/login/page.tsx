@@ -71,19 +71,19 @@ export default function LoginPage() {
           <CardHeader className="text-center">
             <div className="mx-auto mb-6">
               <Image
-                src="/icons/logo.png"
+                src="https://i.postimg.cc/QdZWSSZ6/inventory-5858355.png"
                 alt="App Logo"
                 width={80}
                 height={80}
                 priority
-                data-ai-hint="logo company"
+                data-ai-hint="logo inventory"
               />
             </div>
             <CardTitle className="text-3xl font-bold font-headline text-primary">
-              Đăng Nhập
+              Quản Lý Bán Hàng
             </CardTitle>
             <CardDescription className="text-muted-foreground pt-1">
-              Nhập thông tin của bạn để tiếp tục.
+              Đăng nhập vào tài khoản của bạn.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 px-8 py-6">

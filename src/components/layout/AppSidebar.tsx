@@ -4,20 +4,28 @@
 import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter } from '@/components/ui/sidebar';
 import AppSidebarNavigation from './AppSidebarNavigation';
 import { Button } from '@/components/ui/button';
-import { LogOut, Package2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import Image from 'next/image';
 
 export default function AppSidebar() {
-  const { logout } = useAuth(); // Get logout function
+  const { logout } = useAuth();
 
   return (
     <Sidebar side="left" variant="sidebar" collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex h-14 items-center px-4">
-          <Package2 className="h-6 w-6 mr-2 text-sidebar-primary" />
-          <h1 className="text-lg font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-            QUẢN LÝ KHO
-          </h1>
+      <SidebarHeader className="border-b border-sidebar-border p-0">
+        <div className="flex h-24 flex-col items-center justify-center p-2 group-data-[collapsible=icon]:h-14">
+            <Image
+            src="https://i.postimg.cc/QdZWSSZ6/inventory-5858355.png"
+            alt="App Logo"
+            width={48}
+            height={48}
+            className="transition-all group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8"
+            data-ai-hint="logo inventory"
+            />
+            <h1 className="mt-2 text-md font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                Quản Lý Bán Hàng
+            </h1>
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
