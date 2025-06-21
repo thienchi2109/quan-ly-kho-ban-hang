@@ -1086,11 +1086,30 @@ export default function SalesOrdersPage() {
               {isAiSalesNoteProcessing && ( <div className="flex flex-col items-center justify-center space-y-2 p-6"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-muted-foreground">AI đang phân tích ảnh...</p><Skeleton className="h-4 w-3/4 mt-2" /><Skeleton className="h-4 w-1/2" /></div> )}
               
               {aiSalesNoteCameraOpen && (
-                <Card className="mt-2"><CardHeader><CardTitle className="text-base">Chụp Ảnh Phiếu Bán</CardTitle></CardHeader><CardContent>
-                    {aiSalesNoteHasCameraPermission === false && (<Alert variant="destructive"><AlertTitle>Không có quyền Camera</AlertTitle><AlertDescription>Vui lòng cấp quyền camera.</AlertDescription></Alert>)}
-                    {aiSalesNoteHasCameraPermission === true && (<video ref={aiSalesNoteVideoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay playsInline muted />)}
-                    {aiSalesNoteHasCameraPermission === null && (<div className="flex justify-center items-center h-32"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Đang khởi tạo camera...</p></div>)}
-                </CardContent>{aiSalesNoteHasCameraPermission === true && (<CardFooter className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setAiSalesNoteCameraOpen(false)}>Hủy</Button><Button type="button" onClick={handleAiSalesNoteCaptureImage} disabled={!aiSalesNoteVideoRef.current?.srcObject}>Chụp</Button></CardFooter>)}</Card>
+                <Card className="mt-2">
+                  <CardHeader><CardTitle className="text-base">Chụp Ảnh Phiếu Bán</CardTitle></CardHeader>
+                  <CardContent className="relative">
+                    <video ref={aiSalesNoteVideoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay playsInline muted />
+                    {aiSalesNoteHasCameraPermission === false && (
+                      <div className="absolute inset-0 flex flex-col justify-center items-center bg-background/90 rounded-md p-4">
+                        <Alert variant="destructive">
+                          <AlertTitle>Không có quyền truy cập Camera</AlertTitle>
+                          <AlertDescription>Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.</AlertDescription>
+                        </Alert>
+                      </div>
+                    )}
+                    {aiSalesNoteHasCameraPermission === null && (
+                       <div className="absolute inset-0 flex flex-col justify-center items-center bg-background/90 rounded-md">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="ml-2 text-muted-foreground mt-2">Đang khởi tạo camera...</p>
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setAiSalesNoteCameraOpen(false)}>Hủy</Button>
+                    <Button type="button" onClick={handleAiSalesNoteCaptureImage} disabled={aiSalesNoteHasCameraPermission !== true}>Chụp</Button>
+                  </CardFooter>
+                </Card>
               )}
               <canvas ref={aiSalesNoteCanvasRef} className="hidden"></canvas>
 
@@ -1188,8 +1207,6 @@ export default function SalesOrdersPage() {
                   type="button"
                   onClick={() => {
                     setIsAiSalesNoteModalOpen(false);
-                    // Không reset state AI ở đây để người dùng có thể mở lại nếu cần.
-                    // State AI sẽ được reset khi mở modal AI lần tiếp theo.
                     setIsCreateOrderModalOpen(true); 
                   }}
                   disabled={isAiSalesNoteProcessing}
@@ -1214,5 +1231,3 @@ export default function SalesOrdersPage() {
     </>
   );
 }
-
-    
