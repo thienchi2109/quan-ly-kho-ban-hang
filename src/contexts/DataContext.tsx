@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory, PaymentMethod, OrderDataForPayment } from '@/lib/types'; // Added ExpenseCategory
@@ -148,28 +149,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Optimized transaction summary calculation
+  const transactionSummary = useMemo(() => {
+    const summary = new Map<string, { imports: number; exports: number }>();
+    inventoryTransactions.forEach(t => {
+      const current = summary.get(t.productId) ?? { imports: 0, exports: 0 };
+      if (t.type === 'import') {
+        current.imports += t.quantity;
+      } else if (t.type === 'export') {
+        current.exports += t.quantity;
+      }
+      summary.set(t.productId, current);
+    });
+    return summary;
+  }, [inventoryTransactions]);
+
+  // Optimized product stock calculation using the summary
+  const productsWithCurrentStock = useMemo(() => {
+    return products.map(product => {
+      const summary = transactionSummary.get(product.id);
+      const stock = (product.initialStock || 0) + (summary?.imports || 0) - (summary?.exports || 0);
+      return {
+        ...product,
+        currentStock: stock,
+      };
+    });
+  }, [products, transactionSummary]);
+
+  // Optimized getProductStock function
   const getProductStock = useCallback((productId: string): number => {
     const product = products.find(p => p.id === productId);
     if (!product) return 0;
-    let stock = product.initialStock || 0;
-    inventoryTransactions.forEach(transaction => {
-      if (transaction.productId === productId) {
-        if (transaction.type === 'import') {
-          stock += transaction.quantity;
-        } else if (transaction.type === 'export') {
-          stock -= transaction.quantity;
-        }
-      }
-    });
-    return stock;
-  }, [products, inventoryTransactions]);
-
-  const productsWithCurrentStock = useMemo(() => {
-    return products.map(product => ({
-      ...product,
-      currentStock: getProductStock(product.id)
-    }));
-  }, [products, getProductStock]);
+    const summary = transactionSummary.get(productId);
+    return (product.initialStock || 0) + (summary?.imports || 0) - (summary?.exports || 0);
+  }, [products, transactionSummary]);
 
   const addProduct = async (productData: Omit<Product, 'id' | 'currentStock'>) => {
     if (currentUser?.role !== 'admin') {
