@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -618,7 +619,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
     
     useEffect(() => {
         modalFormMethods.reset(getInitialFormValues());
-    }, [editingProductFull, modalFormMethods, getInitialFormValues]);
+    }, [editingProductFull, getInitialFormValues]);
 
     const handleInternalSubmit = async (data: ProductFormValues) => {
         setIsSubmitting(true);
@@ -650,3 +651,5 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
+
+    
