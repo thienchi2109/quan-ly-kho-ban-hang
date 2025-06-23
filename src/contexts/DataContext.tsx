@@ -185,7 +185,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [products, transactionSummary]);
 
   const addProduct = async (productData: Omit<Product, 'id' | 'currentStock'>) => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -200,14 +200,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProduct = async (productData: Product) => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
     try {
       const { id, currentStock, ...dataToUpdate } = productData;
+      
+      // Sanitize the object to remove undefined fields before sending to Firestore
+      const sanitizedData = Object.fromEntries(
+        Object.entries(dataToUpdate).filter(([, value]) => value !== undefined)
+      );
+      
       const productRef = doc(db, 'products', id);
-      await updateDoc(productRef, dataToUpdate);
+      await updateDoc(productRef, sanitizedData);
     } catch (e) {
       console.error("Error updating product: ", e);
       toast({ title: "Lỗi", description: "Không thể cập nhật sản phẩm.", variant: "destructive" });
@@ -216,7 +222,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteProduct = async (productId: string) => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -238,7 +244,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -259,7 +265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteIncomeEntry = async (entryId: string) => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -273,7 +279,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addExpenseEntry = async (entryData: Omit<ExpenseEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -294,7 +300,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteExpenseEntry = async (entryId: string) => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -308,7 +314,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addInventoryTransaction = async (transactionData: Omit<InventoryTransaction, 'id'>, currentBatch?: ReturnType<typeof writeBatch>): Promise<string | null> => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       const message = "Bạn không có quyền thực hiện hành động này.";
       toast({ title: "Không có quyền", description: message, variant: "destructive" });
       return message;
@@ -339,7 +345,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'totalProfit' | 'totalCost'>,
     isDraft: boolean
   ): Promise<string | undefined> => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
@@ -443,7 +449,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSalesOrderStatus = async (orderId: string, newStatus: SalesOrderStatus) => {
-    if (currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }

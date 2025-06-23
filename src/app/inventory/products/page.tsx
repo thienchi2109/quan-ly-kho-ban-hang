@@ -142,17 +142,17 @@ export default function ProductsPage() {
     closeModalFn();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     deleteProduct(id);
     toast({ title: "Đã xóa", description: "Đã xóa sản phẩm.", variant: "destructive" });
-  };
+  }, [deleteProduct, toast]);
+
 
   // --- Inline Editing Handlers ---
   const startEditingRow = useCallback((product: Product) => {
-    if (currentUser?.role !== 'admin') return;
-    if (editingRowId === product.id) return; // Already editing this row
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') return;
+    if (editingRowId === product.id) return; 
     if (editingRowId && editingRowId !== product.id) {
-      // If another row is being edited, prompt to save/cancel or auto-cancel
       toast({ title: "Thông báo", description: "Vui lòng Lưu hoặc Hủy thay đổi ở dòng hiện tại trước.", variant: "default" });
       return;
     }
@@ -164,8 +164,8 @@ export default function ProductsPage() {
       costPrice: product.costPrice === undefined || product.costPrice === null ? '' : product.costPrice,
       sellingPrice: product.sellingPrice === undefined || product.sellingPrice === null ? '' : product.sellingPrice,
       minStockLevel: product.minStockLevel === undefined || product.minStockLevel === null ? '' : product.minStockLevel,
-      initialStock: product.initialStock, // For form state, not editable inline
-      imageUrl: product.imageUrl || '', // For form state, not editable inline
+      initialStock: product.initialStock, 
+      imageUrl: product.imageUrl || '', 
     };
     setEditingRowId(product.id);
     inlineFormMethods.reset(formData);
@@ -190,7 +190,7 @@ export default function ProductsPage() {
     const productToUpdate: Product = {
       id: editingRowId,
       name: data.name,
-      sku: data.sku || undefined,
+      sku: data.sku,
       unit: data.unit,
       costPrice: costPriceFinal,
       sellingPrice: sellingPriceFinal,
@@ -207,12 +207,12 @@ export default function ProductsPage() {
     inlineFormMethods.reset();
   };
 
-  const onCancelInlineEdit = () => {
+  const onCancelInlineEdit = useCallback(() => {
     setEditingRowId(null);
     inlineFormMethods.reset(); // Clear form
-  };
+  }, [inlineFormMethods]);
 
-  const columns: ColumnDef<Product>[] = [
+  const columns = useMemo<ColumnDef<Product>[]>(() => [
     { 
       accessorKey: "name", 
       header: ({ column }) => <SortableHeader column={column} title="Tên Sản Phẩm" />,
@@ -227,7 +227,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.name}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", (currentUser?.role === 'admin' || currentUser?.role === 'demo') && "cursor-pointer")}>{row.original.name}</div>;
       }
     },
     { 
@@ -244,7 +244,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.sku || 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", (currentUser?.role === 'admin' || currentUser?.role === 'demo') && "cursor-pointer")}>{row.original.sku || 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -273,7 +273,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.unit}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", (currentUser?.role === 'admin' || currentUser?.role === 'demo') && "cursor-pointer")}>{row.original.unit}</div>;
       }
     },
     { 
@@ -299,7 +299,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.costPrice !== undefined ? row.original.costPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", (currentUser?.role === 'admin' || currentUser?.role === 'demo') && "cursor-pointer")}>{row.original.costPrice !== undefined ? row.original.costPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -326,7 +326,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.sellingPrice !== undefined ? row.original.sellingPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", (currentUser?.role === 'admin' || currentUser?.role === 'demo') && "cursor-pointer")}>{row.original.sellingPrice !== undefined ? row.original.sellingPrice.toLocaleString('vi-VN') + ' đ' : 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -367,7 +367,7 @@ export default function ProductsPage() {
             />
           );
         }
-        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", currentUser?.role === 'admin' && "cursor-pointer")}>{row.original.minStockLevel ?? 'N/A'}</div>;
+        return <div onDoubleClick={() => startEditingRow(row.original)} className={cn("min-h-[32px] flex items-center p-1 -m-1", (currentUser?.role === 'admin' || currentUser?.role === 'demo') && "cursor-pointer")}>{row.original.minStockLevel ?? 'N/A'}</div>;
       },
       enableHiding: true,
     },
@@ -385,7 +385,7 @@ export default function ProductsPage() {
     {
       id: "actions",
       cell: ({ row }) => {
-        if (currentUser?.role !== 'admin') {
+        if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
           return null; // No actions for non-admins
         }
         const isEditingThisRow = editingRowId === row.original.id;
@@ -395,7 +395,7 @@ export default function ProductsPage() {
               <Button type="submit" variant="ghost" size="icon" disabled={isSubmittingInline} title="Lưu">
                 {isSubmittingInline ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-green-600" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={onCancelInlineEdit} disabled={isSubmittingInline} title="Hủy">
+              <Button type="button" variant="ghost" size="icon" onClick={onCancelInlineEdit} disabled={isSubmittingInline} title="Hủy">
                 <XCircle className="h-4 w-4 text-red-600" />
               </Button>
             </div>
@@ -414,7 +414,7 @@ export default function ProductsPage() {
         );
       },
     },
-  ];
+  ], [editingRowId, isSubmittingInline, startEditingRow, onCancelInlineEdit, currentUser, handleDelete, inlineFormMethods.control]);
 
   const renderProductCard = (row: Row<Product>): React.ReactNode => {
     const product = row.original;
@@ -451,7 +451,7 @@ export default function ProductsPage() {
           {product.costPrice !== undefined && ( <div className="flex justify-between"> <span className="text-muted-foreground font-medium">Giá vốn:</span> <span>{product.costPrice.toLocaleString('vi-VN')} đ</span> </div> )}
           {product.minStockLevel !== undefined && ( <div className="flex justify-between"> <span className="text-muted-foreground font-medium">Tồn tối thiểu:</span> <span>{product.minStockLevel}</span> </div> )}
         </CardContent>
-        {currentUser?.role === 'admin' && (
+        {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && (
           <CardFooter className="flex justify-end pt-4">
             <Button variant="outline" size="sm" onClick={() => {
               setEditingProductModal(row.original);
@@ -495,7 +495,7 @@ export default function ProductsPage() {
   return (
     <>
       <PageHeader title="Quản Lý Sản Phẩm" description="Thêm mới, chỉnh sửa và xem danh sách sản phẩm của bạn.">
-        {currentUser?.role === 'admin' && (
+        {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && (
           <FormModal<ProductFormValues>
             title="Thêm Sản Phẩm Mới"
             description="Điền thông tin chi tiết về sản phẩm."
@@ -517,7 +517,7 @@ export default function ProductsPage() {
           </FormModal>
         )}
       </PageHeader>
-      <Form {...inlineFormMethods}> {/* FormProvider for inline editing */}
+      <Form {...inlineFormMethods}>
         <form onSubmit={inlineFormMethods.handleSubmit(onSaveInlineEdit)}>
           <Card>
             <CardContent className="pt-6">
@@ -552,7 +552,7 @@ export default function ProductsPage() {
                 filterPlaceholder="Lọc theo tên sản phẩm..."
                 columnVisibility={columnVisibility}
                 onColumnVisibilityChange={setColumnVisibility}
-                renderCardRow={renderProductCard} // For mobile, no inline editing on cards. Edit via modal.
+                renderCardRow={renderProductCard}
               />
             </CardContent>
           </Card>
