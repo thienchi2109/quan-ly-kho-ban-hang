@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -307,6 +308,7 @@ export default function SalesOrdersPage() {
 
   const handleConfirmPayment = async (paymentDetails: {
     discountPercentage: number;
+    directDiscountAmount: number;
     otherIncomeAmount: number;
     paymentMethod: 'Tiền mặt' | 'Chuyển khoản';
     cashReceived?: number;
@@ -317,7 +319,7 @@ export default function SalesOrdersPage() {
 
     try {
       const { items, date, customerName, notes, currentOrderTotal } = orderDataForPayment;
-      const finalAmount = (currentOrderTotal * (1 - (paymentDetails.discountPercentage || 0) / 100)) + (paymentDetails.otherIncomeAmount || 0);
+      const finalAmount = (currentOrderTotal * (1 - (paymentDetails.discountPercentage || 0) / 100)) - (paymentDetails.directDiscountAmount || 0) + (paymentDetails.otherIncomeAmount || 0);
       const changeGiven = paymentDetails.paymentMethod === 'Tiền mặt' && paymentDetails.cashReceived !== undefined
                           ? paymentDetails.cashReceived - finalAmount
                           : undefined;
@@ -341,6 +343,7 @@ export default function SalesOrdersPage() {
           status: 'Mới',
           totalAmount: currentOrderTotal,
           discountPercentage: paymentDetails.discountPercentage || 0,
+          directDiscountAmount: paymentDetails.directDiscountAmount || 0,
           otherIncomeAmount: paymentDetails.otherIncomeAmount || 0,
           finalAmount: Math.round(finalAmount),
           paymentMethod: paymentDetails.paymentMethod,

@@ -87,6 +87,7 @@ export interface SalesOrder {
 
   // New payment related fields
   discountPercentage?: number;
+  directDiscountAmount?: number;
   otherIncomeAmount?: number;
   finalAmount?: number; // Actual amount customer needs to pay (totalAmount - discount + otherIncome)
   paymentMethod?: PaymentMethod;

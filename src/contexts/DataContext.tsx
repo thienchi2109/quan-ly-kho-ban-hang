@@ -386,6 +386,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ...(orderData.customerName && orderData.customerName.trim() !== '' && { customerName: orderData.customerName }),
         ...(orderData.notes && orderData.notes.trim() !== '' && { notes: orderData.notes }),
         ...(orderData.discountPercentage !== undefined && { discountPercentage: orderData.discountPercentage }), // Allows 0
+        ...(orderData.directDiscountAmount !== undefined && { directDiscountAmount: orderData.directDiscountAmount }),
         ...(orderData.otherIncomeAmount !== undefined && { otherIncomeAmount: orderData.otherIncomeAmount }), // Allows 0
         ...(orderData.paymentMethod && { paymentMethod: orderData.paymentMethod }), // paymentMethod is optional in SalesOrder type
         ...(orderData.cashReceived !== undefined && { cashReceived: orderData.cashReceived }),

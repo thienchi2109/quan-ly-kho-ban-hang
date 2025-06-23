@@ -65,11 +65,20 @@ export default function SalesOrderDetailModal({ order, onClose, onViewProductDet
     paymentDetailsHtml += `<div class="summary-item"><span class="label">Tổng tiền hàng:</span><span class="value">${order.totalAmount.toLocaleString('vi-VN')} đ</span></div>`;
 
     const discountPercentage = order.discountPercentage || 0;
-    const discountAmount = order.totalAmount * (discountPercentage / 100);
-    paymentDetailsHtml += `<div class="summary-item ${discountAmount > 0 ? 'destructive' : ''}"><span class="label">Giảm giá (${discountPercentage}%):</span><span class="value">- ${discountAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    if (discountPercentage > 0) {
+      const discountAmount = order.totalAmount * (discountPercentage / 100);
+      paymentDetailsHtml += `<div class="summary-item destructive"><span class="label">Giảm giá (${discountPercentage}%):</span><span class="value">- ${discountAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    }
+    
+    const directDiscountAmount = order.directDiscountAmount || 0;
+    if (directDiscountAmount > 0) {
+      paymentDetailsHtml += `<div class="summary-item destructive"><span class="label">Giảm trực tiếp:</span><span class="value">- ${directDiscountAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    }
 
     const otherIncomeAmount = order.otherIncomeAmount || 0;
-    paymentDetailsHtml += `<div class="summary-item ${otherIncomeAmount > 0 ? 'positive' : ''}"><span class="label">Thu khác:</span><span class="value">+ ${otherIncomeAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    if (otherIncomeAmount > 0) {
+      paymentDetailsHtml += `<div class="summary-item positive"><span class="label">Thu khác:</span><span class="value">+ ${otherIncomeAmount.toLocaleString('vi-VN')} đ</span></div>`;
+    }
 
     paymentDetailsHtml += `</div>`;
 
@@ -177,6 +186,8 @@ export default function SalesOrderDetailModal({ order, onClose, onViewProductDet
         .totals-section .summary-item .value {
             font-weight: 500;
         }
+        .totals-section .summary-item.destructive .value { color: #ef4444; }
+        .totals-section .summary-item.positive .value { color: #22c55e; }
         .totals-section .grand-total {
             margin-top: 8px;
             padding-top: 8px;
@@ -386,12 +397,26 @@ export default function SalesOrderDetailModal({ order, onClose, onViewProductDet
                     <div className="font-semibold">Tổng tiền hàng:</div>
                     <div className="text-right">{order.totalAmount.toLocaleString('vi-VN')} đ</div>
                     
-                    {/* Always show discount and other income fields */}
-                    <div className="font-semibold text-destructive">Giảm giá ({(order.discountPercentage || 0).toLocaleString('vi-VN')}%):</div>
-                    <div className="text-right text-destructive">- {(order.totalAmount * (order.discountPercentage || 0) / 100).toLocaleString('vi-VN')} đ</div>
+                    {(order.discountPercentage || 0) > 0 && (
+                      <>
+                        <div className="font-semibold text-destructive">Giảm giá ({(order.discountPercentage || 0).toLocaleString('vi-VN')}%):</div>
+                        <div className="text-right text-destructive">- {(order.totalAmount * (order.discountPercentage || 0) / 100).toLocaleString('vi-VN')} đ</div>
+                      </>
+                    )}
                     
-                    <div className="font-semibold text-green-600">Thu khác:</div>
-                    <div className="text-right text-green-600">+ {(order.otherIncomeAmount || 0).toLocaleString('vi-VN')} đ</div>
+                    {(order.directDiscountAmount || 0) > 0 && (
+                      <>
+                        <div className="font-semibold text-destructive">Giảm trực tiếp:</div>
+                        <div className="text-right text-destructive">- {(order.directDiscountAmount || 0).toLocaleString('vi-VN')} đ</div>
+                      </>
+                    )}
+
+                    {(order.otherIncomeAmount || 0) > 0 && (
+                       <>
+                        <div className="font-semibold text-green-600">Thu khác:</div>
+                        <div className="text-right text-green-600">+ {(order.otherIncomeAmount || 0).toLocaleString('vi-VN')} đ</div>
+                       </>
+                    )}
                     
                      {order.finalAmount !== undefined && (
                         <>

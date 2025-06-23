@@ -23,6 +23,7 @@ interface PaymentModalProps {
   orderData: OrderDataForPayment;
   onConfirmPayment: (paymentDetails: {
     discountPercentage: number;
+    directDiscountAmount: number;
     otherIncomeAmount: number;
     paymentMethod: PaymentMethodType;
     cashReceived?: number;
@@ -36,6 +37,10 @@ const PaymentFormSchema = z.object({
     val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val)),
     z.number().min(0, "Giảm giá không âm").max(100, "Giảm giá tối đa 100%")
   ).default(0),
+  directDiscountAmount: z.preprocess(
+    val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val).replace(/\./g, '')),
+    z.number().min(0, "Giảm giá không âm")
+  ).default(0),
   otherIncomeAmount: z.preprocess(
     val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val).replace(/\./g, '')),
     z.number().min(0, "Thu khác không âm")
@@ -45,6 +50,9 @@ const PaymentFormSchema = z.object({
     val => (val === "" || val === undefined || val === null) ? undefined : parseFloat(String(val).replace(/\./g, '')),
     z.number().min(0, "Tiền khách trả không âm").optional()
   ),
+}).refine(data => data.directDiscountAmount === 0 || data.discountPercentage === 0, {
+  message: "Chỉ có thể áp dụng một trong hai: Giảm giá (%) hoặc Giảm trực tiếp (đ).",
+  path: ["directDiscountAmount"],
 });
 
 type PaymentFormValues = z.infer<typeof PaymentFormSchema>;
@@ -99,6 +107,7 @@ export default function PaymentModal({
     resolver: zodResolver(PaymentFormSchema),
     defaultValues: {
       discountPercentage: 0,
+      directDiscountAmount: 0,
       otherIncomeAmount: 0,
       paymentMethod: 'Tiền mặt',
       cashReceived: undefined,
@@ -109,6 +118,7 @@ export default function PaymentModal({
   
   // Watched values from the form
   const watchedDiscountPercentage = watch('discountPercentage');
+  const watchedDirectDiscountAmount = watch('directDiscountAmount');
   const watchedOtherIncomeAmount = watch('otherIncomeAmount');
   const watchedCashReceived = watch('cashReceived');
   const selectedPaymentMethod = watch('paymentMethod');
@@ -120,6 +130,7 @@ export default function PaymentModal({
   useEffect(() => {
     form.reset({
         discountPercentage: 0,
+        directDiscountAmount: 0,
         otherIncomeAmount: 0,
         paymentMethod: 'Tiền mặt',
         cashReceived: undefined,
@@ -129,12 +140,15 @@ export default function PaymentModal({
 
   useEffect(() => {
     // Ensure watched values are treated as numbers for calculation
-    const numDiscount = parseFloat(String(watchedDiscountPercentage)) || 0;
-    const numOtherIncome = parseFloat(String(watchedOtherIncomeAmount).replace(/\./g, '')) || 0; // Ensure to remove dots if any from display format during watch
+    const numDiscountPercent = parseFloat(String(watchedDiscountPercentage)) || 0;
+    const numDirectDiscount = parseFloat(String(watchedDirectDiscountAmount).replace(/\./g, '')) || 0;
+    const numOtherIncome = parseFloat(String(watchedOtherIncomeAmount).replace(/\./g, '')) || 0;
 
-    const newAmountDue = (orderData.currentOrderTotal * (1 - numDiscount / 100)) + numOtherIncome;
+    const discountFromPercentage = orderData.currentOrderTotal * (numDiscountPercent / 100);
+    const newAmountDue = orderData.currentOrderTotal - discountFromPercentage - numDirectDiscount + numOtherIncome;
+    
     setAmountDue(Math.max(0, newAmountDue));
-  }, [orderData.currentOrderTotal, watchedDiscountPercentage, watchedOtherIncomeAmount]);
+  }, [orderData.currentOrderTotal, watchedDiscountPercentage, watchedDirectDiscountAmount, watchedOtherIncomeAmount]);
 
   useEffect(() => {
     const numCashReceived = parseFloat(String(watchedCashReceived).replace(/\./g, '')) || 0;
@@ -211,6 +225,28 @@ export default function PaymentModal({
                           {...field}
                           value={formatNumberInputValue(field.value)}
                           onChange={e => field.onChange(parseNumberInputValue(e.target.value))}
+                          disabled={!!watchedDirectDiscountAmount}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={control}
+                  name="directDiscountAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ShadcnFormLabel>Giảm trực tiếp (đ)</ShadcnFormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0"
+                          {...field}
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
+                          disabled={!!watchedDiscountPercentage}
                         />
                       </FormControl>
                       <FormMessage />
