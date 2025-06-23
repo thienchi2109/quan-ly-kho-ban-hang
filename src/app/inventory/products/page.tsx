@@ -392,7 +392,7 @@ export default function ProductsPage() {
         if (isEditingThisRow) {
           return (
             <div className="flex gap-1">
-              <Button variant="ghost" size="icon" onClick={inlineFormMethods.handleSubmit(onSaveInlineEdit)} disabled={isSubmittingInline} title="Lưu">
+              <Button type="submit" variant="ghost" size="icon" disabled={isSubmittingInline} title="Lưu">
                 {isSubmittingInline ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-green-600" />}
               </Button>
               <Button variant="ghost" size="icon" onClick={onCancelInlineEdit} disabled={isSubmittingInline} title="Hủy">
@@ -518,43 +518,45 @@ export default function ProductsPage() {
         )}
       </PageHeader>
       <Form {...inlineFormMethods}> {/* FormProvider for inline editing */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="mb-6">
-              {priceRange ? (
-                <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-card">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2">
-                    <Label htmlFor="price-range-slider" className="text-base font-semibold mb-2 sm:mb-0">Lọc theo giá bán:</Label>
-                    <Button variant="ghost" size="sm" onClick={() => setPriceRange([minSellingPrice, maxSellingPrice])}
-                      disabled={(priceRange[0] === minSellingPrice && priceRange[1] === maxSellingPrice) || products.length === 0 || minSellingPrice >= maxSellingPrice }
-                      title="Xóa bộ lọc giá" className="text-xs">
-                      <FilterX className="h-4 w-4 mr-1" /> Xóa Lọc
-                    </Button>
+        <form onSubmit={inlineFormMethods.handleSubmit(onSaveInlineEdit)}>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="mb-6">
+                {priceRange ? (
+                  <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-card">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2">
+                      <Label htmlFor="price-range-slider" className="text-base font-semibold mb-2 sm:mb-0">Lọc theo giá bán:</Label>
+                      <Button variant="ghost" size="sm" onClick={() => setPriceRange([minSellingPrice, maxSellingPrice])}
+                        disabled={(priceRange[0] === minSellingPrice && priceRange[1] === maxSellingPrice) || products.length === 0 || minSellingPrice >= maxSellingPrice }
+                        title="Xóa bộ lọc giá" className="text-xs">
+                        <FilterX className="h-4 w-4 mr-1" /> Xóa Lọc
+                      </Button>
+                    </div>
+                    <Slider id="price-range-slider" min={minSellingPrice} max={maxSellingPrice}
+                      step={Math.max(1, Math.floor((maxSellingPrice - minSellingPrice) / 100) || 1)}
+                      value={priceRange}
+                      onValueChange={(newRange) => { if (Array.isArray(newRange) && newRange.length === 2) { setPriceRange(newRange as [number, number]); } }}
+                      className="w-full" disabled={products.length === 0 || minSellingPrice >= maxSellingPrice} />
+                    <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
+                      <span>Từ: {priceRange[0].toLocaleString('vi-VN')} đ</span>
+                      <span>Đến: {priceRange[1].toLocaleString('vi-VN')} đ</span>
+                    </div>
                   </div>
-                  <Slider id="price-range-slider" min={minSellingPrice} max={maxSellingPrice}
-                    step={Math.max(1, Math.floor((maxSellingPrice - minSellingPrice) / 100) || 1)}
-                    value={priceRange}
-                    onValueChange={(newRange) => { if (Array.isArray(newRange) && newRange.length === 2) { setPriceRange(newRange as [number, number]); } }}
-                    className="w-full" disabled={products.length === 0 || minSellingPrice >= maxSellingPrice} />
-                  <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
-                    <span>Từ: {priceRange[0].toLocaleString('vi-VN')} đ</span>
-                    <span>Đến: {priceRange[1].toLocaleString('vi-VN')} đ</span>
-                  </div>
-                </div>
-              ) : ( <div className="space-y-3 p-4 border rounded-lg"> <Label className="text-base font-semibold">Lọc theo giá bán:</Label> <Skeleton className="h-5 w-full" /> <div className="flex justify-between items-center text-xs"> <Skeleton className="h-4 w-1/3" /> <Skeleton className="h-4 w-1/3" /> </div> <Skeleton className="h-8 w-24 mt-1" /> </div> )}
-            </div>
+                ) : ( <div className="space-y-3 p-4 border rounded-lg"> <Label className="text-base font-semibold">Lọc theo giá bán:</Label> <Skeleton className="h-5 w-full" /> <div className="flex justify-between items-center text-xs"> <Skeleton className="h-4 w-1/3" /> <Skeleton className="h-4 w-1/3" /> </div> <Skeleton className="h-8 w-24 mt-1" /> </div> )}
+              </div>
 
-            <DataTable 
-              columns={columns} 
-              data={displayedProducts} 
-              filterColumn="name" 
-              filterPlaceholder="Lọc theo tên sản phẩm..."
-              columnVisibility={columnVisibility}
-              onColumnVisibilityChange={setColumnVisibility}
-              renderCardRow={renderProductCard} // For mobile, no inline editing on cards. Edit via modal.
-            />
-          </CardContent>
-        </Card>
+              <DataTable 
+                columns={columns} 
+                data={displayedProducts} 
+                filterColumn="name" 
+                filterPlaceholder="Lọc theo tên sản phẩm..."
+                columnVisibility={columnVisibility}
+                onColumnVisibilityChange={setColumnVisibility}
+                renderCardRow={renderProductCard} // For mobile, no inline editing on cards. Edit via modal.
+              />
+            </CardContent>
+          </Card>
+        </form>
       </Form>
        {/* Modal for editing when "Sửa" is clicked on a mobile card */}
         {editingProductModal && openedEditModalId === editingProductModal.id && (
@@ -619,7 +621,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
     
     useEffect(() => {
         modalFormMethods.reset(getInitialFormValues());
-    }, [editingProductFull, getInitialFormValues]);
+    }, [editingProductFull, getInitialFormValues, modalFormMethods]);
 
     const handleInternalSubmit = async (data: ProductFormValues) => {
         setIsSubmitting(true);
@@ -651,5 +653,7 @@ function ProductFormContent({ editingProductFull, onSubmit, closeModalSignal, is
         </Form>
     );
 }
+
+    
 
     
