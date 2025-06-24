@@ -18,6 +18,7 @@ import { SearchableProductSelect } from '@/components/common/SearchableProductSe
 import { PlusCircle, MinusCircle, Trash2, Loader2, Save } from 'lucide-react';
 import { useToast } from '@/hooks';
 import type { SalesOrderFormValues } from '@/app/sales/orders/page';
+import { z } from 'zod';
 
 interface EditSalesOrderModalProps {
   isOpen: boolean;
