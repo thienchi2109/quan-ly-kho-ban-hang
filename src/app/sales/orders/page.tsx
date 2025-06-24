@@ -640,6 +640,10 @@ export default function SalesOrdersPage() {
     return { revenue, cogs, profit };
   }, [displayedOrders]);
 
+  const isFiltered = useMemo(() => {
+    return !!filterFromDate || !!filterToDate || filterStatus !== 'all';
+  }, [filterFromDate, filterToDate, filterStatus]);
+
 
   const handleViewProductDetails = (productId: string) => {
     const product = getProductById(productId);
@@ -884,13 +888,43 @@ export default function SalesOrdersPage() {
         </CardContent>
       </Card>
 
-      {(filterFromDate || filterToDate || filterStatus !== 'all') && displayedOrders.length > 0 && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng Doanh Thu (lọc)</CardTitle><ArrowUpCircle className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{filteredStats.revenue.toLocaleString('vi-VN')} đ</div></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng Giá Vốn (lọc)</CardTitle><ArrowDownCircle className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{filteredStats.cogs.toLocaleString('vi-VN')} đ</div></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng Lợi Nhuận (lọc)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className={`text-2xl font-bold ${filteredStats.profit >= 0 ? 'text-primary' : 'text-destructive'}`}>{filteredStats.profit.toLocaleString('vi-VN')} đ</div></CardContent></Card>
-        </div>
-      )}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {isFiltered ? "Doanh Thu (lọc)" : "Tổng Doanh Thu"}
+            </CardTitle>
+            <ArrowUpCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredStats.revenue.toLocaleString('vi-VN')} đ</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {isFiltered ? "Giá Vốn (lọc)" : "Tổng Giá Vốn"}
+            </CardTitle>
+            <ArrowDownCircle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredStats.cogs.toLocaleString('vi-VN')} đ</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {isFiltered ? "Lợi Nhuận (lọc)" : "Tổng Lợi Nhuận"}
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${filteredStats.profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
+              {filteredStats.profit.toLocaleString('vi-VN')} đ
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <FormModal<SalesOrderFormValues>
         title="Tạo Đơn Hàng Mới"
