@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory, PaymentMethod, OrderDataForPayment } from '@/lib/types'; // Added ExpenseCategory
+import type { Product, IncomeEntry, ExpenseEntry, InventoryTransaction, SalesOrder, OrderItem, SalesOrderStatus, ExpenseCategory, PaymentMethod, OrderDataForPayment, OrderEditHistory } from '@/lib/types'; // Added ExpenseCategory
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import {
@@ -18,9 +18,12 @@ import {
   where,
   serverTimestamp,
   setDoc,
+  getDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './AuthContext';
+import type { SalesOrderFormValues } from '@/app/sales/orders/page';
 
 interface AppData {
   products: Product[];
@@ -57,6 +60,7 @@ interface AppContextType extends Omit<AppData, 'loading' | 'error'> {
     isDraft: boolean
   ) => Promise<string | undefined>;
   updateSalesOrderStatus: (orderId: string, newStatus: SalesOrderStatus) => Promise<void>;
+  updateSalesOrder: (orderId: string, updatedData: SalesOrderFormValues, reason: string) => Promise<void>; // New function
   isLoading: boolean;
 }
 
@@ -569,6 +573,97 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateSalesOrder = async (orderId: string, updatedData: SalesOrderFormValues, reason: string) => {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'demo')) {
+        toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
+        return;
+    }
+    const batch = writeBatch(db);
+    const orderRef = doc(db, "salesOrders", orderId);
+
+    try {
+        const originalOrderDoc = await getDoc(orderRef);
+        if (!originalOrderDoc.exists()) {
+            throw new Error("Không tìm thấy đơn hàng gốc.");
+        }
+        const originalOrder = originalOrderDoc.data() as SalesOrder;
+        
+        const { editHistory, ...previousState } = originalOrder;
+        const newHistoryEntry: OrderEditHistory = {
+            timestamp: serverTimestamp(),
+            userEmail: currentUser.email,
+            reason,
+            previousState,
+        };
+
+        // Recalculate totals based on updated items
+        const newTotalAmount = updatedData.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
+        const newTotalCost = updatedData.items.reduce((sum, item) => {
+            const product = products.find(p => p.id === item.productId);
+            return sum + (Number(item.quantity) * (product?.costPrice || 0));
+        }, 0);
+        const finalAmount = updatedData.finalAmount ?? newTotalAmount;
+        const newTotalProfit = finalAmount - newTotalCost;
+
+        // Inventory adjustment logic
+        originalOrder.items.forEach(oldItem => {
+            const newItem = updatedData.items.find(i => i.productId === oldItem.productId);
+            const quantityChange = (newItem ? Number(newItem.quantity) : 0) - oldItem.quantity;
+
+            if (quantityChange !== 0) {
+                const transactionData = {
+                    productId: oldItem.productId,
+                    type: quantityChange > 0 ? 'export' : 'import' as 'export' | 'import',
+                    quantity: Math.abs(quantityChange),
+                    date: updatedData.date,
+                    relatedParty: 'Điều chỉnh đơn hàng',
+                    notes: `Điều chỉnh đơn hàng ${originalOrder.orderNumber} (Lý do: ${reason})`,
+                    relatedOrderId: orderId,
+                };
+                const newTransactionRef = doc(collection(db, "inventoryTransactions"));
+                batch.set(newTransactionRef, transactionData);
+            }
+        });
+        
+        // Update financial entries
+        const incomeQuery = query(collection(db, 'incomeEntries'), where("relatedOrderId", "==", orderId));
+        const incomeDocs = await getDocs(incomeQuery);
+        incomeDocs.forEach(doc => batch.update(doc.ref, { amount: finalAmount }));
+        
+        const cogsQuery = query(collection(db, 'expenseEntries'), where("relatedOrderId", "==", orderId), where("category", "==", "Giá vốn hàng bán"));
+        const cogsDocs = await getDocs(cogsQuery);
+        cogsDocs.forEach(doc => batch.update(doc.ref, { amount: newTotalCost }));
+
+
+        const processedItems: OrderItem[] = updatedData.items.map((item) => {
+          const product = productsWithCurrentStock.find(p => p.id === item.productId);
+          return {
+            ...item,
+            id: doc(collection(db, 'dummy')).id, 
+            totalPrice: item.quantity * item.unitPrice,
+            costPrice: product?.costPrice || 0,
+          };
+        });
+
+        // Update the order itself
+        batch.update(orderRef, {
+            ...updatedData,
+            items: processedItems,
+            totalAmount: newTotalAmount,
+            totalCost: newTotalCost,
+            totalProfit: newTotalProfit,
+            finalAmount: finalAmount,
+            editHistory: arrayUnion(newHistoryEntry),
+        });
+
+        await batch.commit();
+        toast({ title: "Thành công", description: "Đã cập nhật đơn hàng." });
+    } catch (e: any) {
+        console.error("Error updating sales order:", e);
+        toast({ title: "Lỗi", description: e.message || "Không thể cập nhật đơn hàng.", variant: "destructive" });
+    }
+  };
+
 
   const getProductById = useCallback((productId: string) => {
     return productsWithCurrentStock.find(p => p.id === productId);
@@ -612,6 +707,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getTotalExpenses,
     addSalesOrder,
     updateSalesOrderStatus,
+    updateSalesOrder,
     isLoading: overallLoading,
   };
 

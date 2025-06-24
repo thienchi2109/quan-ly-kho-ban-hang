@@ -19,7 +19,7 @@ import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import { format, parse, isWithinInterval, startOfDay, endOfDay, isValid as isValidDate } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer, ArrowUp, ArrowDown, ArrowUpDown, ImagePlus, UploadCloud, Camera, Sparkles, PackageSearch, CheckCircle2, Wand, ArrowRightCircle, RefreshCcw } from 'lucide-react';
+import { PlusCircle, Trash2, ShoppingCart, Edit3, MoreHorizontal, Eye, Loader2, MinusCircle, CalendarIcon, FilterX, ArrowUpCircle, ArrowDownCircle, DollarSign, Save, ArrowLeft, Printer, ArrowUp, ArrowDown, ArrowUpDown, ImagePlus, UploadCloud, Camera, Sparkles, PackageSearch, CheckCircle2, Wand, ArrowRightCircle, RefreshCcw, Edit } from 'lucide-react';
 import { useToast } from '@/hooks';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import SalesOrderDetailModal from '@/components/sales/SalesOrderDetailModal';
+import EditSalesOrderModal from '@/components/sales/EditSalesOrderModal'; // Import the new modal
 import PaymentModal from '@/components/sales/PaymentModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -53,11 +54,18 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 
 
-type SalesOrderFormValues = {
+export type SalesOrderFormValues = {
   customerName?: string;
   date: string;
   items: Array<Omit<OrderItemType, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number, tempId?: string }>;
   notes?: string;
+  discountPercentage?: number;
+  directDiscountAmount?: number;
+  otherIncomeAmount?: number;
+  paymentMethod?: PaymentMethod;
+  finalAmount?: number;
+  cashReceived?: number;
+  changeGiven?: number;
 };
 
 // Helper for fuzzy matching (can be moved to utils if used elsewhere)
@@ -160,6 +168,7 @@ export default function SalesOrdersPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orderDataForPayment, setOrderDataForPayment] = useState<OrderDataForPayment | null>(null);
   const [viewingOrder, setViewingOrder] = useState<SalesOrder | null>(null);
+  const [editingOrder, setEditingOrder] = useState<SalesOrder | null>(null); // State for the edit modal
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const [filterFromDate, setFilterFromDate] = useState<Date | undefined>(undefined);
@@ -831,7 +840,7 @@ export default function SalesOrdersPage() {
     { accessorFn: row => row.finalAmount ?? row.totalAmount, id: 'finalAmount', header: ({ column }) => <SortableHeader column={column} title="Tổng TT" />, cell: ({ row }) => `${Number(row.original.finalAmount ?? row.original.totalAmount).toLocaleString('vi-VN')} đ` },
     { accessorKey: "totalProfit", header: ({ column }) => <SortableHeader column={column} title="Lợi Nhuận" />, cell: ({ row }) => { const profit = Number(row.getValue("totalProfit")); const profitColor = profit > 0 ? "text-green-600" : profit < 0 ? "text-red-600" : "text-muted-foreground"; return <span className={profitColor}>{profit.toLocaleString('vi-VN')} đ</span>; } },
     { accessorKey: "status", header: ({ column }) => <SortableHeader column={column} title="Trạng Thái" />, cell: ({ row }) => { const status = row.getValue<SalesOrderStatus>("status"); return ( <span className={cn( "px-2 py-1 rounded-md text-xs font-medium", status === "Mới" && "bg-blue-500 text-white", status === "Hoàn thành" && "bg-green-500 text-white", status === "Đã hủy" && "bg-red-500 text-white", )}>{status}</span> ); }, },
-    { id: "actions", cell: ({ row }) => ( <DropdownMenu> <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Mở menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger> <DropdownMenuContent align="end"> <DropdownMenuItem onClick={() => setViewingOrder(row.original)}><Eye className="mr-2 h-4 w-4" />Xem Chi Tiết</DropdownMenuItem> {row.original.status === 'Hoàn thành' && ( <DropdownMenuItem onClick={() => handlePrintOrderFromTable(row.original)}><Printer className="mr-2 h-4 w-4" />In Hóa Đơn</DropdownMenuItem> )} {currentUser?.role === 'admin' && <DropdownMenuSeparator />} {currentUser?.role === 'admin' && row.original.status === 'Mới' && ( <DropdownMenuItem onClick={() => { const o = row.original; setOrderDataForPayment({ customerName: o.customerName, date: o.date, items: o.items.map(i=>({productId: i.productId, productName: i.productName, quantity: i.quantity, unitPrice: i.unitPrice, costPrice: i.costPrice})), notes: o.notes, currentOrderTotal: o.totalAmount, existingOrderId: o.id } as OrderDataForPayment & { existingOrderId?: string }); setIsPaymentModalOpen(true); }}><DollarSign className="mr-2 h-4 w-4" />Thanh Toán Đơn Này</DropdownMenuItem> )} {currentUser?.role === 'admin' && row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}><Trash2 className="mr-2 h-4 w-4" />Hủy Đơn Hàng</DropdownMenuItem> )} </DropdownMenuContent> </DropdownMenu> ), },
+    { id: "actions", cell: ({ row }) => ( <DropdownMenu> <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Mở menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger> <DropdownMenuContent align="end"> <DropdownMenuItem onClick={() => setViewingOrder(row.original)}><Eye className="mr-2 h-4 w-4" />Xem Chi Tiết</DropdownMenuItem> {row.original.status === 'Hoàn thành' && ( <DropdownMenuItem onClick={() => handlePrintOrderFromTable(row.original)}><Printer className="mr-2 h-4 w-4" />In Hóa Đơn</DropdownMenuItem> )} {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && <DropdownMenuSeparator />} {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && row.original.status === 'Mới' && ( <DropdownMenuItem onClick={() => { const o = row.original; setOrderDataForPayment({ customerName: o.customerName, date: o.date, items: o.items.map(i=>({productId: i.productId, productName: i.productName, quantity: i.quantity, unitPrice: i.unitPrice, costPrice: i.costPrice})), notes: o.notes, currentOrderTotal: o.totalAmount, existingOrderId: o.id }); setIsPaymentModalOpen(true); }}><DollarSign className="mr-2 h-4 w-4" />Thanh Toán Đơn Này</DropdownMenuItem> )} {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && row.original.status === 'Hoàn thành' && ( <DropdownMenuItem onClick={() => setEditingOrder(row.original)}><Edit className="mr-2 h-4 w-4" />Chỉnh Sửa Đơn</DropdownMenuItem> )} {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && row.original.status !== 'Đã hủy' && row.original.status !== 'Hoàn thành' && ( <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => updateSalesOrderStatus(row.original.id, 'Đã hủy')}><Trash2 className="mr-2 h-4 w-4" />Hủy Đơn Hàng</DropdownMenuItem> )} </DropdownMenuContent> </DropdownMenu> ), },
   ];
 
   const renderSalesOrderCard = (row: Row<SalesOrder>): React.ReactNode => {
@@ -847,7 +856,7 @@ export default function SalesOrdersPage() {
   return (
     <>
       <PageHeader title="Quản Lý Đơn Hàng Bán" description="Tạo và theo dõi các đơn hàng bán ra.">
-        {currentUser?.role === 'admin' && (
+        {(currentUser?.role === 'admin' || currentUser?.role === 'demo') && (
           <>
             <Button onClick={() => { createOrderForm.reset({ date: format(new Date(), 'yyyy-MM-dd'), customerName: '', items: [], notes: '' }); newlyAddedItemIndexRef.current = null; setIsCreateOrderModalOpen(true); }}>
               <ShoppingCart className="mr-2 h-4 w-4" /> Tạo Đơn Hàng
@@ -1240,6 +1249,11 @@ export default function SalesOrdersPage() {
 
       <SalesOrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} onViewProductDetails={handleViewProductDetails}/>
       <ProductDetailModal product={viewingProductFromOrder} onClose={() => setViewingProductFromOrder(null)}/>
+      <EditSalesOrderModal 
+        isOpen={!!editingOrder}
+        onClose={() => setEditingOrder(null)}
+        order={editingOrder}
+      />
     </>
   );
 }

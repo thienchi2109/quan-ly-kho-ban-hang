@@ -1,4 +1,5 @@
 
+
 export type ProductCategory = 'Lương' | 'Bán hàng' | 'Đầu tư' | 'Khác';
 export type ExpenseCategory = 'Thực phẩm' | 'Di chuyển' | 'Nhà ở' | 'Giải trí' | 'Giáo dục' | 'Sức khỏe' | 'Nguyên vật liệu' | 'Giá vốn hàng bán' | 'Khác'; // Added 'Giá vốn hàng bán'
 export type ProductUnit = 'cái' | 'cuốn' | 'kg' | 'lít' | 'bộ' | 'm' | 'thùng' | 'chai' | 'hộp';
@@ -72,6 +73,13 @@ export interface OrderItem {
   totalPrice: number; // quantity * unitPrice
 }
 
+export interface OrderEditHistory {
+  timestamp: any; // Firestore ServerTimestamp
+  userEmail: string;
+  reason: string;
+  previousState: Omit<SalesOrder, 'editHistory'>; // Snapshot of the order before this change
+}
+
 export interface SalesOrder {
   id: string;
   orderNumber: string; // Auto-generated or manual
@@ -93,6 +101,8 @@ export interface SalesOrder {
   paymentMethod?: PaymentMethod;
   cashReceived?: number; // For cash payments
   changeGiven?: number; // For cash payments
+  
+  editHistory?: OrderEditHistory[]; // Array to store history of edits
 }
 
 // For passing data to PaymentModal, not necessarily the full SalesOrderFormValues
@@ -102,6 +112,7 @@ export interface OrderDataForPayment {
   items: Array<Omit<OrderItem, 'id' | 'totalPrice' | 'costPrice'> & { costPrice?: number }>;
   notes?: string;
   currentOrderTotal: number; // The total calculated from items in the create order form
+  existingOrderId?: string; // Add this to handle re-payment for draft orders
 }
 
 
@@ -149,4 +160,3 @@ export type NavLinkIcon =
   | "LineChart"
   | "BrainCircuit"
   | "ShoppingCart"; // Added ShoppingCart
-

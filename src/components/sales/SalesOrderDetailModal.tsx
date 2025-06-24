@@ -11,8 +11,9 @@ import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Printer } from 'lucide-react';
+import { Printer, History } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface SalesOrderDetailModalProps {
   order: SalesOrder | null;
@@ -458,6 +459,29 @@ export default function SalesOrderDetailModal({ order, onClose, onViewProductDet
                     <div className="mt-2">
                         <span className="font-semibold">Ghi chú:</span>
                         <p className="text-sm whitespace-pre-wrap p-2 bg-muted rounded-md">{order.notes}</p>
+                    </div>
+                )}
+
+                {order.editHistory && order.editHistory.length > 0 && (
+                    <div className="mt-4">
+                        <h3 className="font-semibold text-md mb-2 flex items-center"><History className="mr-2 h-4 w-4" /> Lịch Sử Chỉnh Sửa</h3>
+                        <Accordion type="single" collapsible className="w-full">
+                        {order.editHistory.map((historyItem, index) => (
+                            <AccordionItem value={`item-${index}`} key={index}>
+                                <AccordionTrigger>
+                                    <div className="flex flex-col text-left">
+                                    <span className="font-medium">
+                                        {format(historyItem.timestamp.toDate(), 'dd/MM/yyyy HH:mm', { locale: vi })} - {historyItem.userEmail}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground font-normal">Lý do: {historyItem.reason}</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <p className="text-xs text-muted-foreground">Thông tin chi tiết về thay đổi được lưu trong hệ thống.</p>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                        </Accordion>
                     </div>
                 )}
             </div>
