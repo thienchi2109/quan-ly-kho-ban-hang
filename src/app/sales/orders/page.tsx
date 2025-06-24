@@ -312,6 +312,7 @@ export default function SalesOrdersPage() {
     otherIncomeAmount: number;
     paymentMethod: 'Tiền mặt' | 'Chuyển khoản';
     cashReceived?: number;
+    finalAmount: number; // Receive the final, user-adjusted amount
   }) => {
     if (!orderDataForPayment) return;
     setIsSubmittingOrder(true);
@@ -319,9 +320,10 @@ export default function SalesOrdersPage() {
 
     try {
       const { items, date, customerName, notes, currentOrderTotal } = orderDataForPayment;
-      const finalAmount = (currentOrderTotal * (1 - (paymentDetails.discountPercentage || 0) / 100)) - (paymentDetails.directDiscountAmount || 0) + (paymentDetails.otherIncomeAmount || 0);
+      // Use the final amount passed directly from the payment modal
+      const finalAmountForDB = paymentDetails.finalAmount;
       const changeGiven = paymentDetails.paymentMethod === 'Tiền mặt' && paymentDetails.cashReceived !== undefined
-                          ? paymentDetails.cashReceived - finalAmount
+                          ? paymentDetails.cashReceived - finalAmountForDB
                           : undefined;
 
       const itemsForOrder = items.map(item => {
@@ -345,7 +347,7 @@ export default function SalesOrdersPage() {
           discountPercentage: paymentDetails.discountPercentage || 0,
           directDiscountAmount: paymentDetails.directDiscountAmount || 0,
           otherIncomeAmount: paymentDetails.otherIncomeAmount || 0,
-          finalAmount: Math.round(finalAmount),
+          finalAmount: finalAmountForDB, // Use the amount from paymentDetails
           paymentMethod: paymentDetails.paymentMethod,
           cashReceived: paymentDetails.cashReceived,
           changeGiven: changeGiven !== undefined ? Math.round(changeGiven) : undefined,

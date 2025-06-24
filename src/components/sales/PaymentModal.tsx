@@ -27,6 +27,7 @@ interface PaymentModalProps {
     otherIncomeAmount: number;
     paymentMethod: PaymentMethodType;
     cashReceived?: number;
+    finalAmount: number; // Add finalAmount here
   }) => Promise<void>;
   onBack: () => void;
   isSubmitting: boolean;
@@ -45,6 +46,10 @@ const PaymentFormSchema = z.object({
     val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val).replace(/\./g, '')),
     z.number().min(0, "Thu khác không âm")
   ).default(0),
+  finalAmount: z.preprocess(
+    val => (val === "" || val === undefined || val === null) ? 0 : parseFloat(String(val).replace(/\./g, '')),
+    z.number().min(0, "Tổng thanh toán không âm")
+  ),
   paymentMethod: z.enum(PAYMENT_METHODS),
   cashReceived: z.preprocess(
     val => (val === "" || val === undefined || val === null) ? undefined : parseFloat(String(val).replace(/\./g, '')),
@@ -111,6 +116,7 @@ export default function PaymentModal({
       otherIncomeAmount: 0,
       paymentMethod: 'Tiền mặt',
       cashReceived: undefined,
+      finalAmount: 0,
     },
   });
 
@@ -120,23 +126,12 @@ export default function PaymentModal({
   const watchedDiscountPercentage = watch('discountPercentage');
   const watchedDirectDiscountAmount = watch('directDiscountAmount');
   const watchedOtherIncomeAmount = watch('otherIncomeAmount');
+  const watchedFinalAmount = watch('finalAmount');
   const watchedCashReceived = watch('cashReceived');
   const selectedPaymentMethod = watch('paymentMethod');
 
-  const [amountDue, setAmountDue] = useState(orderData.currentOrderTotal);
   const [changeAmount, setChangeAmount] = useState(0);
   const [vietQRUrl, setVietQRUrl] = useState('');
-
-  useEffect(() => {
-    form.reset({
-        discountPercentage: 0,
-        directDiscountAmount: 0,
-        otherIncomeAmount: 0,
-        paymentMethod: 'Tiền mặt',
-        cashReceived: undefined,
-    });
-  }, [isOpen, orderData, form]);
-
 
   useEffect(() => {
     // Ensure watched values are treated as numbers for calculation
@@ -147,31 +142,45 @@ export default function PaymentModal({
     const discountFromPercentage = orderData.currentOrderTotal * (numDiscountPercent / 100);
     const newAmountDue = orderData.currentOrderTotal - discountFromPercentage - numDirectDiscount + numOtherIncome;
     
-    setAmountDue(Math.max(0, newAmountDue));
-  }, [orderData.currentOrderTotal, watchedDiscountPercentage, watchedDirectDiscountAmount, watchedOtherIncomeAmount]);
+    setValue('finalAmount', Math.max(0, newAmountDue));
+  }, [orderData.currentOrderTotal, watchedDiscountPercentage, watchedDirectDiscountAmount, watchedOtherIncomeAmount, setValue]);
+  
+  
+  useEffect(() => {
+    form.reset({
+        discountPercentage: 0,
+        directDiscountAmount: 0,
+        otherIncomeAmount: 0,
+        paymentMethod: 'Tiền mặt',
+        cashReceived: undefined,
+        finalAmount: orderData.currentOrderTotal
+    });
+  }, [isOpen, orderData, form]);
 
   useEffect(() => {
     const numCashReceived = parseFloat(String(watchedCashReceived).replace(/\./g, '')) || 0;
+    const numFinalAmount = parseFloat(String(watchedFinalAmount).replace(/\./g, '')) || 0;
     if (selectedPaymentMethod === 'Tiền mặt' && numCashReceived >= 0) {
-      setChangeAmount(Math.max(0, numCashReceived - amountDue));
+      setChangeAmount(Math.max(0, numCashReceived - numFinalAmount));
     } else {
       setChangeAmount(0);
     }
-  }, [watchedCashReceived, amountDue, selectedPaymentMethod]);
+  }, [watchedCashReceived, watchedFinalAmount, selectedPaymentMethod]);
 
   useEffect(() => {
-    if (selectedPaymentMethod === 'Chuyển khoản' && amountDue > 0) {
+    const numFinalAmount = parseFloat(String(watchedFinalAmount).replace(/\./g, '')) || 0;
+    if (selectedPaymentMethod === 'Chuyển khoản' && numFinalAmount > 0) {
       const shopName = "Maimiel Shop";
       const addInfoRaw = `TT DH ${orderData.customerName || 'KhachLe'} ${new Date().getTime().toString().slice(-5)}`;
       const accountNameRaw = "Maimiel";
       const bankId = "VCB";
       const accountNumber = "0111000317652";
-      const qr = `https://img.vietqr.io/image/${bankId}-${accountNumber}-print.png?amount=${Math.round(amountDue)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
+      const qr = `https://img.vietqr.io/image/${bankId}-${accountNumber}-print.png?amount=${Math.round(numFinalAmount)}&addInfo=${encodeURIComponent(addInfoRaw)}&accountName=${encodeURIComponent(accountNameRaw)}`;
       setVietQRUrl(qr);
     } else {
       setVietQRUrl('');
     }
-  }, [selectedPaymentMethod, amountDue, orderData.customerName]);
+  }, [selectedPaymentMethod, watchedFinalAmount, orderData.customerName]);
   
   useEffect(() => {
     if (selectedPaymentMethod === 'Chuyển khoản') {
@@ -181,13 +190,14 @@ export default function PaymentModal({
 
 
   const onSubmit = async (values: PaymentFormValues) => {
+    const numFinalAmount = values.finalAmount || 0;
     // Values from form submit (already processed by Zod) are numbers or undefined
-    if (values.paymentMethod === 'Tiền mặt' && amountDue > 0) {
+    if (values.paymentMethod === 'Tiền mặt' && numFinalAmount > 0) {
       if (values.cashReceived === undefined) {
         setError('cashReceived', { type: 'manual', message: 'Vui lòng nhập số tiền khách trả.' });
         return;
       }
-      if (values.cashReceived < amountDue) {
+      if (values.cashReceived < numFinalAmount) {
         setError('cashReceived', { type: 'manual', message: 'Số tiền khách trả phải lớn hơn hoặc bằng số tiền cần trả.' });
         return;
       }
@@ -275,10 +285,27 @@ export default function PaymentModal({
                 />
               </div>
 
-              <div className="mt-4 p-3 bg-muted rounded-md">
-                <Label className="text-base font-semibold">Khách cần trả:</Label>
-                <p className="text-2xl font-bold text-primary">{amountDue.toLocaleString('vi-VN')} đ</p>
-              </div>
+               <FormField
+                  control={control}
+                  name="finalAmount"
+                  render={({ field }) => (
+                    <FormItem className="mt-4 p-3 bg-muted rounded-md">
+                      <ShadcnFormLabel className="text-base font-semibold">Khách cần trả (có thể sửa):</ShadcnFormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0"
+                          {...field}
+                          value={formatNumericForDisplay(field.value)}
+                          onChange={e => field.onChange(parseNumericFromDisplay(e.target.value))}
+                          className="text-2xl font-bold text-primary h-auto p-1 border-2 border-transparent focus-visible:border-primary bg-transparent focus-visible:ring-0 shadow-none"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
               <FormField
                 control={control}
@@ -359,7 +386,7 @@ export default function PaymentModal({
                       type="submit"
                       disabled={
                         isSubmitting ||
-                        (selectedPaymentMethod === 'Tiền mặt' && amountDue > 0 && (watchedCashReceived === undefined || (parseFloat(String(watchedCashReceived).replace(/\./g, '')) || 0) < amountDue))
+                        (selectedPaymentMethod === 'Tiền mặt' && (watchedFinalAmount || 0) > 0 && (watchedCashReceived === undefined || (parseFloat(String(watchedCashReceived).replace(/\./g, '')) || 0) < (watchedFinalAmount || 0)))
                       }
                     >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
