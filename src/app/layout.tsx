@@ -6,6 +6,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { DataProvider } from '@/contexts/DataContext';
 import { AuthProvider } from '@/contexts/AuthContext'; // Added AuthProvider
 import AppLayout from '@/components/layout/AppLayout';
+import { WebVitalsReporter } from '@/components/performance/web-vitals';
+import { ZoomPrevention } from '@/components/mobile/zoom-prevention';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -13,6 +15,14 @@ export const metadata: Metadata = {
   title: 'Quản Lý Bán Hàng',
   description: 'Ứng dụng quản lý bán hàng, kho và thu chi cá nhân/doanh nghiệp nhỏ',
   manifest: '/manifest.json', // Link to the manifest file
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    minimumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
 };
 
 export default function RootLayout({
@@ -35,6 +45,11 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#4db6ac" />
 
+        {/* Additional mobile zoom prevention */}
+        <meta name="HandheldFriendly" content="true" />
+        <meta name="MobileOptimized" content="width" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
         {/* 
           IMPORTANT: Replace these placeholder icons with your actual icon files.
           Place your icon files in the /public/icons/ directory.
@@ -54,6 +69,8 @@ export default function RootLayout({
 
       </head>
       <body className={`${inter.className} antialiased`}>
+        <WebVitalsReporter />
+        <ZoomPrevention />
         <AuthProvider>
           <DataProvider>
             <AppLayout>

@@ -11,6 +11,8 @@ import { ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, 
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { OptimizedChart, useChartData, useChartConfig } from '@/components/ui/optimized-chart';
+import { MobileSafeChart, ResponsiveMobileChart } from '@/components/ui/mobile-safe-chart';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge'; 
@@ -256,7 +258,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {monthlyChartData.length > 0 ? (
-              <ChartContainer config={incomeExpenseChartConfig} className="h-[270px] sm:h-[300px] w-full">
+              <ResponsiveMobileChart config={incomeExpenseChartConfig} className="h-[270px] sm:h-[300px] w-full">
                 <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis
@@ -272,7 +274,7 @@ export default function DashboardPage() {
                   <Line type="monotone" dataKey="expenses" strokeWidth={2} stroke="var(--color-expenses)" name="Chi Phí" dot={{ r: 4, fill: "var(--color-expenses)" }} activeDot={{ r: 6 }} />
                   <Line type="monotone" dataKey="balance" strokeWidth={2} stroke="var(--color-balance)" name="Lợi Nhuận" dot={{ r: 4, fill: "var(--color-balance)" }} activeDot={{ r: 6 }} />
                 </LineChart>
-              </ChartContainer>
+              </ResponsiveMobileChart>
             ) : (
               <p className="text-muted-foreground text-center py-10">Chưa có dữ liệu thu nhập/chi phí để vẽ biểu đồ tháng.</p>
             )}
@@ -286,7 +288,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-center">
               {incomeCategories.length > 0 ? (
-                <ChartContainer config={{}} className="h-[250px] w-full max-w-xs">
+                <ResponsiveMobileChart config={{}} className="h-[250px] w-full max-w-xs">
                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                        <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
@@ -298,7 +300,7 @@ export default function DashboardPage() {
                       </Pie>
                     </PieChart>
                    </ResponsiveContainer>
-                </ChartContainer>
+                </ResponsiveMobileChart>
               ) : (
                 <p className="text-muted-foreground">Chưa có dữ liệu thu nhập.</p>
               )}
@@ -310,7 +312,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-center">
                {expenseCategories.length > 0 ? (
-                <ChartContainer config={{}} className="h-[250px] w-full max-w-xs">
+                <ResponsiveMobileChart config={{}} className="h-[250px] w-full max-w-xs">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
@@ -322,7 +324,7 @@ export default function DashboardPage() {
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                </ChartContainer>
+                </ResponsiveMobileChart>
               ) : (
                  <p className="text-muted-foreground">Chưa có dữ liệu chi tiêu.</p>
               )}

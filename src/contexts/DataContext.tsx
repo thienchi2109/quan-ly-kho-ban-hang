@@ -188,7 +188,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return (product.initialStock || 0) + (summary?.imports || 0) - (summary?.exports || 0);
   }, [products, transactionSummary]);
 
-  const addProduct = async (productData: Omit<Product, 'id' | 'currentStock'>) => {
+  const addProduct = useCallback(async (productData: Omit<Product, 'id' | 'currentStock'>) => {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
@@ -201,21 +201,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({ title: "Lỗi", description: "Không thể thêm sản phẩm.", variant: "destructive" });
       setError("Không thể thêm sản phẩm.");
     }
-  };
+  }, [currentUser?.role, toast]);
 
-  const updateProduct = async (productData: Product) => {
+  const updateProduct = useCallback(async (productData: Product) => {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
     }
     try {
       const { id, currentStock, ...dataToUpdate } = productData;
-      
+
       // Sanitize the object to remove undefined fields before sending to Firestore
       const sanitizedData = Object.fromEntries(
         Object.entries(dataToUpdate).filter(([, value]) => value !== undefined)
       );
-      
+
       const productRef = doc(db, 'products', id);
       await updateDoc(productRef, sanitizedData);
     } catch (e) {
@@ -223,9 +223,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({ title: "Lỗi", description: "Không thể cập nhật sản phẩm.", variant: "destructive" });
       setError("Không thể cập nhật sản phẩm.");
     }
-  };
+  }, [currentUser?.role, toast]);
 
-  const deleteProduct = async (productId: string) => {
+  const deleteProduct = useCallback(async (productId: string) => {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
       toast({ title: "Không có quyền", description: "Bạn không có quyền thực hiện hành động này.", variant: "destructive" });
       return;
@@ -245,7 +245,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({ title: "Lỗi", description: "Không thể xóa sản phẩm.", variant: "destructive" });
       setError("Không thể xóa sản phẩm.");
     }
-  };
+  }, [currentUser?.role, toast]);
 
   const addIncomeEntry = async (entryData: Omit<IncomeEntry, 'id'>, batch?: ReturnType<typeof writeBatch>): Promise<string | undefined> => {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'demo') {
@@ -686,7 +686,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
   }, [expenseEntries]);
 
-  const value: AppContextType = {
+  const value: AppContextType = useMemo(() => ({
     products: productsWithCurrentStock,
     incomeEntries,
     expenseEntries,
@@ -709,7 +709,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateSalesOrderStatus,
     updateSalesOrder,
     isLoading: overallLoading,
-  };
+  }), [
+    productsWithCurrentStock,
+    incomeEntries,
+    expenseEntries,
+    inventoryTransactions,
+    salesOrders,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    addIncomeEntry,
+    deleteIncomeEntry,
+    addExpenseEntry,
+    deleteExpenseEntry,
+    addInventoryTransaction,
+    getProductById,
+    getProductStock,
+    getCategoryTotals,
+    getTotalIncome,
+    getTotalExpenses,
+    addSalesOrder,
+    updateSalesOrderStatus,
+    updateSalesOrder,
+    overallLoading,
+  ]);
 
   useEffect(() => {
     if (error) {

@@ -91,3 +91,92 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Mobile optimizations for charts and touch interactions */
+@layer utilities {
+  /* Prevent zoom on mobile for chart containers */
+  .chart-container {
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Optimize chart rendering on mobile */
+  .recharts-responsive-container {
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Prevent text selection in chart areas */
+  .recharts-wrapper {
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Prevent zoom on all chart elements */
+  .recharts-surface,
+  .recharts-layer,
+  .recharts-cartesian-grid,
+  .recharts-line,
+  .recharts-area,
+  .recharts-bar,
+  .recharts-pie,
+  .recharts-sector {
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Mobile-specific chart sizing */
+  @media (max-width: 768px) {
+    .chart-container {
+      min-height: 250px;
+      max-height: 350px;
+    }
+
+    /* Ensure charts don't cause horizontal scroll */
+    .recharts-responsive-container {
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    /* Prevent double-tap zoom on mobile */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+
+    /* Specific fixes for chart tooltips and interactions */
+    .recharts-tooltip-wrapper,
+    .recharts-default-tooltip {
+      touch-action: none;
+      pointer-events: none;
+    }
+  }
+
+  /* Global mobile zoom prevention */
+  @media (max-width: 768px) {
+    html {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+
+    body {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      touch-action: pan-x pan-y;
+    }
+  }
+}
