@@ -94,34 +94,73 @@ body {
 
 /* Mobile optimizations for charts and touch interactions */
 @layer utilities {
-  /* Prevent zoom on mobile for chart containers */
+  /* Enhanced chart container for mobile */
   .chart-container {
-    touch-action: pan-x pan-y;
+    touch-action: manipulation;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Active tooltip state */
+  .chart-container.tooltip-active {
+    touch-action: none;
+    pointer-events: auto;
   }
 
   /* Optimize chart rendering on mobile */
   .recharts-responsive-container {
-    touch-action: pan-x pan-y;
+    touch-action: manipulation;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+    width: 100% !important;
+    height: 100% !important;
   }
 
-  /* Prevent text selection in chart areas */
+  /* Enhanced chart wrapper */
   .recharts-wrapper {
-    touch-action: pan-x pan-y;
+    touch-action: manipulation;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    overflow: visible;
+  }
+
+  /* Mobile chart wrapper optimizations */
+  .mobile-chart-wrapper {
+    position: relative;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-chart-wrapper.mobile-optimized {
+    min-height: 280px;
+  }
+
+  /* Force responsive container to take full space */
+  .mobile-chart-wrapper .recharts-responsive-container {
+    flex: 1 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Ensure chart containers are responsive */
+  .chart-container {
+    width: 100% !important;
+    height: 100% !important;
   }
 
   /* Prevent zoom on all chart elements */
@@ -139,30 +178,139 @@ body {
     user-select: none;
   }
 
-  /* Mobile-specific chart sizing */
+  /* Mobile-specific chart sizing and interactions */
   @media (max-width: 768px) {
     .chart-container {
-      min-height: 250px;
-      max-height: 350px;
+      min-height: 280px;
+      max-height: 400px;
+    }
+
+    .mobile-optimized .chart-container {
+      min-height: 300px;
+    }
+
+    /* Line chart specific mobile optimizations */
+    .line-chart-mobile .chart-container {
+      min-height: 320px;
+    }
+
+    /* Pie chart specific mobile optimizations */
+    .pie-chart-mobile .chart-container {
+      min-height: 280px;
+    }
+
+    /* Bar chart specific mobile optimizations */
+    .bar-chart-mobile .chart-container {
+      min-height: 300px;
     }
 
     /* Ensure charts don't cause horizontal scroll */
     .recharts-responsive-container {
-      max-width: 100%;
-      overflow: hidden;
+      max-width: 100% !important;
+      width: 100% !important;
+      overflow: visible !important;
     }
 
-    /* Prevent double-tap zoom on mobile */
-    * {
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
+    /* Force dashboard charts to be responsive */
+    [class*="h-["] {
+      width: 100% !important;
     }
 
-    /* Specific fixes for chart tooltips and interactions */
-    .recharts-tooltip-wrapper,
+    /* Specific fixes for chart containers */
+    .recharts-wrapper {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Debug: Force all chart elements to be responsive */
+    .recharts-surface {
+      width: 100% !important;
+    }
+
+    /* Ensure mobile chart wrappers work properly */
+    div[class*="h-["] > * {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Mobile chart responsive class */
+    .mobile-chart-responsive {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .mobile-chart-responsive .recharts-responsive-container {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .mobile-chart-responsive .recharts-wrapper {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Enhanced tooltip interactions for mobile */
+    .recharts-tooltip-wrapper {
+      touch-action: auto;
+      pointer-events: auto;
+      z-index: 1000;
+    }
+
     .recharts-default-tooltip {
-      touch-action: none;
-      pointer-events: none;
+      touch-action: auto;
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.95) !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+      backdrop-filter: blur(8px);
+      font-size: 12px !important;
+      padding: 8px 12px !important;
+      max-width: 200px;
+      word-wrap: break-word;
+    }
+
+    /* Improve chart element visibility on mobile */
+    .recharts-cartesian-axis-tick-value {
+      font-size: 11px !important;
+    }
+
+    .recharts-legend-wrapper {
+      font-size: 12px !important;
+    }
+
+    /* Enhanced touch targets for chart elements */
+    .recharts-dot {
+      r: 6 !important;
+      stroke-width: 2 !important;
+    }
+
+    .recharts-active-dot {
+      r: 8 !important;
+      stroke-width: 3 !important;
+    }
+
+    /* Pie chart mobile enhancements */
+    .recharts-pie-sector {
+      stroke-width: 2 !important;
+    }
+
+    /* Bar chart mobile enhancements */
+    .recharts-bar-rectangle {
+      stroke-width: 1 !important;
+    }
+  }
+
+  /* Tablet specific optimizations */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .chart-container {
+      min-height: 320px;
+      max-height: 450px;
+    }
+
+    .recharts-default-tooltip {
+      font-size: 13px !important;
+      padding: 10px 14px !important;
     }
   }
 

@@ -12,7 +12,8 @@ import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { ArrowDownCircle, ArrowUpCircle, DollarSign, Package, PlusCircle, PackagePlus, PackageMinus, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { OptimizedChart, useChartData, useChartConfig } from '@/components/ui/optimized-chart';
-import { MobileSafeChart, ResponsiveMobileChart } from '@/components/ui/mobile-safe-chart';
+import { MobileSafeChart, ResponsiveMobileChart, MobileLineChart, MobilePieChart } from '@/components/ui/mobile-safe-chart';
+
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge'; 
@@ -256,25 +257,69 @@ export default function DashboardPage() {
             <CardTitle>Xu Hướng Thu Nhập, Chi Phí & Lợi Nhuận (Hàng Tháng)</CardTitle> 
             <CardDescription>Theo dõi diễn biến của thu nhập, chi phí và lợi nhuận qua các tháng.</CardDescription> 
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             {monthlyChartData.length > 0 ? (
-              <ResponsiveMobileChart config={incomeExpenseChartConfig} className="h-[270px] sm:h-[300px] w-full">
-                <LineChart accessibilityLayer data={monthlyChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    tickMargin={5} 
-                    axisLine={false}
-                  />
-                  <YAxis tickFormatter={chartDataFormatter} axisLine={false} tickLine={false} tickMargin={5} />
-                  <RechartsTooltip content={<ChartTooltipContent formatter={tooltipContentFormatter} />} />
-                  <Legend />
-                  <Line type="monotone" dataKey="income" strokeWidth={2} stroke="var(--color-income)" name="Thu Nhập" dot={{ r: 4, fill: "var(--color-income)" }} activeDot={{ r: 6 }} />
-                  <Line type="monotone" dataKey="expenses" strokeWidth={2} stroke="var(--color-expenses)" name="Chi Phí" dot={{ r: 4, fill: "var(--color-expenses)" }} activeDot={{ r: 6 }} />
-                  <Line type="monotone" dataKey="balance" strokeWidth={2} stroke="var(--color-balance)" name="Lợi Nhuận" dot={{ r: 4, fill: "var(--color-balance)" }} activeDot={{ r: 6 }} />
-                </LineChart>
-              </ResponsiveMobileChart>
+              <div className="h-[320px] sm:h-[380px] w-full" style={{minHeight: '320px'}}>
+                <MobileLineChart config={incomeExpenseChartConfig} className="h-full w-full mobile-chart-responsive">
+                  <LineChart
+                    accessibilityLayer
+                    data={monthlyChartData}
+                    margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                    width={undefined}
+                    height={undefined}
+                  >
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      tickMargin={8}
+                      axisLine={false}
+                      fontSize={11}
+                    />
+                    <YAxis
+                      tickFormatter={chartDataFormatter}
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={8}
+                      fontSize={11}
+                      width={60}
+                    />
+                    <RechartsTooltip
+                      content={<ChartTooltipContent formatter={tooltipContentFormatter} />}
+                      animationDuration={150}
+                      isAnimationActive={true}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '12px' }} />
+                    <Line
+                      type="monotone"
+                      dataKey="income"
+                      strokeWidth={2}
+                      stroke="var(--color-income)"
+                      name="Thu Nhập"
+                      dot={{ r: 4, fill: "var(--color-income)", strokeWidth: 2 }}
+                      activeDot={{ r: 6, strokeWidth: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="expenses"
+                      strokeWidth={2}
+                      stroke="var(--color-expenses)"
+                      name="Chi Phí"
+                      dot={{ r: 4, fill: "var(--color-expenses)", strokeWidth: 2 }}
+                      activeDot={{ r: 6, strokeWidth: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="balance"
+                      strokeWidth={2}
+                      stroke="var(--color-balance)"
+                      name="Lợi Nhuận"
+                      dot={{ r: 4, fill: "var(--color-balance)", strokeWidth: 2 }}
+                      activeDot={{ r: 6, strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </MobileLineChart>
+              </div>
             ) : (
               <p className="text-muted-foreground text-center py-10">Chưa có dữ liệu thu nhập/chi phí để vẽ biểu đồ tháng.</p>
             )}
@@ -286,21 +331,40 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>Phân Loại Thu Nhập</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-center">
+            <CardContent className="p-4">
               {incomeCategories.length > 0 ? (
-                <ResponsiveMobileChart config={{}} className="h-[250px] w-full max-w-xs">
-                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                       <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
-                      <Legend layout="vertical" verticalAlign="middle" align="right" iconSize={10} wrapperStyle={{paddingLeft: 10}} />
-                      <Pie data={incomeCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={60} innerRadius={35}>
+                <div className="h-[300px] w-full flex justify-center" style={{minHeight: '300px'}}>
+                  <MobilePieChart config={{}} className="h-full w-full max-w-md mobile-chart-responsive">
+                    <PieChart width={undefined} height={undefined}>
+                      <RechartsTooltip
+                        content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />}
+                        animationDuration={150}
+                        isAnimationActive={true}
+                      />
+                      <Legend
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        iconSize={10}
+                        wrapperStyle={{paddingLeft: 10, fontSize: '11px'}}
+                      />
+                      <Pie
+                        data={incomeCategories}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="35%"
+                        cy="50%"
+                        outerRadius={65}
+                        innerRadius={35}
+                        strokeWidth={2}
+                      >
                         {incomeCategories.map((entry, index) => (
                           <Cell key={`cell-income-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                     </PieChart>
-                   </ResponsiveContainer>
-                </ResponsiveMobileChart>
+                  </MobilePieChart>
+                </div>
               ) : (
                 <p className="text-muted-foreground">Chưa có dữ liệu thu nhập.</p>
               )}
@@ -310,21 +374,40 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>Phân Loại Chi Tiêu</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-center">
+            <CardContent className="p-4">
                {expenseCategories.length > 0 ? (
-                <ResponsiveMobileChart config={{}} className="h-[250px] w-full max-w-xs">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <RechartsTooltip content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />} />
-                      <Legend layout="vertical" verticalAlign="middle" align="right" iconSize={10} wrapperStyle={{paddingLeft: 10}} />
-                      <Pie data={expenseCategories} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={60} innerRadius={35}>
-                       {expenseCategories.map((entry, index) => (
-                        <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
+                <div className="h-[300px] w-full flex justify-center" style={{minHeight: '300px'}}>
+                  <MobilePieChart config={{}} className="h-full w-full max-w-md mobile-chart-responsive">
+                    <PieChart width={undefined} height={undefined}>
+                      <RechartsTooltip
+                        content={<ChartTooltipContent formatter={pieChartTooltipFormatter} nameKey="name" />}
+                        animationDuration={150}
+                        isAnimationActive={true}
+                      />
+                      <Legend
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        iconSize={10}
+                        wrapperStyle={{paddingLeft: 10, fontSize: '11px'}}
+                      />
+                      <Pie
+                        data={expenseCategories}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="35%"
+                        cy="50%"
+                        outerRadius={65}
+                        innerRadius={35}
+                        strokeWidth={2}
+                      >
+                        {expenseCategories.map((entry, index) => (
+                          <Cell key={`cell-expense-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
                       </Pie>
                     </PieChart>
-                  </ResponsiveContainer>
-                </ResponsiveMobileChart>
+                  </MobilePieChart>
+                </div>
               ) : (
                  <p className="text-muted-foreground">Chưa có dữ liệu chi tiêu.</p>
               )}
@@ -332,6 +415,8 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+
     </>
   );
 }

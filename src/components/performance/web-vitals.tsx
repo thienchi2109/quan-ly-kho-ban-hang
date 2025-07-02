@@ -13,6 +13,7 @@ interface WebVitalsMetric {
 const THRESHOLDS = {
   LCP: { good: 2500, poor: 4000 },
   FID: { good: 100, poor: 300 },
+  INP: { good: 200, poor: 500 }, // Interaction to Next Paint (replaces FID in v5+)
   CLS: { good: 0.1, poor: 0.25 },
   FCP: { good: 1800, poor: 3000 },
   TTFB: { good: 800, poor: 1800 },
@@ -40,51 +41,34 @@ function reportWebVitals(metric: WebVitalsMetric) {
 export function WebVitalsReporter() {
   useEffect(() => {
     // Dynamic import to avoid SSR issues
-    import('web-vitals').then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
-      onCLS((metric) => {
+    import('web-vitals').then((webVitals) => {
+      const { onCLS, onFCP, onLCP, onTTFB } = webVitals
+
+      // Handle metric reporting
+      const handleMetric = (metric: any) => {
         reportWebVitals({
           id: metric.id,
           name: metric.name,
           value: metric.value,
           rating: getRating(metric.name, metric.value)
         })
-      })
-      
-      onFID((metric) => {
-        reportWebVitals({
-          id: metric.id,
-          name: metric.name,
-          value: metric.value,
-          rating: getRating(metric.name, metric.value)
-        })
-      })
-      
-      onFCP((metric) => {
-        reportWebVitals({
-          id: metric.id,
-          name: metric.name,
-          value: metric.value,
-          rating: getRating(metric.name, metric.value)
-        })
-      })
-      
-      onLCP((metric) => {
-        reportWebVitals({
-          id: metric.id,
-          name: metric.name,
-          value: metric.value,
-          rating: getRating(metric.name, metric.value)
-        })
-      })
-      
-      onTTFB((metric) => {
-        reportWebVitals({
-          id: metric.id,
-          name: metric.name,
-          value: metric.value,
-          rating: getRating(metric.name, metric.value)
-        })
-      })
+      }
+
+      // Core Web Vitals that are consistent across versions
+      onCLS(handleMetric)
+      onFCP(handleMetric)
+      onLCP(handleMetric)
+      onTTFB(handleMetric)
+
+      // Handle FID/INP based on web-vitals version
+      // In v5+, FID is replaced by INP (Interaction to Next Paint)
+      if ('onFID' in webVitals) {
+        // web-vitals v4 and earlier
+        webVitals.onFID(handleMetric)
+      } else if ('onINP' in webVitals) {
+        // web-vitals v5+
+        ;(webVitals as any).onINP(handleMetric)
+      }
     }).catch((error) => {
       console.warn('Failed to load web-vitals:', error)
     })
